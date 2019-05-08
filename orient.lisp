@@ -1,20 +1,30 @@
-(defpackage :orient (:use "COMMON-LISP"))
+(defpackage :orient
+  (:use "COMMON-LISP")
+  (:export :apply-transform :component :data-map :deftransform :plan :same :sig :solve :sys :transform
+	   :-> :=== :==))
 (in-package "ORIENT")
 
 (defclass data-map ()
   ((hash-table :initform (make-hash-table) :accessor data-map-hash-table)))
 
-(defun make-data-map (&optional pairs)
+(defmethod print-object ((d data-map) (stream t))
+  (format stream "<DATA-MAP ~S>" (data-map-pairs d)))
+
+(defun data-map (&optional pairs)
   (let* ((data-map (make-instance 'data-map))
 	 (h (data-map-hash-table data-map)))
-    (loop for (k . v) in pairs do (setf (gethash k h) v))
+    (loop for (k v) in pairs do (setf (gethash k h) v))
     data-map))
 
 (defmethod data-map-pairs ((data-map data-map))
   (loop
      for key being the hash-keys of (data-map-hash-table data-map)
      for val being the hash-values of (data-map-hash-table data-map)
-     collect (cons key val)))  
+     collect (list key val)))
+
+(defmethod domain ((d data-map))
+  (loop for key being the hash-keys of (data-map-hash-table d)
+     collect key))
 
 (defmethod getd ((key t) (data-map data-map))
   "Get value of KEY in DATA-MAP."
@@ -50,7 +60,7 @@
 	sig)))
 
 (defmethod print-object ((sig signature) (stream t))
-  (format stream "(SIG ~A -> ~A)" (signature-inputs sig) (signature-outputs sig)))
+  (format stream "(SIG ~S -> ~S)" (signature-inputs sig) (signature-outputs sig)))
 
 (defmethod sig-subset-p ((s signature) (other signature))
   "Returns true if s is a subset of other."
@@ -71,7 +81,7 @@
    (implementation :initarg :implementation :initform nil :accessor transform-implementation)))
 
 (defmethod print-object ((trans transform) (stream t))
-  (format stream "(TRANSFORM ~A === ~A)" (transform-signature trans) (transform-implementation trans)))
+  (format stream "(TRANSFORM ~S === ~S)" (transform-signature trans) (transform-implementation trans)))
 
 (defun identity-transform () (make-instance 'transform))
 
@@ -79,7 +89,7 @@
   ((transforms :initarg :transforms :initform '() :accessor component-transforms)))
 
 (defmethod print-object ((comp component) (stream t))
-  (format stream "(COMPONENT ~A)" (component-transforms comp)))
+  (format stream "(COMPONENT ~S)" (component-transforms comp)))
 
 
 (defclass problem ()
@@ -90,13 +100,19 @@
    (components :initarg :components :initform '() :accessor system-components)))
 
 (defmethod print-object ((sys system) (stream t))
-  (format stream "(sys ~A :schema ~S)" (system-components sys) (system-schema sys)))
+  (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
 
 (defclass engine () ())
 
 (defgeneric same (a b)
-  (:method ;; By default, most things are not the same.
-      ((a t) (b t)) nil)
+  (:method
+      ;; Things of different type are never the same.
+      ;; Things of types without specialization are the same if they are equal.
+      ((a t) (b t))
+    (and (equal (type-of a) (type-of b))
+	 (equal a b)))
+  (:method ((a data-map) (b data-map))
+    (equalp (data-map-hash-table a) (data-map-hash-table b)))
   (:method ((a signature) (b signature))
     (sig-equal a b))
   (:method ((a transform) (b transform))
@@ -108,6 +124,22 @@
   (:method ((a list) (b list))
     (and (eql (length a) (length b))
 	 (every #'same a b))))
+
+(defgeneric satisfies-inputs-p (a b)
+  (:method ((a t) (b t)) nil)
+  (:method ((a data-map) (b signature)) (subsetp (signature-inputs b) (domain a)))
+  (:method ((a data-map) (b transform)) (satisfies-inputs-p a (transform-signature b))))
+
+
+(defgeneric apply-transform (transform data-map)
+  (:method ((transform transform) (data-map data-map))
+    (assert (satisfies-inputs-p data-map transform))
+    (apply-transform (transform-implementation transform) data-map))
+  (:method ((f function) (data-map data-map))
+    (funcall f data-map))
+  (:method ((s symbol) (data-map data-map))
+    (funcall s data-map)))
+
 
 (defclass plan-profile () ((transforms-tried :initform 0 :accessor transforms-tried)))
 
@@ -153,12 +185,15 @@
       (values (%plan system :system (pruned-signature signature) '())
 	      *plan-profile*))))
 
-(defgeneric solve (signature system data-map)
+(defgeneric solve (system signature data-map)
   (:method ((system system) (signature signature) (initial-data-map data-map))
-    (reduce (lambda (data-map transform)
-	      (apply transform data-map))
-	    (plan signature system)
-	    :initial-value initial-data-map)))
+    (let ((plan (plan system signature)))
+      (and plan
+	   (satisfies-inputs-p initial-data-map signature)
+	   (reduce (lambda (data-map transform)
+		     (apply-transform transform data-map))
+		   plan
+		   :initial-value initial-data-map)))))
   
 
 ;;; Syntax
@@ -168,12 +203,24 @@
 
 (defmacro transform ((&rest inputs) arrow (&rest outputs) eqmark implementation)
   (assert (eql arrow '->))
-  (assert (eql eqmark '===))
-  `(let ((sig (make-signature ',inputs ',outputs)))
-     (make-instance 'transform :signature sig :implementation ',implementation)))
+  (ecase eqmark
+    (=== `(let ((sig (make-signature ',inputs ',outputs)))
+	     (make-instance 'transform :signature sig :implementation ,implementation)))
+    (== `(let ((sig (make-signature ',inputs ',outputs)))
+	    (make-instance 'transform :signature sig :implementation (tlambda ,inputs ,outputs
+								       ,implementation))))))
+
+(defmacro deftransform (name ((&rest inputs) arrow (&rest outputs)) &body implementation)  
+  (assert (eql arrow '->))
+  `(eval-when (:load-toplevel :execute)
+     (progn (defparameter ,name (transform (,@inputs) -> (,@outputs) == (progn ,@implementation))))))
 
 (defmacro component (transforms)
   `(make-instance 'component :transforms (list ,@transforms)))
+
+(defmacro defcomponent (name (&rest transforms))
+  `(defparameter ,name (make-instance 'component :transforms (list ,@transforms))))
+
 
 ;; Ignore schema for now.
 (defmacro sys ((&rest components))
@@ -187,27 +234,45 @@
        (symbol-macrolet
 	   (,@(loop for in in input
 		collect `(,in (getd ',in ,data-map))))
-	 (let ((,new-data-map (make-data-map (data-map-pairs ,data-map)))
-	       (,out (multiple-value-list (progn ,@body))))
-	   
+	 (let ((,new-data-map (data-map (data-map-pairs ,data-map)))
+	       (,out (multiple-value-list (progn ,@body))))	   
 	   ,@(loop for key in output
 		collect `(setf (getd ',key ,new-data-map) (pop ,out)))
 	   ,new-data-map)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Tests
+;; Tests / Examples
+;; (defpackage orient-test (:use "COMMON-LISP" "ORIENT"))
+;; (in-package orient-test)
 
+(defparameter d1 (data-map '((a 2) (b 3) (c 4))))
+(defparameter d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
+(defparameter d3 (data-map '((x 5) (y 6) (z 7))))
 
 (defparameter sig1 (sig (a b c) -> (d)))
 (defparameter sig2 (sig (b c d) -> (e f)))
 (defparameter sig3 (sig (a b c) -> (e f)))
 
-(defparameter t1 (transform (a b c) -> (d) === :asdf))
-(defparameter t2 (transform (x y z) -> (q) === :uiop))
-(defparameter t3 (transform (b c d) -> (e f) === :fdsa))
+(progn ;; Example usages
+  (component ((transform (a b c) -> (d) === (tlambda (a b c) (d)
+					      (values (* a b c))))
+	      (transform (x y z) -> (q) == (values (+ x y z)))	    
+	      (transform (b c d) -> (e f) == (let ((x (+ b c d)))
+					       (values (* x b) (* x c)))))))
 
-(defparameter s1 (sys ((component (t1)))))
-(defparameter s2 (sys ((component (t1 t2 t3)))))
+(deftransform t1 ((a b c) -> (d)) (values (* a b c)))
+(deftransform t2 ((x y z) -> (q)) (values (+ x y z)))
+(deftransform t3 ((b c d) -> (e f))
+  (let ((x (+ b c d)))
+    (values (* x b) (* x c))))
+
+(defcomponent c1 (t1))
+(defcomponent c2 (t1 t2 t3))
+
+(defparameter s1 (sys (c1)))
+(defparameter s2 (sys (c2)))
+
+(assert (same (apply-transform t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))))
 
 (assert (same (plan s1 sig1) (list t1)))
 (assert (same (plan s1 sig2) nil)) 
@@ -217,15 +282,25 @@
 (assert (same (plan s2 sig2) (list t3)))
 (assert (same (plan s2 sig3) (list t1 t3)))
 
+(assert (same (solve s1 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))))
+(assert (same (solve s1 sig2 d1) nil))
+(assert (same (solve s1 sig3 d1) nil))
+
+(assert (same (solve s2 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))))
+(assert (same (solve s2 sig2 d1) nil))
+(assert (same (solve s2 sig2 d2) (data-map '((a 2)(b 3)(c 4)(d 5)(e 36)(f 48)))))
+(assert (same (solve s2 sig3 d1) (data-map '((a 2)(b 3)(c 4)(d 24)(e 93)(f 124)))))
+
+
 #|
-(plan sig1 s1) => (((SIG (A B C) -> (D)) . (TRANSFORM (SIG (A B C) -> (D)) === ASDF)))
-(plan sig2 s1) => nil
-(plan sig3 s1) => nil
+(Plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORM (SIG (A B C) -> (D)) === ASDF)))
+(plan s1 sig2) => nil
+(plan s1 sig3) => nil
 
-(plan sig1 s2) => (((TRANSFORM (SIG (A B C) -> (D)) === ASDF)))                          ; *transforms-tried* 3
+(plan s2 sig1) => (((TRANSFORM (SIG (A B C) -> (D)) === ASDF)))                          ; *transforms-tried* 3
 
-(plan sig2 s2) => (((TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                         ; *transforms-tried* 3
+(plan s2 sig2) => (((TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                         ; *transforms-tried* 3
 
-(plan sig3 s2) => ((TRANSFORM (SIG (A B C) -> (D)) === ASDF)
+(plan s2 sig3) => ((TRANSFORM (SIG (A B C) -> (D)) === ASDF)
 		   (TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                          ; *transforms-tried* 6
 |#
