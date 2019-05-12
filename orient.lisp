@@ -22,9 +22,13 @@
      for val being the hash-values of (data-map-hash-table data-map)
      collect (list key val)))
 
-(defmethod domain ((d data-map))
-  (loop for key being the hash-keys of (data-map-hash-table d)
-     collect key))
+(defgeneric domain (data-map)
+  (:method ((d data-map))
+    (loop for key being the hash-keys of (data-map-hash-table d)
+       collect key))
+  (:method ((r relation))
+    (and (first (data-maps r))
+	 (domain (first (data-maps r))))))
 
 (defmethod getd ((key t) (data-map data-map))
   "Get value of KEY in DATA-MAP."
@@ -35,6 +39,21 @@
   (setf (gethash key (data-map-hash-table data-map)) value))
 
 (defsetf getd setd)
+
+(defclass relation () ())
+(defclass simple-relation (relation)
+  ((data-maps :initarg :data-maps :initform nil :accessor data-maps)))
+
+(defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
+
+(defgeneric make-relation (data-maps)
+  (:documentation
+  "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same domain. ")
+  (:method ((data-maps list))
+    (and(let ((first (first data-maps)))
+	  (every (lambda (x) (set-equal (domain x) (domain first)))
+		 (cdr data-maps)))
+	(make-instance 'simple-relation :data-maps (remove-duplicates data-maps :test #'same)))))
 
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
@@ -119,27 +138,32 @@
     (and (same (transform-signature a) (transform-signature b))
 	 (equal (transform-implementation a) (transform-implementation b))))
   (:method ((a component) (b component))
+    ;; FIXME: use set-equal
     (and (subsetp (component-transforms a) (component-transforms b) :test #'same)
 	 (subsetp (component-transforms b) (component-transforms a) :test #'same)))
+  (:method ((a relation) (b relation))
+    (set-equal (data-maps a) (data-maps b) :test #'same))
   (:method ((a list) (b list))
     (and (eql (length a) (length b))
 	 (every #'same a b))))
 
 (defgeneric satisfies-inputs-p (a b)
   (:method ((a t) (b t)) nil)
-  (:method ((a data-map) (b signature)) (subsetp (signature-inputs b) (domain a)))
-  (:method ((a data-map) (b transform)) (satisfies-inputs-p a (transform-signature b))))
-
+  (:method ((a t) (b transform)) (satisfies-inputs-p a (transform-signature b)))
+  (:method ((a t) (b signature)) (subsetp (signature-inputs b) (domain a))) ;; FIXME: new superclass of types with domain.
+  )
 
 (defgeneric apply-transform (transform data-map)
   (:method ((transform transform) (data-map data-map))
     (assert (satisfies-inputs-p data-map transform))
     (apply-transform (transform-implementation transform) data-map))
+  (:method ((transform transform) (relation simple-relation))
+      (make-relation (mapcar (lambda (x) (apply-transform transform x))
+			     (data-maps relation))))
   (:method ((f function) (data-map data-map))
     (funcall f data-map))
   (:method ((s symbol) (data-map data-map))
     (funcall s data-map)))
-
 
 (defclass plan-profile () ((transforms-tried :initform 0 :accessor transforms-tried)))
 
@@ -185,16 +209,16 @@
       (values (%plan system :system (pruned-signature signature) '())
 	      *plan-profile*))))
 
-(defgeneric solve (system signature data-map)
-  (:method ((system system) (signature signature) (initial-data-map data-map))
+(defgeneric solve (system signature initial-data)
+  ;;(:method ((system system) (signature signature) (initial-data-map data-map))
+  (:method ((system system) (signature signature) (initial-data t)) ;; FIXME: create and use common supertype for data-map and relation.
     (let ((plan (plan system signature)))
       (and plan
-	   (satisfies-inputs-p initial-data-map signature)
+	   (satisfies-inputs-p initial-data signature)
 	   (reduce (lambda (data-map transform)
 		     (apply-transform transform data-map))
 		   plan
-		   :initial-value initial-data-map)))))
-  
+		   :initial-value initial-data)))))
 
 ;;; Syntax
 (defmacro sig ((&rest inputs) arrow (&rest outputs))
@@ -249,6 +273,10 @@
 (defparameter d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
 (defparameter d3 (data-map '((x 5) (y 6) (z 7))))
 
+(defparameter r1 (make-relation (list d1)))
+(defparameter r2 (make-relation (list d2)))
+(defparameter r3 (make-relation (list d3)))
+
 (defparameter sig1 (sig (a b c) -> (d)))
 (defparameter sig2 (sig (b c d) -> (e f)))
 (defparameter sig3 (sig (a b c) -> (e f)))
@@ -287,6 +315,7 @@
 (assert (same (solve s1 sig3 d1) nil))
 
 (assert (same (solve s2 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))))
+(assert (same (solve s2 sig1 r1) (make-relation (list (data-map '((a 2)(b 3)(c 4)(d 24)))))))
 (assert (same (solve s2 sig2 d1) nil))
 (assert (same (solve s2 sig2 d2) (data-map '((a 2)(b 3)(c 4)(d 5)(e 36)(f 48)))))
 (assert (same (solve s2 sig3 d1) (data-map '((a 2)(b 3)(c 4)(d 24)(e 93)(f 124)))))
