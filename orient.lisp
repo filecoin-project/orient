@@ -1,6 +1,6 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :component :data-map :data-map-pairs :deftransformation :make-signature :plan :same :sig :signature
+  (:export :apply-transformation :component :data-map :data-map-pairs :deftransformation :make-signature :orient-tests :plan :same :sig :signature
 	   :signature-input :signature-output :solve :sys :system :transformation :-> :=== :==))
 
 (in-package "ORIENT")
@@ -285,7 +285,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
 
-(test orient
+(test orient-tests
   "Test the orient package altogether."
   (let* ((d1 (data-map '((a 2) (b 3) (c 4))))
 	 (d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
