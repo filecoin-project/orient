@@ -1,7 +1,7 @@
 (defpackage :orient
   (:use "COMMON-LISP")
-  (:export :apply-transform :component :data-map :data-map-pairs :deftransform :make-signature :plan :same :sig :signature
-	   :signature-input :signature-output :solve :sys :system :transform :-> :=== :==))
+  (:export :apply-transformation :component :data-map :data-map-pairs :deftransformation :make-signature :plan :same :sig :signature
+	   :signature-input :signature-output :solve :sys :system :transformation :-> :=== :==))
 
 (in-package "ORIENT")
 
@@ -98,20 +98,20 @@
 (defmethod provides ((output list) (s signature))
   (intersection (signature-output s) output))
 
-(defclass transform ()
-  ((signature :initarg :signature :initform (make-signature '() '()) :accessor transform-signature)
-   (implementation :initarg :implementation :initform nil :accessor transform-implementation)))
+(defclass transformation ()
+  ((signature :initarg :signature :initform (make-signature '() '()) :accessor transformation-signature)
+   (implementation :initarg :implementation :initform nil :accessor transformation-implementation)))
 
-(defmethod print-object ((trans transform) (stream t))
-  (format stream "(TRANSFORM ~S === ~S)" (transform-signature trans) (transform-implementation trans)))
+(defmethod print-object ((trans transformation) (stream t))
+  (format stream "(TRANSFORMATION ~S === ~S)" (transformation-signature trans) (transformation-implementation trans)))
 
-(defun identity-transform () (make-instance 'transform))
+(defun identity-transformation () (make-instance 'transformation))
 
 (defclass component ()
-  ((transforms :initarg :transforms :initform '() :accessor component-transforms)))
+  ((transformations :initarg :transformations :initform '() :accessor component-transformations)))
 
 (defmethod print-object ((comp component) (stream t))
-  (format stream "(COMPONENT ~S)" (component-transforms comp)))
+  (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
 (defclass problem ()
   ((signature :initarg :signature :initform (make-signature '() '()) :accessor problem-signature)))
@@ -136,13 +136,13 @@
     (equalp (data-map-hash-table a) (data-map-hash-table b)))
   (:method ((a signature) (b signature))
     (sig-equal a b))
-  (:method ((a transform) (b transform))
-    (and (same (transform-signature a) (transform-signature b))
-	 (equal (transform-implementation a) (transform-implementation b))))
+  (:method ((a transformation) (b transformation))
+    (and (same (transformation-signature a) (transformation-signature b))
+	 (equal (transformation-implementation a) (transformation-implementation b))))
   (:method ((a component) (b component))
     ;; FIXME: use set-equal
-    (and (subsetp (component-transforms a) (component-transforms b) :test #'same)
-	 (subsetp (component-transforms b) (component-transforms a) :test #'same)))
+    (and (subsetp (component-transformations a) (component-transformations b) :test #'same)
+	 (subsetp (component-transformations b) (component-transformations a) :test #'same)))
   (:method ((a relation) (b relation))
     (set-equal (data-maps a) (data-maps b) :test #'same))
   (:method ((a list) (b list))
@@ -152,20 +152,20 @@
 (defgeneric satisfies-input-p (a b)
   ;; FIXME: Make type of A ensure DOMAIN.
   (:method ((a t) (b t)) nil)
-  (:method ((a t) (b transform)) (satisfies-input-p a (transform-signature b)))
+  (:method ((a t) (b transformation)) (satisfies-input-p a (transformation-signature b)))
   (:method ((a t) (b signature)) (subsetp (signature-input b) (domain a))) ;; FIXME: new superclass of types with domain.
   )
 
-(defgeneric apply-transform (transform data-map)
-  (:method ((transform transform) (data-map data-map))
-    (assert (satisfies-input-p data-map transform))
-    (apply-transform (transform-implementation transform) data-map))
-  (:method ((transform transform) (relation simple-relation))
-      (make-relation (mapcar (lambda (x) (apply-transform transform x))
+(defgeneric apply-transformation (transformation data-map)
+  (:method ((transformation transformation) (data-map data-map))
+    (assert (satisfies-input-p data-map transformation))
+    (apply-transformation (transformation-implementation transformation) data-map))
+  (:method ((transformation transformation) (relation simple-relation))
+      (make-relation (mapcar (lambda (x) (apply-transformation transformation x))
 			     (data-maps relation))))
   (:method ((list list) (data-map data-map))
-    (reduce (lambda (data-map transform)
-	      (apply-transform transform data-map))
+    (reduce (lambda (data-map transformation)
+	      (apply-transformation transformation data-map))
 	    list
 	    :initial-value data-map))
   (:method ((f function) (data-map data-map))
@@ -183,27 +183,27 @@
     (make-signature (union (signature-input a) (signature-input b))
 		    (union (signature-output a) (signature-output b)))))
 
-(defclass plan-profile () ((transforms-tried :initform 0 :accessor transforms-tried)))
+(defclass plan-profile () ((transformations-tried :initform 0 :accessor transformations-tried)))
 
 (defmethod print-object ((p plan-profile) (stream t))
-  (format stream "<PLAN-PROFILE; transforms-tried: ~d>" (transforms-tried p)))
+  (format stream "<PLAN-PROFILE; transformations-tried: ~d>" (transformations-tried p)))
 
 (defvar *plan-profile*)
 
 (defgeneric %plan (system element signature plan)
-  (:method ((system system) (transform transform) (signature signature) (plan list))
-    (incf (transforms-tried *plan-profile*))
-    (let* ((sig (transform-signature transform))
-	   ;; Which of the still-needed output, if any, does the this transform's signature provide?
+  (:method ((system system) (transformation transformation) (signature signature) (plan list))
+    (incf (transformations-tried *plan-profile*))
+    (let* ((sig (transformation-signature transformation))
+	   ;; Which of the still-needed output, if any, does the this transformation's signature provide?
 	   (provided-output (provides (signature-output signature) sig)))     
       (unless provided-output
-	;; If this transform doesn't provide any needed output, fail early.
+	;; If this transformation doesn't provide any needed output, fail early.
 	(return-from %plan nil))
 
-      ;; Otherwise, add the transform to the plan and update the signature to satisfy.
-      (let* ((new-plan (cons transform plan))
-	     ;; Input of the current transform which aren't trivially provided must now be output of the
-	     ;; remaining plan (to be provided before this step's transform is applied).
+      ;; Otherwise, add the transformation to the plan and update the signature to satisfy.
+      (let* ((new-plan (cons transformation plan))
+	     ;; Input of the current transformation which aren't trivially provided must now be output of the
+	     ;; remaining plan (to be provided before this step's transformation is applied).
 	     (additional-output (set-difference (signature-input sig) (signature-input signature)))
 	     ;; Output which still need to be provided.
 	     (remaining-output (union (set-difference (signature-output sig) provided-output) additional-output)))
@@ -213,9 +213,9 @@
 	    ;; Otherwise, return the new plan.
 	    new-plan))))
   (:method ((system system) (component component) (signature signature) (plan list))
-    (mapcan (lambda (transform)
-	      (%plan system transform signature plan))
-	    (component-transforms component)))
+    (mapcan (lambda (transformation)
+	      (%plan system transformation signature plan))
+	    (component-transformations component)))
   (:method ((system system) (start (eql :system)) (signature signature) (plan list))
     (mapcan (lambda (component)
 	      (%plan system component signature plan))
@@ -233,8 +233,8 @@
     (let ((plan (plan system signature)))
       (and plan
 	   (satisfies-input-p initial-data signature)
-	   (reduce (lambda (data-map transform)
-		     (apply-transform transform data-map))
+	   (reduce (lambda (data-map transformation)
+		     (apply-transformation transformation data-map))
 		   plan
 		   :initial-value initial-data)))))
 
@@ -243,25 +243,25 @@
   (assert (eql arrow '->))
   `(make-signature ',input ',output))
 
-(defmacro transform ((&rest input) arrow (&rest output) eqmark implementation)
+(defmacro transformation ((&rest input) arrow (&rest output) eqmark implementation)
   (assert (eql arrow '->))
   (ecase eqmark
     (=== `(let ((sig (make-signature ',input ',output)))
-	     (make-instance 'transform :signature sig :implementation ,implementation)))
+	     (make-instance 'transformation :signature sig :implementation ,implementation)))
     (== `(let ((sig (make-signature ',input ',output)))
-	    (make-instance 'transform :signature sig :implementation (tlambda ,input ,output
+	    (make-instance 'transformation :signature sig :implementation (tlambda ,input ,output
 								       ,implementation))))))
 
-(defmacro deftransform (name ((&rest input) arrow (&rest output)) &body implementation)  
+(defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)  
   (assert (eql arrow '->))
   `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transform (,@input) -> (,@output) == (progn ,@implementation))))))
+     (progn (defparameter ,name (transformation (,@input) -> (,@output) == (progn ,@implementation))))))
 
-(defmacro component (transforms)
-  `(make-instance 'component :transforms (list ,@transforms)))
+(defmacro component (transformations)
+  `(make-instance 'component :transformations (list ,@transformations)))
 
-(defmacro defcomponent (name (&rest transforms))
-  `(defparameter ,name (make-instance 'component :transforms (list ,@transforms))))
+(defmacro defcomponent (name (&rest transformations))
+  `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
 
 
 ;; Ignore schema for now.
@@ -300,15 +300,15 @@
 (defparameter sig3 (sig (a b c) -> (e f)))
 
 (progn ;; Example usages
-  (component ((transform (a b c) -> (d) === (tlambda (a b c) (d)
+  (component ((transformation (a b c) -> (d) === (tlambda (a b c) (d)
 					      (values (* a b c))))
-	      (transform (x y z) -> (q) == (values (+ x y z)))	    
-	      (transform (b c d) -> (e f) == (let ((x (+ b c d)))
+	      (transformation (x y z) -> (q) == (values (+ x y z)))	    
+	      (transformation (b c d) -> (e f) == (let ((x (+ b c d)))
 					       (values (* x b) (* x c)))))))
 
-(deftransform t1 ((a b c) -> (d)) (values (* a b c)))
-(deftransform t2 ((x y z) -> (q)) (values (+ x y z)))
-(deftransform t3 ((b c d) -> (e f))
+(deftransformation t1 ((a b c) -> (d)) (values (* a b c)))
+(deftransformation t2 ((x y z) -> (q)) (values (+ x y z)))
+(deftransformation t3 ((b c d) -> (e f))
   (let ((x (+ b c d)))
     (values (* x b) (* x c))))
 
@@ -318,7 +318,7 @@
 (defparameter s1 (sys (c1)))
 (defparameter s2 (sys (c2)))
 
-(assert (same (apply-transform t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))))
+(assert (same (apply-transformation t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))))
 
 (assert (same (plan s1 sig1) (list t1)))
 (assert (same (plan s1 sig2) nil)) 
@@ -340,15 +340,15 @@
 
 
 #|
-(plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORM (SIG (A B C) -> (D)) === ASDF)))
+(plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))
 (plan s1 sig2) => nil
 (plan s1 sig3) => nil
 
-(plan s2 sig1) => (((TRANSFORM (SIG (A B C) -> (D)) === ASDF)))                          ; *transforms-tried* 3
+(plan s2 sig1) => (((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))                          ; *transformations-tried* 3
 
-(plan s2 sig2) => (((TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                         ; *transforms-tried* 3
+(plan s2 sig2) => (((TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                         ; *transformations-tried* 3
 
-(plan s2 sig3) => ((TRANSFORM (SIG (A B C) -> (D)) === ASDF)
-		   (TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                          ; *transforms-tried* 6
+(plan s2 sig3) => ((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)
+		   (TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                          ; *transformations-tried* 6
 |#
 
