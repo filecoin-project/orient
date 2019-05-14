@@ -22,14 +22,6 @@
      for val being the hash-values of (data-map-hash-table data-map)
      collect (list key val)))
 
-(defgeneric domain (data-map)
-  (:method ((d data-map))
-    (loop for key being the hash-keys of (data-map-hash-table d)
-       collect key))
-  (:method ((r relation))
-    (and (first (data-maps r))
-	 (domain (first (data-maps r))))))
-
 (defmethod getd ((key t) (data-map data-map))
   "Get value of KEY in DATA-MAP."
   (gethash key (data-map-hash-table data-map)))
@@ -43,6 +35,14 @@
 (defclass relation () ())
 (defclass simple-relation (relation)
   ((data-maps :initarg :data-maps :initform nil :accessor data-maps)))
+
+(defgeneric domain (data-map)
+  (:method ((d data-map))
+    (loop for key being the hash-keys of (data-map-hash-table d)
+       collect key))
+  (:method ((r relation))
+    (and (first (data-maps r))
+	 (domain (first (data-maps r))))))
 
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
