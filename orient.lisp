@@ -1,5 +1,5 @@
 (defpackage :orient
-  (:use "COMMON-LISP")
+  (:use :common-lisp :it.bese.FiveAm)
   (:export :apply-transformation :component :data-map :data-map-pairs :deftransformation :make-signature :plan :same :sig :signature
 	   :signature-input :signature-output :solve :sys :system :transformation :-> :=== :==))
 
@@ -243,7 +243,7 @@
   (assert (eql arrow '->))
   `(make-signature ',input ',output))
 
-(defmacro transformation ((&rest input) arrow (&rest output) eqmark implementation)
+(defmacro transformation (((&rest input) arrow (&rest output)) eqmark implementation)
   (assert (eql arrow '->))
   (ecase eqmark
     (=== `(let ((sig (make-signature ',input ',output)))
@@ -255,7 +255,7 @@
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)  
   (assert (eql arrow '->))
   `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation (,@input) -> (,@output) == (progn ,@implementation))))))
+     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))
@@ -284,60 +284,50 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
-;; (defpackage orient-test (:use "COMMON-LISP" "ORIENT"))
-;; (in-package orient-test)
 
-(defparameter d1 (data-map '((a 2) (b 3) (c 4))))
-(defparameter d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
-(defparameter d3 (data-map '((x 5) (y 6) (z 7))))
+(test orient
+  "Test the orient package altogether."
+  (let* ((d1 (data-map '((a 2) (b 3) (c 4))))
+	 (d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
+	 (d3 (data-map '((x 5) (y 6) (z 7))))
 
-(defparameter r1 (make-relation (list d1)))
-(defparameter r2 (make-relation (list d2)))
-(defparameter r3 (make-relation (list d3)))
+	 (r1 (make-relation (list d1)))
+	 (r2 (make-relation (list d2)))
+	 (r3 (make-relation (list d3)))
 
-(defparameter sig1 (sig (a b c) -> (d)))
-(defparameter sig2 (sig (b c d) -> (e f)))
-(defparameter sig3 (sig (a b c) -> (e f)))
+	 (sig1 (sig (a b c) -> (d)))
+	 (sig2 (sig (b c d) -> (e f)))
+	 (sig3 (sig (a b c) -> (e f)))
 
-(progn ;; Example usages
-  (component ((transformation (a b c) -> (d) === (tlambda (a b c) (d)
-					      (values (* a b c))))
-	      (transformation (x y z) -> (q) == (values (+ x y z)))	    
-	      (transformation (b c d) -> (e f) == (let ((x (+ b c d)))
-					       (values (* x b) (* x c)))))))
+	 (t1 (transformation ((a b c) -> (d)) == (values (* a b c))))
+	 (t2 (transformation ((x y z) -> (q)) == (values (+ x y z))))
+	 (t3 (transformation ((b c d) -> (e f)) == (let ((x (+ b c d)))
+						     (values (* x b) (* x c)))))
 
-(deftransformation t1 ((a b c) -> (d)) (values (* a b c)))
-(deftransformation t2 ((x y z) -> (q)) (values (+ x y z)))
-(deftransformation t3 ((b c d) -> (e f))
-  (let ((x (+ b c d)))
-    (values (* x b) (* x c))))
+	 (c1 (component (t1)))
+	 (c2 (component (t1 t2 t3)))
+	 (s1 (sys (c1)))
+	 (s2 (sys (c2))))
+    (is (same (apply-transformation t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))) "AA")
 
-(defcomponent c1 (t1))
-(defcomponent c2 (t1 t2 t3))
+    (is (same (plan s1 sig1) (list t1)) "a")
+    (is (same (plan s1 sig2) nil) "b") 
+    (is (same (plan s1 sig3) nil) "c")
 
-(defparameter s1 (sys (c1)))
-(defparameter s2 (sys (c2)))
+    (is (same (plan s2 sig1) (list t1)) "d")
+    (is (same (plan s2 sig2) (list t3)) "e")
+    (is (same (plan s2 sig3) (list t1 t3)) "f")
 
-(assert (same (apply-transformation t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))))
+    (is (same (solve s1 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))) "g")
+    (is (same (solve s1 sig2 d1) nil) "h")
+    (is (same (solve s1 sig3 d1) nil) "i")
 
-(assert (same (plan s1 sig1) (list t1)))
-(assert (same (plan s1 sig2) nil)) 
-(assert (same (plan s1 sig3) nil))
-
-(assert (same (plan s2 sig1) (list t1)))
-(assert (same (plan s2 sig2) (list t3)))
-(assert (same (plan s2 sig3) (list t1 t3)))
-
-(assert (same (solve s1 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))))
-(assert (same (solve s1 sig2 d1) nil))
-(assert (same (solve s1 sig3 d1) nil))
-
-(assert (same (solve s2 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))))
-(assert (same (solve s2 sig1 r1) (make-relation (list (data-map '((a 2)(b 3)(c 4)(d 24)))))))
-(assert (same (solve s2 sig2 d1) nil))
-(assert (same (solve s2 sig2 d2) (data-map '((a 2)(b 3)(c 4)(d 5)(e 36)(f 48)))))
-(assert (same (solve s2 sig3 d1) (data-map '((a 2)(b 3)(c 4)(d 24)(e 93)(f 124)))))
-
+    (is (same (solve s2 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))) "j")
+    (is (same (solve s2 sig1 r1) (make-relation (list (data-map '((a 2)(b 3)(c 4)(d 24)))))) "k")
+    (is (same (solve s2 sig2 d1) nil) "l")
+    (is (same (solve s2 sig2 d2) (data-map '((a 2)(b 3)(c 4)(d 5)(e 36)(f 48)))) "m")
+    (is (same (solve s2 sig3 d1) (data-map '((a 2)(b 3)(c 4)(d 24)(e 93)(f 124)))) "n")
+    ))
 
 #|
 (plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))
@@ -351,4 +341,3 @@
 (plan s2 sig3) => ((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)
 		   (TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                          ; *transformations-tried* 6
 |#
-
