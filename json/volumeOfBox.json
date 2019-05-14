@@ -1,0 +1,16 @@
+{
+  "transform": {
+    "implementation": {
+      "module": "demo",
+      "funcName": "volumeOfBox",
+      "input": [
+        "height",
+        "width",
+        "depth"
+      ],
+      "output": [
+        "volume"
+      ]
+    }
+  }
+}

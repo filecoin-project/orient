@@ -1,7 +1,8 @@
 (defpackage :orient
   (:use "COMMON-LISP")
-  (:export :apply-transform :component :data-map :deftransform :plan :same :sig :solve :sys :transform
-	   :-> :=== :==))
+  (:export :apply-transform :component :data-map :data-map-pairs :deftransform :make-signature :plan :same :sig :signature
+	   :signature-inputs :signature-outputs :solve :sys :system :transform :-> :=== :==))
+
 (in-package "ORIENT")
 
 (defclass data-map ()
@@ -16,11 +17,13 @@
     (loop for (k v) in pairs do (setf (gethash k h) v))
     data-map))
 
-(defmethod data-map-pairs ((data-map data-map))
+(defmethod data-map-pairs ((data-map data-map) &key dotted)
   (loop
      for key being the hash-keys of (data-map-hash-table data-map)
      for val being the hash-values of (data-map-hash-table data-map)
-     collect (list key val)))
+     collect (if dotted
+		 (cons key val)
+		 (list key val))))
 
 (defmethod getd ((key t) (data-map data-map))
   "Get value of KEY in DATA-MAP."
@@ -160,6 +163,11 @@
   (:method ((transform transform) (relation simple-relation))
       (make-relation (mapcar (lambda (x) (apply-transform transform x))
 			     (data-maps relation))))
+  (:method ((list list) (data-map data-map))
+    (reduce (lambda (data-map transform)
+	      (apply-transform transform data-map))
+	    list
+	    :initial-value data-map))
   (:method ((f function) (data-map data-map))
     (funcall f data-map))
   (:method ((s symbol) (data-map data-map))
@@ -322,7 +330,7 @@
 
 
 #|
-(Plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORM (SIG (A B C) -> (D)) === ASDF)))
+(plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORM (SIG (A B C) -> (D)) === ASDF)))
 (plan s1 sig2) => nil
 (plan s1 sig3) => nil
 
@@ -333,3 +341,4 @@
 (plan s2 sig3) => ((TRANSFORM (SIG (A B C) -> (D)) === ASDF)
 		   (TRANSFORM (SIG (B C D) -> (E F)) === FDSA))                          ; *transforms-tried* 6
 |#
+

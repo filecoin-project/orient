@@ -1,0 +1,34 @@
+[
+  {
+    "transform": {
+      "input": [
+        "height",
+        "width",
+        "depth"
+      ],
+      "output": [
+        "volume"
+      ],
+      "implementation": {
+	"module": "demo",
+	"name": "volumeOfBox"
+      }
+    }
+  },
+  
+  {
+    "transform": {
+      "input": [
+        "volume",
+        "density"
+      ],
+      "output": [
+        "mass"
+      ],
+      "implementation": {
+	"module": "demo",
+	"name": "massOfSolid"
+      }
+    }
+  }
+]
