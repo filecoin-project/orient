@@ -20,7 +20,7 @@
     (format t "~&~%Evaluating data-map with pipeline: ")
     (encode-json (apply-transform  pipeline data-map))
 
-    (format t "~&~%Solve for box mass. Problem signature: ~S~%" problem)
+    (format t "~&~%Solve for box mass. Problem signature: ~S~%"  problem)
     (format t "~&~%Did this recreate our pipeline? ~A~%" (if (same pipeline plan) "YES" "NO"))
     (encode-json (solve system problem data-map))))
 

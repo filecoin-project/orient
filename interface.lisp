@@ -24,7 +24,7 @@
 
 (defmethod encode-json ((signature signature) &optional stream)
   (encode-json-plist
-   `(:inputs ,(signature-inputs signature) :outputs ,(signature-outputs signature)) stream))
+   `(:input ,(signature-input signature) :output ,(signature-output signature)) stream))
 
 ;; TODO: roundtrip tests
 (defun transform<-parsed-json (transform-spec)
@@ -37,14 +37,14 @@
 	 (implementation (symbol-value symbol))
 	 (string-inputs (cdr (assoc :input transform-alist)))
 	 (string-outputs (cdr (assoc :output transform-alist)))
-	 (inputs (if package-name
+	 (input (if package-name
 		     (mapcar (lambda (name)
 			       (intern (string-upcase name) package-name)) string-inputs)
 		     string-inputs))
-	 (outputs (if package-name
+	 (output (if package-name
 		     (mapcar (lambda (name) (intern (string-upcase name) package-name)) string-outputs)
 		     string-outputs))
-	 (signature (make-instance 'signature :inputs inputs :outputs outputs)))
+	 (signature (make-instance 'signature :input input :output output)))
     
     (make-instance 'transform :signature signature :implementation implementation)))
 
