@@ -1,7 +1,9 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :component :data-map :data-map-pairs :deftransformation :make-signature :orient-tests :plan :same :sig :signature
-	   :signature-input :signature-output :solve :sys :system :transformation :-> :=== :==))
+  (:export :apply-transformation :component :data-map :data-map-pairs :defschema :deftransformation :make-signature :orient-tests :plan :plan-for
+	   :same
+	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :transformation
+	   :-> :=== :==))
 
 (in-package "ORIENT")
 
@@ -11,7 +13,7 @@
 (defmethod print-object ((d data-map) (stream t))
   (format stream "<DATA-MAP ~S>" (data-map-pairs d)))
 
-(defun data-map (&optional pairs)
+(defun make-data-map (&optional pairs)
   (let* ((data-map (make-instance 'data-map))
 	 (h (data-map-hash-table data-map)))
     (loop for (k v) in pairs do (setf (gethash k h) v))
@@ -39,23 +41,24 @@
 (defclass simple-relation (relation)
   ((data-maps :initarg :data-maps :initform nil :accessor data-maps)))
 
-(defgeneric domain (data-map)
+(defgeneric keys (data-map)
   (:method ((d data-map))
     (loop for key being the hash-keys of (data-map-hash-table d)
        collect key))
   (:method ((r relation))
     (and (first (data-maps r))
-	 (domain (first (data-maps r))))))
+	 (keys (first (data-maps r))))))
 
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
 (defgeneric make-relation (data-maps)
   (:documentation
-  "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same domain. ")
+  "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same keys. ")
   (:method ((data-maps list))
     (and(let ((first (first data-maps)))
-	  (every (lambda (x) (set-equal (domain x) (domain first)))
+	  (every (lambda (x) (set-equal (keys x) (keys first)))
 		 (cdr data-maps)))
+	;; TODO: implement and respect at least primary keys.
 	(make-instance 'simple-relation :data-maps (remove-duplicates data-maps :test #'same)))))
 
 (defclass parameter ()
@@ -64,7 +67,8 @@
    (type :initarg :type :initform nil :accessor parameter-type)))
 
 (defclass schema ()
-  ((parameters :initarg parameters :initform '() :accessor schema-parameters)))
+  ((description :initarg :description :initform nil :accessor schema-description)
+   (parameters :initarg :parameters :initform '() :accessor schema-parameters)))
 
 (defclass signature ()
   ((input :initarg :input :initform '() :accessor signature-input)
@@ -96,6 +100,7 @@
   (member name (signature-output s)))
 
 (defmethod provides ((output list) (s signature))
+  "Returns the names in OUTPUT which are provided as output of signature, S."
   (intersection (signature-output s) output))
 
 (defclass transformation ()
@@ -150,10 +155,10 @@
 	 (every #'same a b))))
 
 (defgeneric satisfies-input-p (a b)
-  ;; FIXME: Make type of A ensure DOMAIN.
+  ;; FIXME: Make type of A ensure KEYS.
   (:method ((a t) (b t)) nil)
   (:method ((a t) (b transformation)) (satisfies-input-p a (transformation-signature b)))
-  (:method ((a t) (b signature)) (subsetp (signature-input b) (domain a))) ;; FIXME: new superclass of types with domain.
+  (:method ((a t) (b signature)) (subsetp (signature-input b) (keys a))) ;; FIXME: new superclass of types with keys.
   )
 
 (defgeneric apply-transformation (transformation data-map)
@@ -176,9 +181,9 @@
 (defgeneric compose-signatures (a b)
   ;; FIXME: Make type of DATA-MAP ensure signature.
   (:method ((signature signature) (data-map data-map))
-    (let ((domain (domain data-map)))
-      (make-signature (union (signature-input signature) domain)
-		      (union (signature-output signature) domain))))
+    (let ((keys (keys data-map)))
+      (make-signature (union (signature-input signature) keys)
+		      (union (signature-output signature) keys))))
   (:method ((a signature) (b signature))
     (make-signature (union (signature-input a) (signature-input b))
 		    (union (signature-output a) (signature-output b)))))
@@ -193,23 +198,22 @@
 (defgeneric %plan (system element signature plan)
   (:method ((system system) (transformation transformation) (signature signature) (plan list))
     (incf (transformations-tried *plan-profile*))
-    (let* ((sig (transformation-signature transformation))
+    (let* ((tran-sig (transformation-signature transformation))
 	   ;; Which of the still-needed output, if any, does the this transformation's signature provide?
-	   (provided-output (provides (signature-output signature) sig)))     
+	   (provided-output (provides (signature-output signature) tran-sig)))
       (unless provided-output
 	;; If this transformation doesn't provide any needed output, fail early.
 	(return-from %plan nil))
-
       ;; Otherwise, add the transformation to the plan and update the signature to satisfy.
       (let* ((new-plan (cons transformation plan))
 	     ;; Input of the current transformation which aren't trivially provided must now be output of the
 	     ;; remaining plan (to be provided before this step's transformation is applied).
-	     (additional-output (set-difference (signature-input sig) (signature-input signature)))
+	     (additional-output (set-difference (signature-input tran-sig) (signature-input signature)))
 	     ;; Output which still need to be provided.
-	     (remaining-output (union (set-difference (signature-output sig) provided-output) additional-output)))
-	(if remaining-output
+	     (remaining-output-needed (union (set-difference (signature-output signature) provided-output) additional-output)))
+	(if remaining-output-needed
 	    ;; If there are still output which need to be satisfied, continue planning the system.
-	    (%plan  system :system (make-signature (signature-input signature) remaining-output) new-plan)
+	    (%plan  system :system (make-signature (signature-input signature) remaining-output-needed) new-plan)
 	    ;; Otherwise, return the new plan.
 	    new-plan))))
   (:method ((system system) (component component) (signature signature) (plan list))
@@ -238,6 +242,15 @@
 		   plan
 		   :initial-value initial-data)))))
 
+(defun solve-for (system output initial-data)
+  (let ((sig (make-signature (keys initial-data) output)))
+    (solve system sig initial-data)))
+
+(defun plan-for (system output initial-data)
+  (let ((sig (make-signature (keys initial-data) output)))
+    (print `(:sig ,sig))
+    (plan system sig)))
+
 ;;; Syntax
 (defmacro sig ((&rest input) arrow (&rest output))
   (assert (eql arrow '->))
@@ -250,7 +263,7 @@
 	     (make-instance 'transformation :signature sig :implementation ,implementation)))
     (== `(let ((sig (make-signature ',input ',output)))
 	    (make-instance 'transformation :signature sig :implementation (tlambda ,input ,output
-								       ,implementation))))))
+									    ,implementation))))))
 
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)  
   (assert (eql arrow '->))
@@ -263,8 +276,21 @@
 (defmacro defcomponent (name (&rest transformations))
   `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
 
+(defmacro data-map (&rest parameters)
+  `(make-data-map (list ,@(mapcar (lambda (param)
+				    (destructuring-bind (key value) param
+					`(list ',key ,value)))
+				  parameters))))
 
-;; Ignore schema for now.
+(defmacro defschema (name description &rest parameters)
+  `(defparameter ,name
+     (make-instance 'schema
+		    :description ,description
+		    :parameters (list ,@(mapcar (lambda (parameter-spec)
+						  (destructuring-bind (name description &optional type) parameter-spec
+						    `(make-instance 'parameter :name ',name :description ,description :type ,(or type ""))))
+						parameters)))))
+
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))
 
@@ -276,7 +302,7 @@
        (symbol-macrolet
 	   (,@(loop for in in input
 		collect `(,in (getd ',in ,data-map))))
-	 (let ((,new-data-map (data-map (data-map-pairs ,data-map)))
+	 (let ((,new-data-map (make-data-map (data-map-pairs ,data-map)))
 	       (,out (multiple-value-list (progn ,@body))))	   
 	   ,@(loop for key in output
 		collect `(setf (getd ',key ,new-data-map) (pop ,out)))
@@ -285,11 +311,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
 
+(def-suite orient-suite :description "Test the orient package.")
+(in-suite orient-suite)
 (test orient-tests
-  "Test the orient package altogether."
-  (let* ((d1 (data-map '((a 2) (b 3) (c 4))))
-	 (d2 (data-map '((a 2) (b 3) (c 4) (d 5))))
-	 (d3 (data-map '((x 5) (y 6) (z 7))))
+  "General tests planning and solving."
+  (let* ((d1 (data-map (a 2) (b 3) (c 4)))
+	 (d2 (data-map (a 2) (b 3) (c 4) (d 5)))
+	 (d3 (data-map (x 5) (y 6) (z 7)))
 
 	 (r1 (make-relation (list d1)))
 	 ;; (r2 (make-relation (list d2)))
@@ -308,26 +336,34 @@
 	 (c2 (component (t1 t2 t3)))
 	 (s1 (sys (c1)))
 	 (s2 (sys (c2))))
-    (is (same (apply-transformation t2 d3) (data-map '((x 5)(y 6)(z 7)(q 18)))) "AA")
+    (is (same (apply-transformation t2 d3) (data-map (x 5)(y 6)(z 7)(q 18))) "(apply-transformation t2 d3)")
 
-    (is (same (plan s1 sig1) (list t1)) "a")
-    (is (same (plan s1 sig2) nil) "b") 
-    (is (same (plan s1 sig3) nil) "c")
+    (is (same (plan s1 sig1) (list t1)) "(plan s1 sig1)")
+    (is (same (plan s1 sig2) nil) "(plan s1 sig2)") 
+    (is (same (plan s1 sig3) nil) "(plan s1 sig3)")
 
-    (is (same (plan s2 sig1) (list t1)) "d")
-    (is (same (plan s2 sig2) (list t3)) "e")
-    (is (same (plan s2 sig3) (list t1 t3)) "f")
+    (is (same (plan s2 sig1) (list t1)) "(plan s2 sig1)")
+    (is (same (plan s2 sig2) (list t3)) "(plan s2 sig2)")
+    (is (same (plan s2 sig3) (list t1 t3)) "(plan s2 sig3)")
 
-    (is (same (solve s1 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))) "g")
-    (is (same (solve s1 sig2 d1) nil) "h")
-    (is (same (solve s1 sig3 d1) nil) "i")
+    (is (same (solve s1 sig1 d1) (data-map (a 2)(b 3)(c 4)(d 24))) "(solve s1 sig1 d1)")
+    (is (same (solve s1 sig2 d1) nil) "(solve s1 sig2 d1)")
+    (is (same (solve s1 sig3 d1) nil) "(solve s1 sig3 d1)")
 
-    (is (same (solve s2 sig1 d1) (data-map '((a 2)(b 3)(c 4)(d 24)))) "j")
-    (is (same (solve s2 sig1 r1) (make-relation (list (data-map '((a 2)(b 3)(c 4)(d 24)))))) "k")
-    (is (same (solve s2 sig2 d1) nil) "l")
-    (is (same (solve s2 sig2 d2) (data-map '((a 2)(b 3)(c 4)(d 5)(e 36)(f 48)))) "m")
-    (is (same (solve s2 sig3 d1) (data-map '((a 2)(b 3)(c 4)(d 24)(e 93)(f 124)))) "n")
+    (is (same (solve s2 sig1 d1) (data-map (a 2)(b 3)(c 4)(d 24))) "(solve s2 sig1 d1)")
+    (is (same (solve s2 sig1 r1) (make-relation (list (data-map (a 2)(b 3)(c 4)(d 24))))) "(solve s2 sig1 r1)")
+    (is (same (solve s2 sig2 d1) nil) "(solve s2 sig2 d1)")
+    (is (same (solve s2 sig2 d2) (data-map (a 2)(b 3)(c 4)(d 5)(e 36)(f 48))) " (solve s2 sig2 d2)")
+    (is (same (solve s2 sig3 d1) (data-map (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")
     ))
+
+(test planning-terminates
+  "Regression test for infinite stack bug."
+  (let* ((t1 (transformation ((b c d) -> (e f)) == (let ((x (+ b c d)))
+						     (values (* x b) (* x c)))))
+	 (s1 (sys ((component (t1))))))
+
+    (finishes (plan s1 (make-signature '(b c d) '(e))))))
 
 #|
 (plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))
