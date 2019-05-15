@@ -28,22 +28,21 @@
 
 ;; TODO: roundtrip tests
 (defun transformation<-parsed-json (transformation-spec)
-  (let* ((transformation-alist (cdr (assoc :transform transformation-spec))) ;; TODO: Should the spec just use :transformation?
+  (let* ((transformation-alist (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
 	 (implementation-spec (cdr (assoc :implementation transformation-alist)))
 	 (package-string (cdr (assoc :module implementation-spec)))
 	 (package-name (when package-string (string-upcase package-string)))
 	 (symbol-name (cdr (assoc :name implementation-spec)))
 	 (symbol (find-symbol (camel-case-to-lisp symbol-name) package-name))
 	 (implementation (symbol-value symbol))
-	 (string-inputs (cdr (assoc :input transformation-alist)))
+	 (string-inputs (cdr (assoc :input transformation-alist	)))
 	 (string-outputs (cdr (assoc :output transformation-alist)))
 	 (input (if package-name
-		     (mapcar (lambda (name)
-			       (intern (string-upcase name) package-name)) string-inputs)
+		    (mapcar (lambda (name)
+			      (intern (string-upcase name) package-name)) string-inputs)
 		     string-inputs))
 	 (output (if package-name
 		     (mapcar (lambda (name) (intern (string-upcase name) package-name)) string-outputs)
 		     string-outputs))
 	 (signature (make-instance 'signature :input input :output output)))
-    
     (make-instance 'transformation :signature signature :implementation implementation)))

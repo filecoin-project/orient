@@ -1,6 +1,6 @@
 [
   {
-    "transform": {
+    "transformation": {
       "input": [
         "height",
         "width",
@@ -17,7 +17,7 @@
   },
   
   {
-    "transform": {
+    "transformation": {
       "input": [
         "volume",
         "density"

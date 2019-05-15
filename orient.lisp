@@ -292,8 +292,8 @@
 	 (d3 (data-map '((x 5) (y 6) (z 7))))
 
 	 (r1 (make-relation (list d1)))
-	 (r2 (make-relation (list d2)))
-	 (r3 (make-relation (list d3)))
+	 ;; (r2 (make-relation (list d2)))
+	 ;; (r3 (make-relation (list d3)))
 
 	 (sig1 (sig (a b c) -> (d)))
 	 (sig2 (sig (b c d) -> (e f)))
