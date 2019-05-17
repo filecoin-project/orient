@@ -13,4 +13,3 @@
   :depends-on ("orient" "fiveam")
   :components ((:file "orient"))
   :perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
-

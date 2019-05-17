@@ -1,7 +1,8 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :component :data-map :data-map-pairs :defschema :deftransformation :make-signature :orient-tests :plan :plan-for
-	   :same
+  (:export :apply-transformation :attributes :component :data-map :data-maps :data-map-pairs :defschema :deftransformation :getd :join :make-relation
+	   :make-signature
+	   :orient-tests :plan :plan-for :relation :rename :same
 	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :transformation
 	   :-> :=== :==))
 
@@ -21,19 +22,23 @@
 
 (defmethod data-map-pairs ((data-map data-map) &key dotted)
   (loop
-     for key being the hash-keys of (data-map-hash-table data-map)
+     for attribute being the hash-keys of (data-map-hash-table data-map)
      for val being the hash-values of (data-map-hash-table data-map)
      collect (if dotted
-		 (cons key val)
-		 (list key val))))
+		 (cons attribute val)
+		 (list attribute val))))
 
-(defmethod getd ((key t) (data-map data-map))
-  "Get value of KEY in DATA-MAP."
-  (gethash key (data-map-hash-table data-map)))
+(defmethod getd ((attribute t) (data-map data-map))
+  "Get value of ATTRIBUTE in DATA-MAP."
+  (gethash attribute (data-map-hash-table data-map)))
 
-(defmethod setd ((key t) (data-map data-map) (value t))
-  "Set value of KEY to VALUE in DATA-MAP."
-  (setf (gethash key (data-map-hash-table data-map)) value))
+(defmethod setd ((attribute t) (data-map data-map) (value t))
+  "Set value of ATTRIBUTE to VALUE in DATA-MAP."
+  (setf (gethash attribute (data-map-hash-table data-map)) value))
+
+(defmethod remd ((attribute t) (data-map data-map))
+  "Remove ATTRIBUTE from DATA-MAP"
+  (remhash attribute (data-map-hash-table data-map)))
 
 (defsetf getd setd)
 
@@ -41,25 +46,85 @@
 (defclass simple-relation (relation)
   ((data-maps :initarg :data-maps :initform nil :accessor data-maps)))
 
-(defgeneric keys (data-map)
+(defgeneric attributes (data-map)
   (:method ((d data-map))
-    (loop for key being the hash-keys of (data-map-hash-table d)
-       collect key))
+    (loop for attribute being the hash-keys of (data-map-hash-table d)
+       collect attribute))
   (:method ((r relation))
     (and (first (data-maps r))
-	 (keys (first (data-maps r))))))
+	 (attributes (first (data-maps r))))))
 
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
 (defgeneric make-relation (data-maps)
+  ;; TODO: require matching headings.
   (:documentation
-  "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same keys. ")
+   "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same attributes.")
   (:method ((data-maps list))
-    (and(let ((first (first data-maps)))
-	  (every (lambda (x) (set-equal (keys x) (keys first)))
-		 (cdr data-maps)))
-	;; TODO: implement and respect at least primary keys.
-	(make-instance 'simple-relation :data-maps (remove-duplicates data-maps :test #'same)))))
+    (and (let ((first (first data-maps)))
+	   (every (lambda (x) (set-equal (attributes x) (attributes first)))
+		  (cdr data-maps)))
+	 ;; TODO: implement and respect at least primary keys.
+	 (make-instance 'simple-relation :data-maps (remove-duplicates data-maps :test #'same)))))
+
+(defun classify-set-elements (a b)
+  ;; TODO: This can be optimized to make only a single pass over each set.
+  (let* ((shared (intersection a b))
+	 (a-only (set-difference a shared))
+	 (b-only (set-difference b shared))
+	 (all (union a b)))
+    (values a-only b-only shared all)))
+
+;; Helper function so JOIN can avoid expensive creation of relations which will be immediately stripped for their contained data-maps.
+(defgeneric %join (relation-a relation-b)
+  (:method ((a data-map) (b data-map))
+    (let* ((a-attributes (attributes a))
+	   (b-attributes (attributes b)))
+      (let ((shared (intersection a-attributes b-attributes)))
+	(let ((matchp (every (lambda (attr)
+			       (same (getd attr a) (getd attr b)))
+			     shared)))
+	  (when matchp
+	    (make-data-map (union (data-map-pairs a) (data-map-pairs b) :test (lambda (a b) (eql (car a) (car b))))))))))
+  (:method ((a data-map) (b relation))
+    (loop for data-map in (data-maps b)
+       for maybe-data-map = (join a data-map)
+       when maybe-data-map
+       collect maybe-data-map))
+  (:method ((a relation) (b data-map))
+    (%join b a))
+  (:method ((a relation) (b relation))
+    (reduce (lambda (acc data-map)
+	      (nconc acc (%join data-map b)))
+	    (data-maps a)
+	    :initial-value '())))
+
+(defgeneric join (a b)
+  (:method ((a data-map) (b data-map))
+    (%join a b))
+  (:method ((a data-map) (b relation))
+    (make-relation (%join a b)))
+  (:method ((a relation) (b data-map))
+    (join b a))
+  (:method ((a relation) (b relation))
+    (make-relation (%join a b))))
+
+(defgeneric duplicate (thing)
+  (:method ((d data-map))
+    (make-data-map (data-map-pairs d)))
+  (:method ((r relation))
+    (make-relation (mapcar #'duplicate (data-maps r)))))
+
+(defgeneric rename-attributes (old-new-pairs attributed)
+  (:method ((pairs list) (r relation))
+    (let ((new-relation (duplicate r)))
+      ;; TODO: This is inefficient. Relations should store their headings so they can be changed in one place.
+      ;; Or store a wrapper providing the rename changes.
+      (loop for dm in (data-maps new-relation)
+	 do (loop for (old new) in pairs
+	       do (setf (getd new dm) (getd old dm))
+	       do (remd old dm)))
+      new-relation)))
 
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
@@ -138,7 +203,8 @@
     (and (equal (type-of a) (type-of b))
 	 (equal a b)))
   (:method ((a data-map) (b data-map))
-    (equalp (data-map-hash-table a) (data-map-hash-table b)))
+    (and (set-equal (attributes a) (attributes b))
+	 (every (lambda (attr) (same (getd attr a) (getd attr b))) (attributes a))))
   (:method ((a signature) (b signature))
     (sig-equal a b))
   (:method ((a transformation) (b transformation))
@@ -155,12 +221,13 @@
 	 (every #'same a b))))
 
 (defgeneric satisfies-input-p (a b)
-  ;; FIXME: Make type of A ensure KEYS.
+  ;; FIXME: Make type of A ensure ATTRIBUTES.
   (:method ((a t) (b t)) nil)
   (:method ((a t) (b transformation)) (satisfies-input-p a (transformation-signature b)))
-  (:method ((a t) (b signature)) (subsetp (signature-input b) (keys a))) ;; FIXME: new superclass of types with keys.
+  (:method ((a t) (b signature)) (subsetp (signature-input b) (attributes a))) ;; FIXME: new superclass of types with attributes.
   )
 
+;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation data-map)
   (:method ((transformation transformation) (data-map data-map))
     (assert (satisfies-input-p data-map transformation))
@@ -181,9 +248,9 @@
 (defgeneric compose-signatures (a b)
   ;; FIXME: Make type of DATA-MAP ensure signature.
   (:method ((signature signature) (data-map data-map))
-    (let ((keys (keys data-map)))
-      (make-signature (union (signature-input signature) keys)
-		      (union (signature-output signature) keys))))
+    (let ((attributes (attributes data-map)))
+      (make-signature (union (signature-input signature) attributes)
+		      (union (signature-output signature) attributes))))
   (:method ((a signature) (b signature))
     (make-signature (union (signature-input a) (signature-input b))
 		    (union (signature-output a) (signature-output b)))))
@@ -243,12 +310,11 @@
 		   :initial-value initial-data)))))
 
 (defun solve-for (system output initial-data)
-  (let ((sig (make-signature (keys initial-data) output)))
+  (let ((sig (make-signature (attributes initial-data) output)))
     (solve system sig initial-data)))
 
 (defun plan-for (system output initial-data)
-  (let ((sig (make-signature (keys initial-data) output)))
-    (print `(:sig ,sig))
+  (let ((sig (make-signature (attributes initial-data) output)))
     (plan system sig)))
 
 ;;; Syntax
@@ -259,13 +325,14 @@
 (defmacro transformation (((&rest input) arrow (&rest output)) eqmark implementation)
   (assert (eql arrow '->))
   (ecase eqmark
-    (=== `(let ((sig (make-signature ',input ',output)))
-	     (make-instance 'transformation :signature sig :implementation ,implementation)))
+    (= `(let ((sig (make-signature ',input ',output)))
+	   (make-instance 'transformation :signature sig :implementation (rlambda ,input ,output ,implementation))))
     (== `(let ((sig (make-signature ',input ',output)))
-	    (make-instance 'transformation :signature sig :implementation (tlambda ,input ,output
-									    ,implementation))))))
+	   (make-instance 'transformation :signature sig :implementation (tlambda ,input ,output ,implementation))))
+    (=== `(let ((sig (make-signature ',input ',output)))
+	     (make-instance 'transformation :signature sig :implementation ,implementation)))))
 
-(defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)  
+(defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (assert (eql arrow '->))
   `(eval-when (:load-toplevel :execute)
      (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
@@ -276,10 +343,25 @@
 (defmacro defcomponent (name (&rest transformations))
   `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
 
+
+(defmacro relation ((&rest attributes) &rest data-map-values)
+  `(make-relation (list ,@(loop for values in data-map-values
+			     collect `(make-data-map (list ,@(loop for attribute in attributes
+								for value in values
+								collect `(list ',attribute ,value))))))))
+
+(defmacro r ((&rest attributes) &rest data-map-values)
+  `(relation (,@attributes) ,@data-map-values))
+
+(defmacro d ((&rest attributes) data-map-values)
+  `(make-data-map (list ,@(loop for attribute in attributes
+			     for value in data-map-values
+			     collect `(list ',attribute ,value)))))
+
 (defmacro data-map (&rest parameters)
   `(make-data-map (list ,@(mapcar (lambda (param)
-				    (destructuring-bind (key value) param
-					`(list ',key ,value)))
+				    (destructuring-bind (attribute value) param
+					`(list ',attribute ,value)))
 				  parameters))))
 
 (defmacro defschema (name description &rest parameters)
@@ -294,6 +376,8 @@
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))
 
+;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
+;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
 (defmacro tlambda ((&rest input) (&rest output) &body body)
   (let ((data-map (gensym "DATA-MAP"))
 	(new-data-map (gensym "NEW-DATA-MAP"))
@@ -304,9 +388,48 @@
 		collect `(,in (getd ',in ,data-map))))
 	 (let ((,new-data-map (make-data-map (data-map-pairs ,data-map)))
 	       (,out (multiple-value-list (progn ,@body))))	   
-	   ,@(loop for key in output
-		collect `(setf (getd ',key ,new-data-map) (pop ,out)))
+	   ,@(loop for attribute in output
+		collect `(setf (getd ',attribute ,new-data-map) (pop ,out)))
 	   ,new-data-map)))))
+
+;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
+;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
+(defmacro xlambda ((&rest input) (&rest output) &body body)
+  (let ((data-map (gensym "DATA-MAP"))
+	(out (gensym "OUTPUT"))
+	(supplied-pairs (gensym "PAIRS")))
+    `(lambda (,data-map)
+       (symbol-macrolet
+	   (,@(loop for in in input
+		collect `(,in (getd ',in ,data-map))))
+	 (let ((,out (progn ,@body))
+	       (,supplied-pairs (data-map-pairs ,data-map)))
+	   (build-relation ,supplied-pairs ',output ,out))))))
+
+;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
+;; Code in BODY should return a relation -- whose heading must be correct.
+(defmacro rlambda ((&rest input) (&rest output) &body body)
+  (let ((data-map (gensym "DATA-MAP"))
+	(out (gensym "OUTPUT"))
+	(supplied-pairs (gensym "PAIRS")))
+    `(lambda (,data-map)
+       (symbol-macrolet
+	   (,@(loop for in in input
+		collect `(,in (getd ',in ,data-map))))
+	 (progn ,@body)))))
+
+(defun build-relation (from-pairs adding-attributes value-rows)
+  (let ((data-maps (loop for row in value-rows
+		      collect (let ((base (make-data-map from-pairs)))
+				(loop for attr in adding-attributes
+				   for val in row
+				   do (setf (getd attr base) val))
+				base))))
+    (make-relation data-maps)))
+
+(defmacro rename ((&rest pairs) attributed)
+  `(rename-attributes ',pairs ,attributed))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
@@ -318,8 +441,9 @@
   (let* ((d1 (data-map (a 2) (b 3) (c 4)))
 	 (d2 (data-map (a 2) (b 3) (c 4) (d 5)))
 	 (d3 (data-map (x 5) (y 6) (z 7)))
+	 (d4 (data-map (a 1) (b 2) (c 3)))
 
-	 (r1 (make-relation (list d1)))
+	 (r1 (make-relation (list d1 d4)))
 	 ;; (r2 (make-relation (list d2)))
 	 ;; (r3 (make-relation (list d3)))
 
@@ -351,11 +475,33 @@
     (is (same (solve s1 sig3 d1) nil) "(solve s1 sig3 d1)")
 
     (is (same (solve s2 sig1 d1) (data-map (a 2)(b 3)(c 4)(d 24))) "(solve s2 sig1 d1)")
-    (is (same (solve s2 sig1 r1) (make-relation (list (data-map (a 2)(b 3)(c 4)(d 24))))) "(solve s2 sig1 r1)")
+    (is (same (solve s2 sig1 r1) (make-relation (list (data-map (a 1)(b 2)(c 3)(d 6))
+						      (data-map (a 2)(b 3)(c 4)(d 24)))))
+	"(solve s2 sig1 r1)")
     (is (same (solve s2 sig2 d1) nil) "(solve s2 sig2 d1)")
     (is (same (solve s2 sig2 d2) (data-map (a 2)(b 3)(c 4)(d 5)(e 36)(f 48))) " (solve s2 sig2 d2)")
     (is (same (solve s2 sig3 d1) (data-map (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")
     ))
+
+(test simple-bi-directional
+  "Simple test of a bidirectional constraint."
+  (let* ((d1 (data-map (a 1)))
+	 (d2 (data-map (b 10)))
+	 (d3 (data-map (a 1) (b 5)))
+	 (d4 (data-map (a 2) (b 10)))
+
+	 (t1 (transformation ((a) -> (b)) == (* a 5)))
+	 (t2 (transformation ((b) -> (a)) == (/ b 5)))
+
+	 ;; TODO: Simplify defining components like this 'constraint'.
+	 ;; TODO2: Represent it as a relation.
+	 ;; TODO3: Allow for planning through relations (consider signatures)
+	 (c1 (component (t1 t2)))
+
+	 (s1 (sys (c1))))
+    (is (same (solve-for s1 '(b) d1) d3))
+    (is (same (solve-for s1 '(a) d2) d4))))
+    
 
 (test planning-terminates
   "Regression test for infinite stack bug."
