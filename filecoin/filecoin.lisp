@@ -40,7 +40,7 @@
   )
 
 (defparameter *defaults*
-  (data-map
+  (tuple
    (investment 100000)
    (comparable-monthly-income 50000)
    (seal-cost 10)
@@ -77,19 +77,19 @@
 	    hash-count
 	    proof-hash-length)))
 
-#+(or) TODO: Implement a version of DEFTRANSFORMATION in which the implementation body returns a relation.
+#+(or) ;; TODO: Implement a version of DEFTRANSFORMATION in which the implementation body returns a relation.
 (deftransformation select-merkle-hash-function
     ((merkle-hash-function-name hash-functions) -> (merkle-hash-function-constraints merkle-hash-function-time))
   (rename ((hash-function-time merkle-hash-function-time)
 	   (hash-function-constraints merkle-hash-function-constraints))
-	  (join (data-map (hash-function-name merkle-hash-function-name))
+	  (join (tuple (hash-function-name merkle-hash-function-name))
 		hash-functions)))
 
 (deftransformation select-merkle-hash-function
     ((merkle-hash-function-name hash-functions) -> (merkle-hash-function-constraints merkle-hash-function-time))
-  (let* ((d (data-map (hash-function-name merkle-hash-function-name)))
+  (let* ((d (tuple (hash-function-name merkle-hash-function-name)))
 	 (r (join d hash-functions))
-	 (q (first (data-maps r))))
+	 (q (first (tuples r))))
     (values (getd 'hash-function-constraints q) (getd 'hash-function-time q))))
 
 (defparameter *sss* (sys ((component (select-merkle-hash-function)))))
@@ -102,7 +102,7 @@
 (test defaults-test
   "Test and assert results of solving with defaults."
   (let ((result (solve-for *system* '(merkle-tree-leaves merkle-tree-height merkle-tree-hash-count merkle-hash-function-time merkle-hash-function-constraints) *defaults*)))
-    (let ((expected (data-map (INVESTMENT 100000)
+    (let ((expected (tuple (INVESTMENT 100000)
 			      (COMPARABLE-MONTHLY-INCOME 50000)
 			      (SEAL-COST 10)
 			      (PEDERSEN-HASH-SECONDS 1.7993e-5)

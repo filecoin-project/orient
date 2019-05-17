@@ -13,14 +13,14 @@
   (let* ((json (decode-json-from-source (pathname json-pathspec))))
     (transformation<-parsed-json json)))
 
-(defun load-data-map (json-pathspec)
+(defun load-tuple (json-pathspec)
   (let ((json (decode-json-from-source (pathname json-pathspec))))
     json
     ;; FIXME: implement
     ))
 
-(defmethod encode-json ((data-map data-map) &optional stream)
- (encode-json-alist (data-map-pairs data-map :dotted t) stream))
+(defmethod encode-json ((tuple tuple) &optional stream)
+ (encode-json-alist (tuple-pairs tuple :dotted t) stream))
 
 (defmethod encode-json ((signature signature) &optional stream)
   (encode-json-plist

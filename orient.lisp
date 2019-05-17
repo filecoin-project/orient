@@ -1,6 +1,6 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :attributes :component :data-map :data-maps :data-map-pairs :defschema :deftransformation :getd :join :make-relation
+  (:export :apply-transformation :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :getd :join :make-relation
 	   :make-signature
 	   :orient-tests :plan :plan-for :relation :rename :same
 	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :transformation
@@ -8,64 +8,64 @@
 
 (in-package "ORIENT")
 
-(defclass data-map ()
-  ((hash-table :initform (make-hash-table) :accessor data-map-hash-table)))
+(defclass tuple ()
+  ((hash-table :initform (make-hash-table) :accessor tuple-hash-table)))
 
-(defmethod print-object ((d data-map) (stream t))
-  (format stream "<DATA-MAP ~S>" (data-map-pairs d)))
+(defmethod print-object ((d tuple) (stream t))
+  (format stream "<TUPLE ~S>" (tuple-pairs d)))
 
-(defun make-data-map (&optional pairs)
-  (let* ((data-map (make-instance 'data-map))
-	 (h (data-map-hash-table data-map)))
+(defun make-tuple (&optional pairs)
+  (let* ((tuple (make-instance 'tuple))
+	 (h (tuple-hash-table tuple)))
     (loop for (k v) in pairs do (setf (gethash k h) v))
-    data-map))
+    tuple))
 
-(defmethod data-map-pairs ((data-map data-map) &key dotted)
+(defmethod tuple-pairs ((tuple tuple) &key dotted)
   (loop
-     for attribute being the hash-keys of (data-map-hash-table data-map)
-     for val being the hash-values of (data-map-hash-table data-map)
+     for attribute being the hash-keys of (tuple-hash-table tuple)
+     for val being the hash-values of (tuple-hash-table tuple)
      collect (if dotted
 		 (cons attribute val)
 		 (list attribute val))))
 
-(defmethod getd ((attribute t) (data-map data-map))
-  "Get value of ATTRIBUTE in DATA-MAP."
-  (gethash attribute (data-map-hash-table data-map)))
+(defmethod getd ((attribute t) (tuple tuple))
+  "Get value of ATTRIBUTE in TUPLE."
+  (gethash attribute (tuple-hash-table tuple)))
 
-(defmethod setd ((attribute t) (data-map data-map) (value t))
-  "Set value of ATTRIBUTE to VALUE in DATA-MAP."
-  (setf (gethash attribute (data-map-hash-table data-map)) value))
+(defmethod setd ((attribute t) (tuple tuple) (value t))
+  "Set value of ATTRIBUTE to VALUE in TUPLE."
+  (setf (gethash attribute (tuple-hash-table tuple)) value))
 
-(defmethod remd ((attribute t) (data-map data-map))
-  "Remove ATTRIBUTE from DATA-MAP"
-  (remhash attribute (data-map-hash-table data-map)))
+(defmethod remd ((attribute t) (tuple tuple))
+  "Remove ATTRIBUTE from TUPLE"
+  (remhash attribute (tuple-hash-table tuple)))
 
 (defsetf getd setd)
 
 (defclass relation () ())
 (defclass simple-relation (relation)
-  ((data-maps :initarg :data-maps :initform nil :accessor data-maps)))
+  ((tuples :initarg :tuples :initform nil :accessor tuples)))
 
-(defgeneric attributes (data-map)
-  (:method ((d data-map))
-    (loop for attribute being the hash-keys of (data-map-hash-table d)
+(defgeneric attributes (tuple)
+  (:method ((d tuple))
+    (loop for attribute being the hash-keys of (tuple-hash-table d)
        collect attribute))
   (:method ((r relation))
-    (and (first (data-maps r))
-	 (attributes (first (data-maps r))))))
+    (and (first (tuples r))
+	 (attributes (first (tuples r))))))
 
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
-(defgeneric make-relation (data-maps)
+(defgeneric make-relation (tuples)
   ;; TODO: require matching headings.
   (:documentation
-   "Create relation from data-maps, removing duplicates. Returns NIL if data-maps don't have all have same attributes.")
-  (:method ((data-maps list))
-    (and (let ((first (first data-maps)))
+   "Create relation from tuples, removing duplicates. Returns NIL if tuples don't have all have same attributes.")
+  (:method ((tuples list))
+    (and (let ((first (first tuples)))
 	   (every (lambda (x) (set-equal (attributes x) (attributes first)))
-		  (cdr data-maps)))
+		  (cdr tuples)))
 	 ;; TODO: implement and respect at least primary keys.
-	 (make-instance 'simple-relation :data-maps (remove-duplicates data-maps :test #'same)))))
+	 (make-instance 'simple-relation :tuples (remove-duplicates tuples :test #'same)))))
 
 (defun classify-set-elements (a b)
   ;; TODO: This can be optimized to make only a single pass over each set.
@@ -75,9 +75,9 @@
 	 (all (union a b)))
     (values a-only b-only shared all)))
 
-;; Helper function so JOIN can avoid expensive creation of relations which will be immediately stripped for their contained data-maps.
+;; Helper function so JOIN can avoid expensive creation of relations which will be immediately stripped for their contained tuples.
 (defgeneric %join (relation-a relation-b)
-  (:method ((a data-map) (b data-map))
+  (:method ((a tuple) (b tuple))
     (let* ((a-attributes (attributes a))
 	   (b-attributes (attributes b)))
       (let ((shared (intersection a-attributes b-attributes)))
@@ -85,42 +85,42 @@
 			       (same (getd attr a) (getd attr b)))
 			     shared)))
 	  (when matchp
-	    (make-data-map (union (data-map-pairs a) (data-map-pairs b) :test (lambda (a b) (eql (car a) (car b))))))))))
-  (:method ((a data-map) (b relation))
-    (loop for data-map in (data-maps b)
-       for maybe-data-map = (join a data-map)
-       when maybe-data-map
-       collect maybe-data-map))
-  (:method ((a relation) (b data-map))
+	    (make-tuple (union (tuple-pairs a) (tuple-pairs b) :test (lambda (a b) (eql (car a) (car b))))))))))
+  (:method ((a tuple) (b relation))
+    (loop for tuple in (tuples b)
+       for maybe-tuple = (join a tuple)
+       when maybe-tuple
+       collect maybe-tuple))
+  (:method ((a relation) (b tuple))
     (%join b a))
   (:method ((a relation) (b relation))
-    (reduce (lambda (acc data-map)
-	      (nconc acc (%join data-map b)))
-	    (data-maps a)
+    (reduce (lambda (acc tuple)
+	      (nconc acc (%join tuple b)))
+	    (tuples a)
 	    :initial-value '())))
 
 (defgeneric join (a b)
-  (:method ((a data-map) (b data-map))
+  (:method ((a tuple) (b tuple))
     (%join a b))
-  (:method ((a data-map) (b relation))
+  (:method ((a tuple) (b relation))
     (make-relation (%join a b)))
-  (:method ((a relation) (b data-map))
+  (:method ((a relation) (b tuple))
     (join b a))
   (:method ((a relation) (b relation))
     (make-relation (%join a b))))
 
 (defgeneric duplicate (thing)
-  (:method ((d data-map))
-    (make-data-map (data-map-pairs d)))
+  (:method ((d tuple))
+    (make-tuple (tuple-pairs d)))
   (:method ((r relation))
-    (make-relation (mapcar #'duplicate (data-maps r)))))
+    (make-relation (mapcar #'duplicate (tuples r)))))
 
 (defgeneric rename-attributes (old-new-pairs attributed)
   (:method ((pairs list) (r relation))
     (let ((new-relation (duplicate r)))
       ;; TODO: This is inefficient. Relations should store their headings so they can be changed in one place.
       ;; Or store a wrapper providing the rename changes.
-      (loop for dm in (data-maps new-relation)
+      (loop for dm in (tuples new-relation)
 	 do (loop for (old new) in pairs
 	       do (setf (getd new dm) (getd old dm))
 	       do (remd old dm)))
@@ -202,7 +202,7 @@
       ((a t) (b t))
     (and (equal (type-of a) (type-of b))
 	 (equal a b)))
-  (:method ((a data-map) (b data-map))
+  (:method ((a tuple) (b tuple))
     (and (set-equal (attributes a) (attributes b))
 	 (every (lambda (attr) (same (getd attr a) (getd attr b))) (attributes a))))
   (:method ((a signature) (b signature))
@@ -215,7 +215,7 @@
     (and (subsetp (component-transformations a) (component-transformations b) :test #'same)
 	 (subsetp (component-transformations b) (component-transformations a) :test #'same)))
   (:method ((a relation) (b relation))
-    (set-equal (data-maps a) (data-maps b) :test #'same))
+    (set-equal (tuples a) (tuples b) :test #'same))
   (:method ((a list) (b list))
     (and (eql (length a) (length b))
 	 (every #'same a b))))
@@ -228,27 +228,27 @@
   )
 
 ;; TODO: Transformation should fail if any output changes the value of an input.
-(defgeneric apply-transformation (transformation data-map)
-  (:method ((transformation transformation) (data-map data-map))
-    (assert (satisfies-input-p data-map transformation))
-    (apply-transformation (transformation-implementation transformation) data-map))
+(defgeneric apply-transformation (transformation tuple)
+  (:method ((transformation transformation) (tuple tuple))
+    (assert (satisfies-input-p tuple transformation))
+    (apply-transformation (transformation-implementation transformation) tuple))
   (:method ((transformation transformation) (relation simple-relation))
       (make-relation (mapcar (lambda (x) (apply-transformation transformation x))
-			     (data-maps relation))))
-  (:method ((list list) (data-map data-map))
-    (reduce (lambda (data-map transformation)
-	      (apply-transformation transformation data-map))
+			     (tuples relation))))
+  (:method ((list list) (tuple tuple))
+    (reduce (lambda (tuple transformation)
+	      (apply-transformation transformation tuple))
 	    list
-	    :initial-value data-map))
-  (:method ((f function) (data-map data-map))
-    (funcall f data-map))
-  (:method ((s symbol) (data-map data-map))
-    (funcall s data-map)))
+	    :initial-value tuple))
+  (:method ((f function) (tuple tuple))
+    (funcall f tuple))
+  (:method ((s symbol) (tuple tuple))
+    (funcall s tuple)))
 
 (defgeneric compose-signatures (a b)
-  ;; FIXME: Make type of DATA-MAP ensure signature.
-  (:method ((signature signature) (data-map data-map))
-    (let ((attributes (attributes data-map)))
+  ;; FIXME: Make type of TUPLE ensure signature.
+  (:method ((signature signature) (tuple tuple))
+    (let ((attributes (attributes tuple)))
       (make-signature (union (signature-input signature) attributes)
 		      (union (signature-output signature) attributes))))
   (:method ((a signature) (b signature))
@@ -299,13 +299,13 @@
 	      *plan-profile*))))
 
 (defgeneric solve (system signature initial-data)
-  ;;(:method ((system system) (signature signature) (initial-data-map data-map))
-  (:method ((system system) (signature signature) (initial-data t)) ;; FIXME: create and use common supertype for data-map and relation.
+  ;;(:method ((system system) (signature signature) (initial-tuple tuple))
+  (:method ((system system) (signature signature) (initial-data t)) ;; FIXME: create and use common supertype for tuple and relation.
     (let ((plan (plan system signature)))
       (and plan
 	   (satisfies-input-p initial-data signature)
-	   (reduce (lambda (data-map transformation)
-		     (apply-transformation transformation data-map))
+	   (reduce (lambda (tuple transformation)
+		     (apply-transformation transformation tuple))
 		   plan
 		   :initial-value initial-data)))))
 
@@ -344,22 +344,22 @@
   `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
 
 
-(defmacro relation ((&rest attributes) &rest data-map-values)
-  `(make-relation (list ,@(loop for values in data-map-values
-			     collect `(make-data-map (list ,@(loop for attribute in attributes
+(defmacro relation ((&rest attributes) &rest tuple-values)
+  `(make-relation (list ,@(loop for values in tuple-values
+			     collect `(make-tuple (list ,@(loop for attribute in attributes
 								for value in values
 								collect `(list ',attribute ,value))))))))
 
-(defmacro r ((&rest attributes) &rest data-map-values)
-  `(relation (,@attributes) ,@data-map-values))
+(defmacro r ((&rest attributes) &rest tuple-values)
+  `(relation (,@attributes) ,@tuple-values))
 
-(defmacro d ((&rest attributes) data-map-values)
-  `(make-data-map (list ,@(loop for attribute in attributes
-			     for value in data-map-values
+(defmacro d ((&rest attributes) tuple-values)
+  `(make-tuple (list ,@(loop for attribute in attributes
+			     for value in tuple-values
 			     collect `(list ',attribute ,value)))))
 
-(defmacro data-map (&rest parameters)
-  `(make-data-map (list ,@(mapcar (lambda (param)
+(defmacro tuple (&rest parameters)
+  `(make-tuple (list ,@(mapcar (lambda (param)
 				    (destructuring-bind (attribute value) param
 					`(list ',attribute ,value)))
 				  parameters))))
@@ -379,53 +379,53 @@
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
 (defmacro tlambda ((&rest input) (&rest output) &body body)
-  (let ((data-map (gensym "DATA-MAP"))
-	(new-data-map (gensym "NEW-DATA-MAP"))
+  (let ((tuple (gensym "TUPLE"))
+	(new-tuple (gensym "NEW-TUPLE"))
 	(out (gensym "OUTPUT")))
-    `(lambda (,data-map)
+    `(lambda (,tuple)
        (symbol-macrolet
 	   (,@(loop for in in input
-		collect `(,in (getd ',in ,data-map))))
-	 (let ((,new-data-map (make-data-map (data-map-pairs ,data-map)))
+		collect `(,in (getd ',in ,tuple))))
+	 (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
 	       (,out (multiple-value-list (progn ,@body))))	   
 	   ,@(loop for attribute in output
-		collect `(setf (getd ',attribute ,new-data-map) (pop ,out)))
-	   ,new-data-map)))))
+		collect `(setf (getd ',attribute ,new-tuple) (pop ,out)))
+	   ,new-tuple)))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
 (defmacro xlambda ((&rest input) (&rest output) &body body)
-  (let ((data-map (gensym "DATA-MAP"))
+  (let ((tuple (gensym "TUPLE"))
 	(out (gensym "OUTPUT"))
 	(supplied-pairs (gensym "PAIRS")))
-    `(lambda (,data-map)
+    `(lambda (,tuple)
        (symbol-macrolet
 	   (,@(loop for in in input
-		collect `(,in (getd ',in ,data-map))))
+		collect `(,in (getd ',in ,tuple))))
 	 (let ((,out (progn ,@body))
-	       (,supplied-pairs (data-map-pairs ,data-map)))
+	       (,supplied-pairs (tuple-pairs ,tuple)))
 	   (build-relation ,supplied-pairs ',output ,out))))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a relation -- whose heading must be correct.
 (defmacro rlambda ((&rest input) (&rest output) &body body)
-  (let ((data-map (gensym "DATA-MAP"))
+  (let ((tuple (gensym "TUPLE"))
 	(out (gensym "OUTPUT"))
 	(supplied-pairs (gensym "PAIRS")))
-    `(lambda (,data-map)
+    `(lambda (,tuple)
        (symbol-macrolet
 	   (,@(loop for in in input
-		collect `(,in (getd ',in ,data-map))))
+		collect `(,in (getd ',in ,tuple))))
 	 (progn ,@body)))))
 
 (defun build-relation (from-pairs adding-attributes value-rows)
-  (let ((data-maps (loop for row in value-rows
-		      collect (let ((base (make-data-map from-pairs)))
+  (let ((tuples (loop for row in value-rows
+		      collect (let ((base (make-tuple from-pairs)))
 				(loop for attr in adding-attributes
 				   for val in row
 				   do (setf (getd attr base) val))
 				base))))
-    (make-relation data-maps)))
+    (make-relation tuples)))
 
 (defmacro rename ((&rest pairs) attributed)
   `(rename-attributes ',pairs ,attributed))
@@ -438,10 +438,10 @@
 (in-suite orient-suite)
 (test orient-tests
   "General tests planning and solving."
-  (let* ((d1 (data-map (a 2) (b 3) (c 4)))
-	 (d2 (data-map (a 2) (b 3) (c 4) (d 5)))
-	 (d3 (data-map (x 5) (y 6) (z 7)))
-	 (d4 (data-map (a 1) (b 2) (c 3)))
+  (let* ((d1 (tuple (a 2) (b 3) (c 4)))
+	 (d2 (tuple (a 2) (b 3) (c 4) (d 5)))
+	 (d3 (tuple (x 5) (y 6) (z 7)))
+	 (d4 (tuple (a 1) (b 2) (c 3)))
 
 	 (r1 (make-relation (list d1 d4)))
 	 ;; (r2 (make-relation (list d2)))
@@ -460,7 +460,7 @@
 	 (c2 (component (t1 t2 t3)))
 	 (s1 (sys (c1)))
 	 (s2 (sys (c2))))
-    (is (same (apply-transformation t2 d3) (data-map (x 5)(y 6)(z 7)(q 18))) "(apply-transformation t2 d3)")
+    (is (same (apply-transformation t2 d3) (tuple (x 5)(y 6)(z 7)(q 18))) "(apply-transformation t2 d3)")
 
     (is (same (plan s1 sig1) (list t1)) "(plan s1 sig1)")
     (is (same (plan s1 sig2) nil) "(plan s1 sig2)") 
@@ -470,32 +470,32 @@
     (is (same (plan s2 sig2) (list t3)) "(plan s2 sig2)")
     (is (same (plan s2 sig3) (list t1 t3)) "(plan s2 sig3)")
 
-    (is (same (solve s1 sig1 d1) (data-map (a 2)(b 3)(c 4)(d 24))) "(solve s1 sig1 d1)")
+    (is (same (solve s1 sig1 d1) (tuple (a 2)(b 3)(c 4)(d 24))) "(solve s1 sig1 d1)")
     (is (same (solve s1 sig2 d1) nil) "(solve s1 sig2 d1)")
     (is (same (solve s1 sig3 d1) nil) "(solve s1 sig3 d1)")
 
-    (is (same (solve s2 sig1 d1) (data-map (a 2)(b 3)(c 4)(d 24))) "(solve s2 sig1 d1)")
-    (is (same (solve s2 sig1 r1) (make-relation (list (data-map (a 1)(b 2)(c 3)(d 6))
-						      (data-map (a 2)(b 3)(c 4)(d 24)))))
+    (is (same (solve s2 sig1 d1) (tuple (a 2)(b 3)(c 4)(d 24))) "(solve s2 sig1 d1)")
+    (is (same (solve s2 sig1 r1) (make-relation (list (tuple (a 1)(b 2)(c 3)(d 6))
+						      (tuple (a 2)(b 3)(c 4)(d 24)))))
 	"(solve s2 sig1 r1)")
     (is (same (solve s2 sig2 d1) nil) "(solve s2 sig2 d1)")
-    (is (same (solve s2 sig2 d2) (data-map (a 2)(b 3)(c 4)(d 5)(e 36)(f 48))) " (solve s2 sig2 d2)")
-    (is (same (solve s2 sig3 d1) (data-map (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")
+    (is (same (solve s2 sig2 d2) (tuple (a 2)(b 3)(c 4)(d 5)(e 36)(f 48))) " (solve s2 sig2 d2)")
+    (is (same (solve s2 sig3 d1) (tuple (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")
     ))
 
 (test simple-bi-directional
   "Simple test of a bidirectional constraint."
-  (let* ((d1 (data-map (a 1)))
-	 (d2 (data-map (b 10)))
-	 (d3 (data-map (a 1) (b 5)))
-	 (d4 (data-map (a 2) (b 10)))
+  (let* ((d1 (tuple (a 1)))
+	 (d2 (tuple (b 10)))
+	 (d3 (tuple (a 1) (b 5)))
+	 (d4 (tuple (a 2) (b 10)))
 
 	 (t1 (transformation ((a) -> (b)) == (* a 5)))
 	 (t2 (transformation ((b) -> (a)) == (/ b 5)))
 
 	 ;; TODO: Simplify defining components like this 'constraint'.
 	 ;; TODO2: Represent it as a relation.
-	 ;; TODO3: Allow for planning through relations (consider signatures)
+	 ;; TODO3: Allow for planning through relations (consider signatures).
 	 (c1 (component (t1 t2)))
 
 	 (s1 (sys (c1))))
