@@ -3,8 +3,8 @@
   (:export :apply-transformation :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :deftransformation=
 	   :getd :join :make-relation
 	   :make-signature
-	   :orient-tests :plan :plan-for :relation :remove-attributes :remv :rename :same
-	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :transformation
+	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :same
+	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :tpl :transformation
 	   :-> :=== :== &all !>))
 
 (in-package "ORIENT")
@@ -430,26 +430,33 @@
 (defmacro defcomponent (name (&rest transformations))
   `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
 
-
+;; Make a relation
+;; Example: (relation (a b c) (1 2 3) (4 5 6))
 (defmacro relation ((&rest attributes) &rest tuple-values)
   `(make-relation (list ,@(loop for values in tuple-values
 			     collect `(make-tuple (list ,@(loop for attribute in attributes
 								for value in values
 								collect `(list ',attribute ,value))))))))
 
-(defmacro r ((&rest attributes) &rest tuple-values)
-  `(relation (,@attributes) ,@tuple-values))
-
-(defmacro d ((&rest attributes) tuple-values)
-  `(make-tuple (list ,@(loop for attribute in attributes
-			     for value in tuple-values
-			     collect `(list ',attribute ,value)))))
-
+;; Make a tuple.
+;; Example: (tuple (a 1) (b 2) (c 3))
 (defmacro tuple (&rest parameters)
   `(make-tuple (list ,@(mapcar (lambda (param)
 				    (destructuring-bind (attribute value) param
 					`(list ',attribute ,value)))
 				  parameters))))
+
+;; Make a relation. Shorthand for RELATION
+;; Example: (rel (a b c) (1 2 3) (4 5 6))
+(defmacro rel ((&rest attributes) &rest tuple-values)
+  `(relation (,@attributes) ,@tuple-values))
+
+;; Make a tuple.
+;; Example: (tpl (a b c) 1 2 3)
+(defmacro tpl ((&rest attributes) &rest values)
+  `(make-tuple (list ,@(loop for attribute in attributes
+			     for value in values
+			     collect `(list ',attribute ,value)))))
 
 (defmacro defschema (name description &rest parameters)
   `(defparameter ,name

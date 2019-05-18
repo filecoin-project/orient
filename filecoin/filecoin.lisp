@@ -77,10 +77,9 @@
 	    hash-count
 	    proof-hash-length)))
 
-
 (deftransformation= select-merkle-hash-function
     ((merkle-hash-function-name hash-functions &all tuple) -> (merkle-hash-function-constraints merkle-hash-function-time))
-  (!> (join tuple (tuple (hash-function-name merkle-hash-function-name)) hash-functions)
+  (!> (join tuple (tpl (hash-function-name) merkle-hash-function-name) hash-functions)
       (remv (hash-function-name))
       (rename ((hash-function-time merkle-hash-function-time)
 	       (hash-function-constraints merkle-hash-function-constraints)))))
