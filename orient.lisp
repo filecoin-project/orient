@@ -1,12 +1,15 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :getd :join :make-relation
+  (:export :apply-transformation :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :deftransformation=
+	   :getd :join :make-relation
 	   :make-signature
-	   :orient-tests :plan :plan-for :relation :rename :same
+	   :orient-tests :plan :plan-for :relation :remove-attributes :remv :rename :same
 	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :transformation
-	   :-> :=== :==))
+	   :-> :=== :== &all !>))
 
 (in-package "ORIENT")
+(def-suite orient-suite :description "Test the orient package.")
+(in-suite orient-suite)
 
 (defclass tuple ()
   ((hash-table :initform (make-hash-table) :accessor tuple-hash-table)))
@@ -43,8 +46,10 @@
 (defsetf getd setd)
 
 (defclass relation () ())
+
 (defclass simple-relation (relation)
-  ((tuples :initarg :tuples :initform nil :accessor tuples)))
+  ((attributes :initarg :attributes :accessor attributes)
+   (tuples :initarg :tuples :initform nil :accessor tuples)))
 
 (defgeneric attributes (tuple)
   (:method ((d tuple))
@@ -57,15 +62,40 @@
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
 (defgeneric make-relation (tuples)
-  ;; TODO: require matching headings.
   (:documentation
    "Create relation from tuples, removing duplicates. Returns NIL if tuples don't have all have same attributes.")
+  ;; Rather than return NIL, should mismatch be an error?
   (:method ((tuples list))
-    (and (let ((first (first tuples)))
-	   (every (lambda (x) (set-equal (attributes x) (attributes first)))
-		  (cdr tuples)))
-	 ;; TODO: implement and respect at least primary keys.
-	 (make-instance 'simple-relation :tuples (remove-duplicates tuples :test #'same)))))
+    (let* ((first (first tuples))
+	   (attributes (attributes first)))
+      (and (every (lambda (x) (set-equal (attributes x) attributes))
+		  (cdr tuples))
+	   ;; TODO: implement and respect at least primary keys.
+	   (make-instance 'simple-relation :tuples (remove-duplicates tuples :test #'same) :attributes (attributes first))))))
+
+(defgeneric cardinality (relation)
+  (:method ((r relation))
+    (length (tuples r))))
+
+(defgeneric degree (attributed)
+  (:method ((tuple tuple))
+    (hash-table-count (tuple-hash-table tuple)))
+  (:method ((r relation))
+    
+    )
+  )
+
+;; TODO: Pitiher name, but can't use REMOVE, since it's taken by CL.
+(defgeneric remove-attributes (atributes attributed)
+  (:method ((attributes list) (tuple tuple))
+    (let ((new-tuple (duplicate tuple)))
+      (loop for attr in attributes do (remd attr new-tuple))
+      new-tuple))
+  (:method ((attributes list) (r relation))
+    (make-relation (mapcar (lambda (x) (remove-attributes attributes x)) (tuples r)))))
+
+(defmacro remv (attributes attributed)
+  `(remove-attributes ',attributes ,attributed))
 
 (defun classify-set-elements (a b)
   ;; TODO: This can be optimized to make only a single pass over each set.
@@ -99,15 +129,17 @@
 	    (tuples a)
 	    :initial-value '())))
 
-(defgeneric join (a b)
+(defgeneric join- (a b)
   (:method ((a tuple) (b tuple))
     (%join a b))
   (:method ((a tuple) (b relation))
     (make-relation (%join a b)))
   (:method ((a relation) (b tuple))
-    (join b a))
+    (join- b a))
   (:method ((a relation) (b relation))
     (make-relation (%join a b))))
+
+(defun join (&rest things) (reduce #'join- things))
 
 (defgeneric duplicate (thing)
   (:method ((d tuple))
@@ -117,14 +149,17 @@
 
 (defgeneric rename-attributes (old-new-pairs attributed)
   (:method ((pairs list) (r relation))
-    (let ((new-relation (duplicate r)))
-      ;; TODO: This is inefficient. Relations should store their headings so they can be changed in one place.
-      ;; Or store a wrapper providing the rename changes.
-      (loop for dm in (tuples new-relation)
-	 do (loop for (old new) in pairs
-	       do (setf (getd new dm) (getd old dm))
-	       do (remd old dm)))
-      new-relation)))
+    (make-relation (mapcar (lambda (tuple) (rename-attributes pairs tuple))
+			   (tuples r))))
+  (:method ((pairs list) (tuple tuple))
+    (let ((new-tuple (make-tuple)))
+      (loop for attr in (attributes tuple)
+	 do (let ((pair (assoc attr pairs)))
+	      (cond (pair
+		     (setf (getd (cadr pair) new-tuple)
+			   (getd (car pair) tuple)))
+		    (t (setf (getd attr new-tuple) (getd attr tuple))))))
+      new-tuple)))
 
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
@@ -227,15 +262,48 @@
   (:method ((a t) (b signature)) (subsetp (signature-input b) (attributes a))) ;; FIXME: new superclass of types with attributes.
   )
 
+(defgeneric ensure-relation (potential-relation)
+  (:method ((r relation)) r)
+  (:method ((tuple tuple))
+    (make-relation (list tuple)))
+  (:method ((list list))
+    (check-type list (cons tuple)) ;; Not exhaustive, but a good sanity check.
+    (make-relation list)))
+
+(defgeneric combine-potential-relations (a b)
+  (:method ((a relation) (b relation))
+    ;; FIXME: Check that headings are compatible.
+    (make-relation (tuples a) (tuples b)))
+  (:method ((a tuple) (b tuple))
+    (make-relation (list a b)))
+  (:method ((a tuple) (b list))
+    (make-relation (cons a b)))
+  (:method ((a list) (b tuple))
+    (combine-potential-relations b a))
+  (:method ((a list) (b list))
+    ;; We assume aruguments to COMBINE-POTENTIAL-RELATIONS can be destructively modified.
+    (make-relation (nconc a b)))
+  (:method ((a tuple) (b relation))
+    ;; FIXME: Check that headings are compatible.
+    (make-relation (cons a (tuples b))))
+  (:method ((a relation) (b tuple))
+    (combine-potential-relations b a))
+  (:method ((a list) (b relation))
+    (make-relation (append a (tuples b))))
+  (:method ((a relation) (b list))
+    (combine-potential-relations b a)))
+
 ;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation tuple)
   (:method ((transformation transformation) (tuple tuple))
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple))
   (:method ((transformation transformation) (relation simple-relation))
-      (make-relation (mapcar (lambda (x) (apply-transformation transformation x))
-			     (tuples relation))))
+    (reduce #'combine-potential-relations
+	    (mapcar (lambda (tuple)
+		      (apply-transformation transformation tuple)) (tuples relation))))
   (:method ((list list) (tuple tuple))
+    (check-type list (cons transformation))
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
 	    list
@@ -246,7 +314,7 @@
     (funcall s tuple)))
 
 (defgeneric compose-signatures (a b)
-  ;; FIXME: Make type of TUPLE ensure signature.
+  ;; TODO: Make type of TUPLE ensure signature.
   (:method ((signature signature) (tuple tuple))
     (let ((attributes (attributes tuple)))
       (make-signature (union (signature-input signature) attributes)
@@ -300,7 +368,7 @@
 
 (defgeneric solve (system signature initial-data)
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
-  (:method ((system system) (signature signature) (initial-data t)) ;; FIXME: create and use common supertype for tuple and relation.
+  (:method ((system system) (signature signature) (initial-data t)) ;; TODO: create and use common supertype for tuple and relation.
     (let ((plan (plan system signature)))
       (and plan
 	   (satisfies-input-p initial-data signature)
@@ -318,24 +386,43 @@
     (plan system sig)))
 
 ;;; Syntax
+
+(defmacro !> (&rest elements)
+  `(%!> ,@(reverse elements)))
+
+;; Helper for !>
+(defmacro %!> (&rest elements)
+  (if (cdr elements)
+      `(,@(car elements) (%!> ,@(cdr elements)))
+      `(,@(car elements))))
+
 (defmacro sig ((&rest input) arrow (&rest output))
   (assert (eql arrow '->))
   `(make-signature ',input ',output))
 
-(defmacro transformation (((&rest input) arrow (&rest output)) eqmark implementation)
+(defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
   (assert (eql arrow '->))
-  (ecase eqmark
-    (= `(let ((sig (make-signature ',input ',output)))
-	   (make-instance 'transformation :signature sig :implementation (rlambda ,input ,output ,implementation))))
-    (== `(let ((sig (make-signature ',input ',output)))
-	   (make-instance 'transformation :signature sig :implementation (tlambda ,input ,output ,implementation))))
-    (=== `(let ((sig (make-signature ',input ',output)))
-	     (make-instance 'transformation :signature sig :implementation ,implementation)))))
+  (let ((input (process-input-list input-lambda-list)))
+    (ecase eqmark
+      (= `(let ((sig (make-signature ',input ',output)))
+	    (make-instance 'transformation :signature sig :implementation (rlambda ,input-lambda-list ,output ,implementation))))
+      (== `(let ((sig (make-signature ',input ',output)))
+	     (make-instance 'transformation :signature sig :implementation (tlambda ,input-lambda-list ,output ,implementation))))
+      (=== `(let ((sig (make-signature ',input ',output)))
+	      (make-instance 'transformation :signature sig :implementation ,implementation))))))
 
+;; Idea: encode the choice of transformation syntax in the arrow. e.g. -> vs =>, etc.
+;; Uses TLAMBDA
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (assert (eql arrow '->))
   `(eval-when (:load-toplevel :execute)
      (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
+
+;; Uses RLAMBDA
+(defmacro deftransformation= (name ((&rest input) arrow (&rest output)) &body implementation)
+  (assert (eql arrow '->))
+  `(eval-when (:load-toplevel :execute)
+     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) = (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))
@@ -376,21 +463,36 @@
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))
 
+(defun process-input-list (input)
+  (let* ((all-pos (position '&all input))
+	 (attrs (if all-pos
+		    (subseq input 0 all-pos)
+		    input))
+	 (all-var (when all-pos
+		    (nth (1+ all-pos) input))))
+    (values attrs all-var)))
+
+(test process-input-list
+  (multiple-value-bind (attrs all-var) (process-input-list '(a b c &all all))
+    (is (equal '(a b c) attrs))
+    (is (eql 'all all-var))))
+
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
 (defmacro tlambda ((&rest input) (&rest output) &body body)
-  (let ((tuple (gensym "TUPLE"))
-	(new-tuple (gensym "NEW-TUPLE"))
-	(out (gensym "OUTPUT")))
-    `(lambda (,tuple)
-       (symbol-macrolet
-	   (,@(loop for in in input
-		collect `(,in (getd ',in ,tuple))))
-	 (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
-	       (,out (multiple-value-list (progn ,@body))))	   
-	   ,@(loop for attribute in output
-		collect `(setf (getd ',attribute ,new-tuple) (pop ,out)))
-	   ,new-tuple)))))
+  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+    (let ((tuple (or all-var (gensym "TUPLE")))
+	  (new-tuple (gensym "NEW-TUPLE"))
+	  (out (gensym "OUTPUT")))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in input-attrs
+		   collect `(,in (getd ',in ,tuple))))
+	   (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
+		 (,out (multiple-value-list (progn ,@body))))	   
+	     ,@(loop for attribute in output
+		  collect `(setf (getd ',attribute ,new-tuple) (pop ,out)))
+	     ,new-tuple))))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
@@ -409,14 +511,23 @@
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a relation -- whose heading must be correct.
 (defmacro rlambda ((&rest input) (&rest output) &body body)
-  (let ((tuple (gensym "TUPLE"))
-	(out (gensym "OUTPUT"))
-	(supplied-pairs (gensym "PAIRS")))
-    `(lambda (,tuple)
-       (symbol-macrolet
-	   (,@(loop for in in input
-		collect `(,in (getd ',in ,tuple))))
-	 (progn ,@body)))))
+  (declare (ignore output))
+  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+    (let ((tuple (or all-var (gensym "TUPLE"))))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in input-attrs
+		   collect `(,in (getd ',in ,tuple))))
+	   (progn ,@body))))))
+
+#+(or)
+(test rlambda
+  "Test rlambda."
+  (apply-transformation (rlambda ((a b c &all tuple) (d))
+			    (relation (rename ((z q)) tuple)))
+			(relation (a b c z)
+				  (1 2 3 9)))
+  )
 
 (defun build-relation (from-pairs adding-attributes value-rows)
   (let ((tuples (loop for row in value-rows
@@ -434,8 +545,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
 
-(def-suite orient-suite :description "Test the orient package.")
-(in-suite orient-suite)
 (test orient-tests
   "General tests planning and solving."
   (let* ((d1 (tuple (a 2) (b 3) (c 4)))
@@ -483,7 +592,45 @@
     (is (same (solve s2 sig3 d1) (tuple (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")
     ))
 
-(test simple-bi-directional
+(test join
+  "Test join."
+  (is (same (join (tuple (a 1) (b 2) (c 3)) (tuple (b 2) (c 3) (d 4)))
+	    (tuple (a 1) (b 2) (c 3) (d 4))) "tuple-tuple join")
+
+  (is (same (join (tuple (a 1) (b 9) (c 3)) (tuple (b 2) (c 3) (d 4)))
+	    nil) "tuple-tuple join with no match")
+
+  (is (same (join (tuple (a 1) (b 2) (c 3)) (relation (b c d)
+						      (2 3 4)
+						      (22 33 44)))
+		  (relation (a b c d)
+			    (1 2 3 4))) "tuple-relation join")
+
+  (is (same (join (relation (a b c)
+			    (1 2 3)
+			    (1 22 33)
+			    (3 2 3))
+		  (relation (b c d)
+			    (2 3 4)
+			    (22 33 44)))
+	    (relation (a b c d)
+		      (1 2 3 4)
+		      (1 22 33 44)
+		      (3 2 3 4))) "tuple-relation join"))
+
+(test rename-tuple
+  "Test tuple renaming."
+  (is (same (rename ((a f)(b g))
+		    (tuple (a 1) (b 2) (c 3)))
+	    (tuple (f 1) (g 2) (c 3)))))
+
+(test rename-relation
+  "Test relation renaming."
+  (is (same (rename ((a f)(b g))
+		    (relation (a b c) (1 2 3)))
+	    (relation (f g c) (1 2 3)))))
+
+(test simple-bidirectional
   "Simple test of a bidirectional constraint."
   (let* ((d1 (tuple (a 1)))
 	 (d2 (tuple (b 10)))
@@ -492,6 +639,31 @@
 
 	 (t1 (transformation ((a) -> (b)) == (* a 5)))
 	 (t2 (transformation ((b) -> (a)) == (/ b 5)))
+
+	 ;; TODO: Simplify defining components like this 'constraint'.
+	 ;; TODO2: Represent it as a relation.
+	 ;; TODO3: Allow for planning through relations (consider signatures).
+	 (c1 (component (t1 t2)))
+
+	 (s1 (sys (c1))))
+    (is (same (solve-for s1 '(b) d1) d3))
+    (is (same (solve-for s1 '(a) d2) d4))))
+
+#+(or) ;; TODO: Make this work.
+(test expressive-bidirectional
+  "Simple test of a bidirectional constraint."
+  
+  (let* ((d1 (tuple (a 1)))
+	 (d2 (tuple (b 10)))
+	 (d3 (tuple (a 1) (b 5)))
+	 (d4 (tuple (a 2) (b 10)))
+
+	 (t1 (somesyntax (a b c) ==
+			 (c (* a b))
+			 (a (/ c b))
+			 (b (/ c a))))
+	 
+	 (t1 (transformation ((a) <-> (b)) == (times a b 5)))
 
 	 ;; TODO: Simplify defining components like this 'constraint'.
 	 ;; TODO2: Represent it as a relation.

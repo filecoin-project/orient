@@ -77,22 +77,33 @@
 	    hash-count
 	    proof-hash-length)))
 
-#+(or) ;; TODO: Implement a version of DEFTRANSFORMATION in which the implementation body returns a relation.
-(deftransformation select-merkle-hash-function
-    ((merkle-hash-function-name hash-functions) -> (merkle-hash-function-constraints merkle-hash-function-time))
-  (rename ((hash-function-time merkle-hash-function-time)
-	   (hash-function-constraints merkle-hash-function-constraints))
-	  (join (tuple (hash-function-name merkle-hash-function-name))
-		hash-functions)))
+
+(deftransformation= select-merkle-hash-function
+    ((merkle-hash-function-name hash-functions &all tuple) -> (merkle-hash-function-constraints merkle-hash-function-time))
+  (!> (join tuple (tuple (hash-function-name merkle-hash-function-name)) hash-functions)
+      (remv (hash-function-name))
+      (rename ((hash-function-time merkle-hash-function-time)
+	       (hash-function-constraints merkle-hash-function-constraints)))))
+
+#|
+Incremental previous attempts.
 
 (deftransformation select-merkle-hash-function
     ((merkle-hash-function-name hash-functions) -> (merkle-hash-function-constraints merkle-hash-function-time))
   (let* ((d (tuple (hash-function-name merkle-hash-function-name)))
 	 (r (join d hash-functions))
-	 (q (first (tuples r))))
+	 (q (first (tuples r))) ;; This should extract a guaranteed single tuple from a relationship cardinality 1. TODO: add that operator.
+	 )
     (values (getd 'hash-function-constraints q) (getd 'hash-function-time q))))
 
-(defparameter *sss* (sys ((component (select-merkle-hash-function)))))
+(deftransformation= select-merkle-hash-function
+    ((merkle-hash-function-name hash-functions &all tuple) -> (merkle-hash-function-constraints merkle-hash-function-time))
+  (rename ((hash-function-time merkle-hash-function-time)
+	   (hash-function-constraints merkle-hash-function-constraints))
+	  (remv (hash-function-name)
+		(join tuple (tuple (hash-function-name merkle-hash-function-name)) hash-functions))))
+
+|#
 
 (defparameter *system* (sys ((component (merkle-trees select-merkle-hash-function)))))
 
@@ -101,26 +112,28 @@
 
 (test defaults-test
   "Test and assert results of solving with defaults."
-  (let ((result (solve-for *system* '(merkle-tree-leaves merkle-tree-height merkle-tree-hash-count merkle-hash-function-time merkle-hash-function-constraints) *defaults*)))
-    (let ((expected (tuple (INVESTMENT 100000)
-			      (COMPARABLE-MONTHLY-INCOME 50000)
-			      (SEAL-COST 10)
-			      (PEDERSEN-HASH-SECONDS 1.7993e-5)
-			      (PEDERSEN-HASH-CONSTRAINTS 1152)
-			      (BLAKE-HASH-SECONDS 1.6055e-7)
-			      (BLAKE-HASH-CONSTRAINTS 10324)
-			      (SECTOR-SIZE 1073741824)
-			      (HASH-FUNCTIONS (RELATION (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS)
-							(:PEDERSEN 0.000017993 1152)
-							(:BLAKE2S 1.6055e-7 10324)))
-			      (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-			      (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-			      (MERKLE-HASH-FUNCTION-TIME 0.000017993)
-			      (MERKLE-TREE-LEAVES 33554432)
-			      (MERKLE-TREE-HEIGHT 25)
-			      (MERKLE-TREE-HASH-COUNT 33554431)
-			      (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))
-      (is (same result expected)))))
+  (let ((result (solve-for *system* '(merkle-tree-leaves merkle-tree-height merkle-tree-hash-count merkle-hash-function-time merkle-hash-function-constraints) *defaults*))
+	(expected (make-relation (list (tuple (INVESTMENT 100000)
+					      (COMPARABLE-MONTHLY-INCOME 50000)
+					      (SEAL-COST 10)
+					      (PEDERSEN-HASH-SECONDS 1.7993e-5)
+					      (PEDERSEN-HASH-CONSTRAINTS 1152)
+					      (BLAKE-HASH-SECONDS 1.6055e-7)
+					      (BLAKE-HASH-CONSTRAINTS 10324)
+					      (SECTOR-SIZE 1073741824)
+					      (HASH-FUNCTIONS (RELATION (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS)
+									(:PEDERSEN 0.000017993 1152)
+									(:BLAKE2S 1.6055e-7 10324)))
+					      (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
+					      (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
+					      (MERKLE-HASH-FUNCTION-TIME 0.000017993)
+					      (MERKLE-TREE-LEAVES 33554432)
+					      (MERKLE-TREE-HEIGHT 25)
+					      (MERKLE-TREE-HASH-COUNT 33554431)
+					      (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))))
+    (setq asdf result)
+    (setq fdsa expected)
+    (is (same expected result))))
 
 #|
 (run! 'filecoin-suite)
