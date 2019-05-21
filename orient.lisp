@@ -1,10 +1,11 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :deftransformation=
+  (:export :apply-transformation :ask :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :deftransformation=
 	   :tref :join :make-relation
 	   :make-signature
 	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :same
-	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :tpl :transformation
+	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :system-data
+	   :tpl :transformation
 	   :where :-> :=== :== &all !>))
 
 (in-package "ORIENT")
@@ -359,6 +360,22 @@
 		(restrict (tfn (b) (= b 5))
 			  (rel (a b c) (1 2 3) (4 5 6) (7 8 9))))))
 
+(defgeneric project (attributes attributed)
+  (:method ((attributes list) (tuple tuple))
+    (make-tuple (remove-if-not (lambda (attribute) (member attribute attributes)) (tuple-pairs tuple) :key #'car)))
+  (:method ((attributes list) (relation relation))
+    (make-relation (mapcar (lambda (tuple) (project attributes tuple)) (tuples relation)))))
+
+(test project-tuple "Test PROJECT on tuple."
+      (is (same (tuple (b 2) (c 3))
+		(project '(b c) (tuple (a 1) (b 2) (c 3))))))
+
+(test project-relation "Test PROJECT on relation."
+      (is (same (relation (b c) (2 3))
+		(project '(b c) (relation (a b c)
+					  (1 2 3)
+					  (9 2 3))))))
+
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
    (description :initarg :description :accessor parameter-description)
@@ -421,7 +438,8 @@
 
 (defclass system ()
   ((schema :initarg :schema :initform nil :accessor system-schema)
-   (components :initarg :components :initform '() :accessor system-components)))
+   (components :initarg :components :initform '() :accessor system-components)
+   (data :initarg :data :initform '() :accessor system-data)))
 
 (defmethod print-object ((sys system) (stream t))
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
@@ -593,23 +611,34 @@
       (values (first all-plans)
 	      *plan-profile*))))
 
-(defgeneric solve (system signature initial-data)
+(defmethod defaulted-initial-data ((system system) (provided t))
+  ;; TODO: allow merging of provided data.
+  (or provided
+      (and (system-data system)
+	   (apply #'join (system-data system)))))
+
+(defgeneric solve (system signature &optional initial-data)
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
-  (:method ((system system) (signature signature) (initial-data t)) ;; TODO: create and use common supertype for tuple and relation.
+  (:method ((system system) (signature signature)  &optional initial-data) ;; TODO: create and use common supertype for tuple and relation.
     (let ((plan (plan system signature)))
       (and plan
 	   (satisfies-input-p initial-data signature)
 	   (reduce (lambda (tuple-or-relation transformation)
 		     (apply-transformation transformation tuple-or-relation))
 		   plan
-		   :initial-value initial-data)))))
+		   :initial-value (defaulted-initial-data system initial-data))))))
 
-(defun solve-for (system output initial-data)
-  (let ((sig (make-signature (attributes initial-data) output)))
-    (solve system sig initial-data)))
+(defun solve-for (system output &optional initial-data)
+  (let* ((defaulted (defaulted-initial-data system initial-data))
+	 (sig (make-signature (attributes defaulted) output)))
+    (solve system sig defaulted)))
 
-(defun plan-for (system output initial-data)
-  (let ((sig (make-signature (attributes initial-data) output)))
+(defun ask (system output &optional initial-data)
+  "Like solve-for but only returns the requested attributes in response tuple."
+  (project output (solve-for system output initial-data)))
+
+(defun plan-for (system output &optional initial-data)
+  (let ((sig (make-signature (attributes (defaulted-initial-data system initial-data)) output)))
     (plan system sig)))
 
 (defun build-relation (from-pairs adding-attributes value-rows)
