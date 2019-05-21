@@ -134,6 +134,26 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	    (float annual-TiB) (float monthly-TiB) (float daily-TiB) (float hourly-TiB) (float hourly-GiB)
 	    (float up-front-drive-cost) (float up-front-compute-cost) (float total-up-front-cost) (float seal-cost))))
 
+
+;; TODO: How we want to express PERFORMANCE-A from above:
+
+#+(or)
+(defconstraint-system performance-constraint-system
+    ((aws-price-TiB-year (* aws-storage-price 12))
+     (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
+     (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
+     (daily-TiB (/ monthly-TiB (/ 365 12)))
+     (hourly-TiB (/ daily-Tib 24))
+     (hourly-GiB (* hourly-TiB 1024))
+     (up-front-drive-cost (* TiB-drive-cost annual-TiB))
+     (cycles-per-hour (* hourly-GiB GiB-replication-cycles))
+     (cycles-per-minute (* cycles-per-hour 60))
+     (cycles-per-second (* cycles-per-minute 60))
+     (needed-ghz (/ cycles-per-second 1e9))
+     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+     (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
+     (seal-cost (/ total-up-front-cost hourly-GiB))))
+
 (defun performance-system ()
   (make-instance 'system
 		 :components (list (component (performance-a)))

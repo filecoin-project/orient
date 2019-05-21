@@ -1,11 +1,12 @@
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :ask :attributes :component :tuple :tuples :tuple-pairs :defschema :deftransformation :deftransformation=
+  (:export :apply-transformation :ask :attributes :component :defconstraint-system :tuple :tuples :tuple-pairs :defschema :deftransformation
+	   :deftransformation=
 	   :tref :join :make-relation
 	   :make-signature
 	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :same
 	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :system-data
-	   :tpl :transformation
+	   :tpl :transformation 
 	   :where :-> :=== :== &all !>))
 
 (in-package "ORIENT")
@@ -32,7 +33,9 @@
 
 (defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
   (assert (eql arrow '->))
-  (let ((input (process-input-list input-lambda-list)))
+  (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
+	 (output (remove-if-not #'symbolp output))
+	 (input (process-input-list input-lambda-list)))
     (ecase eqmark
       (= `(let ((sig (make-signature ',input ',output)))
 	    (make-instance 'transformation :signature sig :implementation (rlambda ,input-lambda-list ,output ,implementation))))
@@ -111,6 +114,156 @@
 
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))
+ 
+(defmacro defconstraint-system (name constraint-definitions)
+  `(eval-when (:load-toplevel :execute)
+     (defparameter ,name (constraint-system ,constraint-definitions))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Constraints
+
+(defmacro constraint-system (constraint-definitions)
+  `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))
+
+(defun expand-constraint-definitions (constraint-definitions)
+  `(list ,@(mapcar (lambda (constraint-form) (apply #'expand-constraint-definition constraint-form)) constraint-definitions)))
+
+(deftype multiplication-constraint-form () `(cons (eql *)))
+(deftype division-constraint-form () `(cons (eql /)))
+(deftype addition-constraint-form () `(cons (eql +)))
+(deftype subtraction-constraint-form () `(cons (eql -)))
+
+;; Only handles binary constraints, for now.
+(defun expand-constraint-definition (name constraint-form)
+  (etypecase constraint-form
+    (multiplication-constraint-form
+     (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (division-constraint-form
+     (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (addition-constraint-form
+     (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (subtraction-constraint-form
+     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))))
+
+(defun expand-multiplication-constraint (product a b)
+  "PRODUCT = A * B"
+  `(component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
+	       (transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
+	       (transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
+
+(defun expand-division-constraint (quotient dividend divisor)
+  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
+  (expand-multiplication-constraint dividend quotient divisor))
+
+(defun expand-addition-constraint (sum  a b)
+  "SUM = A + B"
+  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
+	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
+	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
+
+(defun expand-subtraction-constraint (difference minuend subtrahend)
+  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
+  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
+
+(test two-multiplication-constraints
+  "Test CONSTRAINT-SYSTEM with two multiplication contraints."
+  (let* ((system (constraint-system
+		 ((c (* a b))
+		  (d (* a c)))))
+	 (satsifying-assignment (tuple (a 3) (b 2) (c 6) (d 18))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(a b) (tuple (c 6) (d 18)))))    
+    (is (same satsifying-assignment
+	      (solve-for system '(a d) (tuple (b 2) (c 6)))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(b c) (tuple (a 3) (d 18)))))
+    (is (same satsifying-assignment
+	      (solve-for system '(b d) (tuple (a 3) (c 6)))))
+    
+    (is (same satsifying-assignment
+	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
+
+    ;; This one can't (currently) be solved.
+    (is (same nil 
+	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
+
+(test division-constraint
+  "Test CONSTRAINT-SYSTEM with a division constraint."
+  (let* ((system (constraint-system ((z (/ x y)))))
+	 (satisfying-assignment (tuple (z 3) (x 12) (y 4))))
+    (is (same satisfying-assignment
+	      (solve-for system '(z) (tuple (x 12) (y 4)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(x) (tuple (y 4) (z 3)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(y) (tuple (x 12) (z 3)))))))
+
+(test two-addition-constraints
+  "Test CONSTRAINT-SYSTEM with two addition contraints."
+  (let* ((system (constraint-system
+		 ((c (+ a b))
+		  (d (+ a c)))))
+	 (satsifying-assignment (tuple (a 3) (b 2) (c 5) (d 8))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(a b) (tuple (c 5) (d 8)))))    
+    (is (same satsifying-assignment
+	      (solve-for system '(a d) (tuple (b 2) (c 5)))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(b c) (tuple (a 3) (d 8)))))
+    (is (same satsifying-assignment
+	      (solve-for system '(b d) (tuple (a 3) (c 5)))))
+    
+    (is (same satsifying-assignment
+	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
+
+    ;; This one can't (currently) be solved.
+    (is (same nil 
+	      (solve-for system '(a c) (tuple (b 2) (d 8)))))))
+
+(test subtraction-constraint
+  "Test CONSTRAINT-SYSTEM with a division constraint."
+  (let* ((system (constraint-system ((z (- x y)))))
+	 (satisfying-assignment (tuple (z 8) (x 12) (y 4))))
+    (is (same satisfying-assignment
+	      (solve-for system '(z) (tuple (x 12) (y 4)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(x) (tuple (y 4) (z 8)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
+
+(test constraint-constants
+  "Test CONSTRAINT-SYSTEM with some constants."
+  (let* ((system (constraint-system ((c (+ a 2)))))
+	 (satisfying-assignment (tuple (a 3) (c 5))))
+
+    (is (same satisfying-assignment
+	      (solve-for system '(a) (tuple (c 5)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(c) (tuple (a 3)))))))
+
+#|
+(defconstraint-system performance-b
+    ((aws-price-TiB-year (* aws-storage-price 12))
+     (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
+     (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
+     (daily-TiB (/ monthly-TiB (/ 365 12)))
+     (hourly-TiB (/ daily-Tib 24))
+     (hourly-GiB (* hourly-TiB 1024))
+     (up-front-drive-cost (* TiB-drive-cost annual-TiB))
+     (cycles-per-hour (* hourly-GiB GiB-replication-cycles))
+     (cycles-per-minute (* cycles-per-hour 60))
+     (cycles-per-second (* cycles-per-minute 60))
+     (needed-ghz (/ cycles-per-second 1e9))
+     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+     (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
+     (seal-cost (/ total-up-front-cost hourly-GiB))))
+|#
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
