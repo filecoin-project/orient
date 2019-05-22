@@ -96,16 +96,16 @@
 (defmacro relation ((&rest attributes) &rest tuple-values)
   `(make-relation (list ,@(loop for values in tuple-values
 			     collect `(make-tuple (list ,@(loop for attribute in attributes
-								for value in values
-								collect `(list ',attribute ,value))))))))
+							     for value in values
+							     collect `(list ',attribute ,value))))))))
 
 ;; Make a tuple.
 ;; Example: (tuple (a 1) (b 2) (c 3))
 (defmacro tuple (&rest parameters)
   `(make-tuple (list ,@(mapcar (lambda (param)
-				    (destructuring-bind (attribute value) param
-					`(list ',attribute ,value)))
-				  parameters))))
+				 (destructuring-bind (attribute value) param
+				   `(list ',attribute ,value)))
+			       parameters))))
 
 ;; Make a relation. Shorthand for RELATION
 ;; Example: (rel (a b c) (1 2 3) (4 5 6))
@@ -116,20 +116,8 @@
 ;; Example: (tpl (a b c) 1 2 3)
 (defmacro tpl ((&rest attributes) &rest values)
   `(make-tuple (list ,@(loop for attribute in attributes
-			     for value in values
+			  for value in values
 			  collect `(list ',attribute ,value)))))
-
-(defmacro where (((&rest tuple-lambda-list) &body body) relation-form)
-  `(restrict (tfn (,@tuple-lambda-list) ,@body) ,relation-form))
-
-(test where "Test WHERE macro."
-      (is (same (rel (a b c)
-		     (4 5 6))
-		(where ((b) (= b 5))
-		       (rel (a b c)
-			    (1 2 3)
-			    (4 5 6)
-			    (7 8 9))))))
 
 (defmacro defschema (name description &rest parameters)
   `(defparameter ,name
@@ -142,17 +130,16 @@
 
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))
- 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Constraints
+
 (defmacro defconstraint-system (name constraint-definitions &key schema)  
   `(eval-when (:load-toplevel :execute)
      (let ((system (constraint-system ,constraint-definitions)))
        (when ,schema
 	 (setf (system-schema system) ,schema))
        (defparameter ,name system))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Constraints
 
 (defmacro constraint-system (constraint-definitions)
   `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))
@@ -200,8 +187,8 @@
 (test two-multiplication-constraints
   "Test CONSTRAINT-SYSTEM with two multiplication contraints."
   (let* ((system (constraint-system
-		 ((c (* a b))
-		  (d (* a c)))))
+		  ((c (* a b))
+		   (d (* a c)))))
 	 (satsifying-assignment (tuple (a 3) (b 2) (c 6) (d 18))))
 
     (is (same satsifying-assignment
@@ -235,8 +222,8 @@
 (test two-addition-constraints
   "Test CONSTRAINT-SYSTEM with two addition contraints."
   (let* ((system (constraint-system
-		 ((c (+ a b))
-		  (d (+ a c)))))
+		  ((c (+ a b))
+		   (d (+ a c)))))
 	 (satsifying-assignment (tuple (a 3) (b 2) (c 5) (d 8))))
 
     (is (same satsifying-assignment
@@ -323,7 +310,7 @@
 	     (,@(loop for in in attrs
 		   collect `(,in (tref ',in ,tuple))))
 	   ,@body)))))
-	   
+
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
 (defmacro tlambda ((&rest input) (&rest output) &body body)
@@ -350,7 +337,7 @@
     `(lambda (,tuple)
        (symbol-macrolet
 	   (,@(loop for in in input
-		collect `(,in (tref ',in ,tuple))))
+		 collect `(,in (tref ',in ,tuple))))
 	 (let ((,out (progn ,@body))
 	       (,supplied-pairs (tuple-pairs ,tuple)))
 	   (build-relation ,supplied-pairs ',output ,out))))))
@@ -375,6 +362,18 @@
 			(relation (a b c z)
 				  (1 2 3 9)))
   )
+
+(defmacro where (((&rest tuple-lambda-list) &body body) relation-form)
+  `(restrict (tfn (,@tuple-lambda-list) ,@body) ,relation-form))
+
+(test where "Test WHERE macro."
+      (is (same (rel (a b c)
+		     (4 5 6))
+		(where ((b) (= b 5))
+		       (rel (a b c)
+			    (1 2 3)
+			    (4 5 6)
+			    (7 8 9))))))
 
 (defmacro rename ((&rest pairs) attributed)
   `(rename-attributes ',pairs ,attributed))
@@ -632,11 +631,11 @@
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
 
 5(defgeneric lookup (attribute schemable)
-  (:method ((attribute symbol) (schema schema))
-    (find attribute (schema-parameters schema) :key #'parameter-name))
-  (:method ((attribute symbol) (system system))
-    (when (system-schema system)
-      (lookup attribute (system-schema system)))))
+   (:method ((attribute symbol) (schema schema))
+     (find attribute (schema-parameters schema) :key #'parameter-name))
+   (:method ((attribute symbol) (system system))
+     (when (system-schema system)
+       (lookup attribute (system-schema system)))))
 
 (defun lookup-description (attribute schemable)
   (let ((parameter (lookup attribute schemable)))
@@ -822,7 +821,7 @@
 			     ;; If we want to only return one plan, we could shortcut and return on first non-NIL result here.
 			     (lambda (component)
 			       (%plan-backward (remove component component-list) ;; Each component can only be used once.
-				      component signature plan))
+					       component signature plan))
 			     ordering)))))
   (:method ((component-list list) (selector (eql :component-list)) (signature signature) (plan list))
     (let* ((candidates (remove-if-not (lambda (c) (component-provides-p signature c)) component-list))
@@ -831,7 +830,7 @@
 	(loop for ordering in all-candidate-orderings
 	   do (loop for component in ordering
 		 for maybe-plan = (%plan-backward (remove component component-list) ;; Each component can only be used once.
-					 component signature plan)
+						  component signature plan)
 		 ;; short-circuit after first complete plan is returned.
 		 when maybe-plan
 		 do (return-from %plan-backward maybe-plan))))))
@@ -882,16 +881,16 @@
   (:method ((component-list list) (selector (eql :component-list)) (signature signature) (plan list))
     (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))
 	   (all-candidate-orderings (permutations candidates)))
-    (debug-plan :signature signature :component-list component-list :candidates candidates)
+      (debug-plan :signature signature :component-list component-list :candidates candidates)
       (if candidates
-	(loop for ordering in all-candidate-orderings
-	   do (loop for component in ordering
-		 for maybe-plan = (%plan (remove component component-list) ;; Each component can only be used once.
-					 component signature plan)
-		 ;; short-circuit after first complete plan is returned.
-		 when maybe-plan
-		 do (return-from %plan maybe-plan)))
-	plan)))  
+	  (loop for ordering in all-candidate-orderings
+	     do (loop for component in ordering
+		   for maybe-plan = (%plan (remove component component-list) ;; Each component can only be used once.
+					   component signature plan)
+		   ;; short-circuit after first complete plan is returned.
+		   when maybe-plan
+		   do (return-from %plan maybe-plan)))
+	  plan)))  
   (:method ((system system) (start (eql :system)) (signature signature) (plan list))
     ;; If the final pipeline doesn't satisfy SIGNATURE's output, PLAN is no good.
     (let* ((plan (reverse (%plan (system-components system) :component-list signature plan)))
@@ -1017,7 +1016,7 @@
 
     (cond (tuple (setf (tref attribute tuple) value))
 	  (t  ;(push (tuple (attribute value)) (system-data *current-construction*))
-	      ))))
+	   ))))
 
 (defgeneric solve (system signature &optional initial-data &key)
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
@@ -1094,11 +1093,11 @@
 
 (defun build-relation (from-pairs adding-attributes value-rows)
   (let ((tuples (loop for row in value-rows
-		      collect (let ((base (make-tuple from-pairs)))
-				(loop for attr in adding-attributes
-				   for val in row
-				   do (setf (tref attr base) val))
-				base))))
+		   collect (let ((base (make-tuple from-pairs)))
+			     (loop for attr in adding-attributes
+				for val in row
+				do (setf (tref attr base) val))
+			     base))))
     (make-relation tuples)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1112,7 +1111,7 @@
 	 (d3 (tuple (x 5) (y 6) (z 7)))
 	 (d4 (tuple (a 1) (b 2) (c 3)))
 
-	 ;; 2(r1 (make-relation (list d1 d4)))
+	 ;; (r1 (make-relation (list d1 d4)))
 	 ;; (r2 (make-relation (list d2)))
 	 ;; (r3 (make-relation (list d3)))
 
@@ -1172,8 +1171,8 @@
   (is (same (join (tuple (a 1) (b 2) (c 3)) (relation (b c d)
 						      (2 3 4)
 						      (22 33 44)))
-		  (relation (a b c d)
-			    (1 2 3 4))) "tuple-relation join")
+	    (relation (a b c d)
+		      (1 2 3 4))) "tuple-relation join")
 
   (is (same (join (relation (a b c)
 			    (1 2 3)
@@ -1242,7 +1241,7 @@
 	 (s1 (sys (c1))))
     (is (same (solve-for s1 '(b) d1) d3))
     (is (same (solve-for s1 '(a) d2) d4))))
-    
+
 
 (test planning-terminates
   "Regression test for infinite stack bug."
@@ -1261,6 +1260,6 @@
 
 (plan s2 sig2) => (((TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                         ; *transformations-tried* 3
 
-(plan s2 sig3) => ((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)
-		   (TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                          ; *transformations-tried* 6
-|#
+		   (plan s2 sig3) => ((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)
+				      (TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                          ; *transformations-tried* 6
+		   |#
