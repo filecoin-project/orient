@@ -63,30 +63,6 @@
 
    (sector-size (* 1 GiB))))
 
-(defschema filecoin-price-performance
-    "Filecoin price performance."
-  (investment "Dollar cost of infrastructure purchase required to mine at scale.")
-  (comparable-monthly-income "Expected dollar income for selling storage equivalent to what can be sealed for `investment`.")
-  (seal-cost "Dollar cost of investment required to seal one GiB in one hour at scale.")
-  (aws-storage-price "Dollar cost of one TiB storage from AWS S3 for one month.")
-  (miner-months-to-capacity "Months it should take a miner to reach full storage capacity.")
-  (roi-interval-months "Months over which a miner should see return on investment.")
-
-  (annual-TiB "Amount of storage, in TiB, which must be brought online per year."))
-
-(defparameter *performance-defaults*
-  (tuple
-   (investment 100000)
-   (comparable-monthly-income 50000)
-   (seal-cost 10)
-   (aws-storage-price 23)
-   (miner-months-to-capacity 3)
-   (roi-interval-months 6)
-   (TiB-drive-cost 300)
-   (cpu-ghz-cost 10) ;; FIXME: Get a better starter value.
-   (GiB-replication-cycles (* 13000 4300))
-   ))
-
 #|
 From Übercalc Compoments document:
 
@@ -111,11 +87,11 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 
 |#
 
-(deftransformation performance-a ((aws-storage-price comparable-monthly-income miner-months-to-capacity TiB-drive-cost seal-cost
-						     cpu-ghz-cost GiB-replication-cycles)
+(deftransformation performance ((aws-storage-price comparable-monthly-income miner-months-to-capacity TiB-drive-cost
+						   cpu-ghz-cost GiB-replication-cycles)
 				  ->
-				  (aws-price-TiB-year annual-TiB monthly-TiB daily-TiB hourly-TiB hourly-GiB up-front-drive-cost
-						      up-front-compute-cost total-up-front-cost seal-cost))
+				(aws-price-TiB-year annual-TiB monthly-TiB daily-TiB hourly-TiB hourly-GiB up-front-drive-cost
+						    up-front-compute-cost total-up-front-cost seal-cost))
   (let* ((aws-price-TiB-year (* aws-storage-price 12))
 	 (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
 	 (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
@@ -123,10 +99,11 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	 (hourly-TiB (/ daily-Tib 24))
 	 (hourly-GiB (* hourly-TiB 1024))
 	 (up-front-drive-cost (* TiB-drive-cost annual-TiB))
-	 (cycles-per-hour (* hourly-GiB GiB-replication-cycles))
-	 (cycles-per-minute (* cycles-per-hour 60))
-	 (cycles-per-second (* cycles-per-minute 60))
-	 (needed-ghz (/ cycles-per-second 1e9))
+
+	 (replication-cycles-per-hour (* hourly-GiB GiB-replication-cycles))
+	 (replication-cycles-per-minute (* replication-cycles-per-hour 60))
+	 (replication-cycles-per-second (* replication-cycles-per-minute 60))
+	 (needed-ghz (/ replication-cycles-per-second 1e9))
 	 (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
 	 (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
 	 (seal-cost (/ total-up-front-cost hourly-GiB)))
@@ -134,29 +111,78 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	    (float annual-TiB) (float monthly-TiB) (float daily-TiB) (float hourly-TiB) (float hourly-GiB)
 	    (float up-front-drive-cost) (float up-front-compute-cost) (float total-up-front-cost) (float seal-cost))))
 
+(defschema filecoin-price-performance
+    "Filecoin price performance."
+  (aws-price-TiB-year  "Dollar cost of one TiB storage from AWS S3 for one year.")
+  (investment "Dollar cost of infrastructure purchase required to mine at scale.")
+  (comparable-monthly-income "Expected dollar income for selling storage equivalent to what can be sealed for `investment`.")
+  (seal-cost "Dollar cost of investment required to seal one GiB in one hour at scale.")
+  (aws-storage-price "Dollar cost of one TiB storage from AWS S3 for one month.")
+  (miner-months-to-capacity "Months it should take a miner to reach full storage capacity.")
+  (roi-interval-months "Months over which a miner should see return on investment.")
 
-;; TODO: How we want to express PERFORMANCE-A from above:
+  (annual-TiB "Amount of storage, in TiB, which must be brought online per year.")
+  (monthly-TiB "Amount of storage, in TiB, which must be brought online per month.")
+  (daily-TiB "Amount of storage, in TiB, which must be brought online per day.")
+  (hourly-TiB "Amount of storage, in TiB, which must be brought online per hour.")
+  (hourly-GiB "Amount of storage, in GiB, which must be brought online per hour.")
 
-#+(or)
+  (replication-cycles-per-hour "CPU cycles required to replicate at required rate for one hour.")
+  (replication-cycles-per-minute "CPU cycles required to replicate at required rate for one minute.")
+  (replication-cycles-per-second "CPU cycles required to replicate at required rate for one second.")
+  (GiB-replication-cycles "Total CPU cycles required to replicate 1 GiB.")
+  (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
+  (up-front-drive-cost "Dollar cost of hard drives required to generate MONTHLY-INCOME.")
+  (up-front-compute-cost "Dollar cost of investment needed to purchase sufficient compute power to generate MONTHLY-INCOME.")
+  (total-up-front-cost "Total dollar cost of investment needed to generate MONTHLY-INCOME."))
+
 (defconstraint-system performance-constraint-system
     ((aws-price-TiB-year (* aws-storage-price 12))
      (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
-     (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
+     (monthly-TiB (/ annual-TiB miner-months-to-capacity))
      (daily-TiB (/ monthly-TiB (/ 365 12)))
      (hourly-TiB (/ daily-Tib 24))
      (hourly-GiB (* hourly-TiB 1024))
      (up-front-drive-cost (* TiB-drive-cost annual-TiB))
-     (cycles-per-hour (* hourly-GiB GiB-replication-cycles))
-     (cycles-per-minute (* cycles-per-hour 60))
-     (cycles-per-second (* cycles-per-minute 60))
-     (needed-ghz (/ cycles-per-second 1e9))
-     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+     (replication-cycles-per-hour (* hourly-GiB GiB-replication-cycles))
+     (replication-cycles-per-minute (* replication-cycles-per-hour 60))
+     (replication-cycles-per-second (* replication-cycles-per-minute 60))
+     (needed-ghz (/ replication-cycles-per-second 1e9))
      (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
-     (seal-cost (/ total-up-front-cost hourly-GiB))))
+     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+     (seal-cost (/ total-up-front-cost hourly-GiB)))
+  :schema filecoin-price-performance)
+
+(defparameter *performance-defaults*
+  (tuple
+   (investment 100000.0)
+   (comparable-monthly-income 50000.0)
+;   (seal-cost 10) ;; We should derive this or reject/refine it.
+   (aws-storage-price 23.0)
+   (miner-months-to-capacity 3)
+   (roi-interval-months 6)
+   (TiB-drive-cost 300.0)
+   (cpu-ghz-cost 10.0)
+   (GiB-replication-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
+   ))
+
+(defparameter *alt-performance-defaults*
+  (tuple
+   (investment 100000.0)
+   (comparable-monthly-income 50000.0)
+   (seal-cost 661.7256) ;; Here, use the previously calculated value and try to calculate something else (GiB-replication-cycles) backward.
+   ;;(seal-cost 640)
+   (aws-storage-price 23.0)
+   (miner-months-to-capacity 3)
+   (roi-interval-months 6)
+   (TiB-drive-cost 300.0)
+   (cpu-ghz-cost 10.0)
+;   (GiB-replication-cycles (* 13000 4300))
+   ))
 
 (defun performance-system ()
   (make-instance 'system
-		 :components (list (component (performance-a)))
+		 :components (list (component (performance)))
 		 :schema filecoin-price-performance
 		 :data (list *performance-defaults*)))
 
@@ -164,6 +190,8 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 (solve-for (performance-system) '(aws-price-TiB-year))
 
 (ask (performance-system) '(aws-price-TiB-year annual-TiB))
+
+(ask (performance-system) '(seal-cost))
 
 
 |#
@@ -240,41 +268,57 @@ Incremental previous attempts.
 						merkle-hash-function-constraints)
 			    initial-relation))
 	 (expected
-	  (tuple
-	   (PEDERSEN-HASH-SECONDS 1.7993e-5)
-	   (PEDERSEN-HASH-CONSTRAINTS 1152)
-	   (BLAKE-HASH-SECONDS 1.6055e-7)
-	   (BLAKE-HASH-CONSTRAINTS 10324)
-	   (SECTOR-SIZE 1073741824)
-	   (HASH-FUNCTION-NAME :PEDERSEN)
-	   (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-	   (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-	   (MERKLE-HASH-FUNCTION-TIME 0.000017993)
-	   (HASH-FUNCTION-CONSTRAINTS 1152)
-	   (HASH-FUNCTION-TIME 0.000017993)
-	   (MERKLE-TREE-LEAVES 33554432)
-	   (MERKLE-TREE-HEIGHT 25)
-	   (MERKLE-TREE-HASH-COUNT 33554431)
-	   (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))
+	  (make-relation
+	   (list
+	    (tuple
+	     (PEDERSEN-HASH-SECONDS 1.7993e-5)
+	     (PEDERSEN-HASH-CONSTRAINTS 1152)
+	     (BLAKE-HASH-SECONDS 1.6055e-7)
+	     (BLAKE-HASH-CONSTRAINTS 10324)
+	     (SECTOR-SIZE 1073741824)
+	     (HASH-FUNCTION-NAME :PEDERSEN)
+	     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
+	     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
+	     (MERKLE-HASH-FUNCTION-TIME 0.000017993)
+	     (HASH-FUNCTION-CONSTRAINTS 1152)
+	     (HASH-FUNCTION-TIME 0.000017993)
+	     (MERKLE-TREE-LEAVES 33554432)
+	     (MERKLE-TREE-HEIGHT 25)
+	     (MERKLE-TREE-HASH-COUNT 33554431)
+	     (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))))
     (is (same expected result))))
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
   (let ((result (solve-for (performance-system) '(seal-cost)))
-	(expected (tuple  (ANNUAL-TIB 181.15942) (AWS-PRICE-TIB-YEAR 276) (AWS-STORAGE-PRICE 23)
-			  (COMPARABLE-MONTHLY-INCOME 50000) (CPU-GHZ-COST 10)
-			  (DAILY-TIB 1.9853088) (GIB-REPLICATION-CYCLES 55900000)
-			  (HOURLY-GIB 84.706505) (HOURLY-TIB 0.082721196) (INVESTMENT 100000)
-			  (MINER-MONTHS-TO-CAPACITY 3) (MONTHLY-TIB 60.386475)
-			  (ROI-INTERVAL-MONTHS 6) (SEAL-COST 661.7255) (TIB-DRIVE-COST 300)
-			  (TOTAL-UP-FRONT-COST 56052.457) (UP-FRONT-COMPUTE-COST 1704.6338)
-			  (UP-FRONT-DRIVE-COST 54347.824))))
+	(expected (tuple (ANNUAL-TIB 181.15942) (AWS-PRICE-TIB-YEAR 276.0)
+			 (AWS-STORAGE-PRICE 23.0) (COMPARABLE-MONTHLY-INCOME 50000.0)
+			 (CPU-GHZ-COST 10.0) (DAILY-TIB 1.9853088)
+			 (GIB-REPLICATION-CYCLES 5.59e7) (HOURLY-GIB 84.706505)
+			 (HOURLY-TIB 0.082721196) (INVESTMENT 100000.0)
+			 (MINER-MONTHS-TO-CAPACITY 3) (MONTHLY-TIB 60.386475)
+			 (ROI-INTERVAL-MONTHS 6) (SEAL-COST 661.7256) (TIB-DRIVE-COST 300.0)
+			 (TOTAL-UP-FRONT-COST 56052.46) (UP-FRONT-COMPUTE-COST 1704.6338)
+			 (UP-FRONT-DRIVE-COST 54347.83))))
     (is (same expected result) "produces all expected results")
 
-    (is (same (tuple (seal-cost 661.7255))
-	      (ask (performance-system) '(seal-cost)))
-	"correctly calculates SEAL-COST")))
+    (is (same (tuple (seal-cost 661.7256))
+    	      (ask (performance-system) '(seal-cost)))
+    	"correctly calculates SEAL-COST")))
 
 #|
 (run! 'filecoin-suite)
+(report-solution-for '(seal-cost) :system performance-system :initial-data *performance-defaults*)
+
+;;; Interaction example:
+
+(use-construction performance-constraint-system :data *performance-defaults*)
+(report-data)
+(report-solution-for '(seal-cost))
+(forget gib-replication-cycles)
+(report-solution-for '(seal-cost))
+(report-solution-for '(gib-replication-cycles))
+(try-with seal-cost 661.7256)
+(report-solution-for '(gib-replication-cycles))
+
 |#
