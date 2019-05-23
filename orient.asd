@@ -5,10 +5,13 @@
   :licence "MIT"
   :depends-on ("cl-json" "fiveam")
   :components ((:module "base"
-			:components
-			((:file "orient")
-			 (:file "interface" :depends-on ("orient"))
-			 (:file "demo" :depends-on ("interface")))
+			:serial t
+			:components			
+			((:file "packages")
+			 (:file "macros")
+			 (:file "orient")
+			 (:file "interface")
+			 (:file "demo"))
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
 	       (:module "filecoin"
 			:depends-on ("base")

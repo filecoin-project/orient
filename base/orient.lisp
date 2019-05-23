@@ -1,383 +1,8 @@
-(defpackage :orient
-  (:use :common-lisp :it.bese.FiveAm)
-  (:export :apply-transformation :ask :attributes :component :constraint-system  :defconstraint-system :tuple :tuples :tuple-pairs
-	   :defschema
-	   :deftransformation :deftransformation= :forget
-	   :tref :join :make-relation
-	   :make-signature
-	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :report-data :report-solution-for :same
-	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :system-data
-	   :tpl :transformation :try-with :use-construction :use-attribute
-	   :where :with-construction
-	   :*current-construction* :*trace-plan* :-> :=== :== &all :!>))
-
 (in-package "ORIENT")
 (def-suite orient-suite :description "Test the orient package.")
 (in-suite orient-suite)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Macros
-
-;;;; Interactive Interface
-(defmacro with-construction ((system-form) &rest body)
-  `(let ((*current-construction* ,system-form))
-     ,@body))
-
-(defmacro forget (&rest attributes)
-  `(setf (system-data *current-construction*)
-	 (mapcar (lambda (d)
-		   (remove-attributes ',attributes d))
-		 (system-data *current-construction*))))
-
-(defmacro try-with (attribute value-form)
-  `(set-construction-parameter ',attribute ,value-form))
-
-;;;
-
-(defmacro remv (attributes attributed)
-  `(remove-attributes ',attributes ,attributed))
-
-(defmacro !> (&rest elements)
-  `(%!> ,@(reverse elements)))
-
-;; Helper for !>
-(defmacro %!> (&rest elements)
-  (if (cdr elements)
-      `(,@(car elements) (%!> ,@(cdr elements)))
-      `(,@(car elements))))
-
-(defmacro sig ((&rest input) arrow (&rest output))
-  (assert (eql arrow '->))
-  `(make-signature ',input ',output))
-
-(defun format-as-infix (prefix)
-  ;; TODO: actually do this
-  (format nil "~A" prefix)
-  )
-
-(defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
-  (assert (eql arrow '->))
-  (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
-	 (output (remove-if-not #'symbolp output))
-	 (input (process-input-list input-lambda-list)))
-    (ecase eqmark
-      (= `(let ((sig (make-signature ',input ',output)))
-	    (make-instance 'transformation :signature sig :implementation (rlambda ,input-lambda-list ,output ,implementation))))
-      (== `(let ((sig (make-signature ',input ',output)))
-	     (make-instance 'transformation
-			    :signature sig
-			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
-			    :description ,(format-as-infix implementation)
-			    )))
-      (=== `(let ((sig (make-signature ',input ',output)))
-	      (make-instance 'transformation :signature sig :implementation ,implementation))))))
-
-;; Idea: encode the choice of transformation syntax in the arrow. e.g. -> vs =>, etc.
-;; Uses TLAMBDA
-(defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
-  (assert (eql arrow '->))
-  `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
-
-;; Uses RLAMBDA
-(defmacro deftransformation= (name ((&rest input) arrow (&rest output)) &body implementation)
-  (assert (eql arrow '->))
-  `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) = (progn ,@implementation))))))
-
-(defmacro component (transformations)
-  `(make-instance 'component :transformations (list ,@transformations)))
-
-(defmacro defcomponent (name (&rest transformations))
-  `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
-
-;; Make a relation
-;; Example: (relation (a b c) (1 2 3) (4 5 6))
-(defmacro relation ((&rest attributes) &rest tuple-values)
-  `(make-relation (list ,@(loop for values in tuple-values
-			     collect `(make-tuple (list ,@(loop for attribute in attributes
-							     for value in values
-							     collect `(list ',attribute ,value))))))))
-
-;; Make a tuple.
-;; Example: (tuple (a 1) (b 2) (c 3))
-(defmacro tuple (&rest parameters)
-  `(make-tuple (list ,@(mapcar (lambda (param)
-				 (destructuring-bind (attribute value) param
-				   `(list ',attribute ,value)))
-			       parameters))))
-
-;; Make a relation. Shorthand for RELATION
-;; Example: (rel (a b c) (1 2 3) (4 5 6))
-(defmacro rel ((&rest attributes) &rest tuple-values)
-  `(relation (,@attributes) ,@tuple-values))
-
-;; Make a tuple.
-;; Example: (tpl (a b c) 1 2 3)
-(defmacro tpl ((&rest attributes) &rest values)
-  `(make-tuple (list ,@(loop for attribute in attributes
-			  for value in values
-			  collect `(list ',attribute ,value)))))
-
-(defmacro defschema (name description &rest parameters)
-  `(defparameter ,name
-     (make-instance 'schema
-		    :description ,description
-		    :parameters (list ,@(mapcar (lambda (parameter-spec)
-						  (destructuring-bind (name description &optional type) parameter-spec
-						    `(make-instance 'parameter :name ',name :description ,description :type ,(or type ""))))
-						parameters)))))
-
-(defmacro sys ((&rest components))
-  `(make-instance 'system :components (list ,@components)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Constraints
-
-(defmacro defconstraint-system (name constraint-definitions &key schema)  
-  `(eval-when (:load-toplevel :execute)
-     (let ((system (constraint-system ,constraint-definitions)))
-       (when ,schema
-	 (setf (system-schema system) ,schema))
-       (defparameter ,name system))))
-
-(defmacro constraint-system (constraint-definitions)
-  `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))
-
-(defun expand-constraint-definitions (constraint-definitions)
-  `(list ,@(mapcar (lambda (constraint-form) (apply #'expand-constraint-definition constraint-form)) constraint-definitions)))
-
-(deftype multiplication-constraint-form () `(cons (eql *)))
-(deftype division-constraint-form () `(cons (eql /)))
-(deftype addition-constraint-form () `(cons (eql +)))
-(deftype subtraction-constraint-form () `(cons (eql -)))
-
-;; Only handles binary constraints, for now.
-(defun expand-constraint-definition (name constraint-form)
-  (etypecase constraint-form
-    (multiplication-constraint-form
-     (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (division-constraint-form
-     (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (addition-constraint-form
-     (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (subtraction-constraint-form
-     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))))
-
-(defun expand-multiplication-constraint (product a b)
-  "PRODUCT = A * B"
-  `(component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
-	       (transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
-	       (transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
-
-(defun expand-division-constraint (quotient dividend divisor)
-  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
-  (expand-multiplication-constraint dividend quotient divisor))
-
-(defun expand-addition-constraint (sum  a b)
-  "SUM = A + B"
-  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
-	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
-	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
-
-(defun expand-subtraction-constraint (difference minuend subtrahend)
-  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
-  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
-
-(test two-multiplication-constraints
-  "Test CONSTRAINT-SYSTEM with two multiplication contraints."
-  (let* ((system (constraint-system
-		  ((c (* a b))
-		   (d (* a c)))))
-	 (satsifying-assignment (tuple (a 3) (b 2) (c 6) (d 18))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(a b) (tuple (c 6) (d 18)))))    
-    (is (same satsifying-assignment
-	      (solve-for system '(a d) (tuple (b 2) (c 6)))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(b c) (tuple (a 3) (d 18)))))
-    (is (same satsifying-assignment
-	      (solve-for system '(b d) (tuple (a 3) (c 6)))))
-    
-    (is (same satsifying-assignment
-	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
-
-    ;; This one can't (currently) be solved.
-    (is (same nil 
-	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
-
-(test division-constraint
-  "Test CONSTRAINT-SYSTEM with a division constraint."
-  (let* ((system (constraint-system ((z (/ x y)))))
-	 (satisfying-assignment (tuple (z 3) (x 12) (y 4))))
-    (is (same satisfying-assignment
-	      (solve-for system '(z) (tuple (x 12) (y 4)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(x) (tuple (y 4) (z 3)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(y) (tuple (x 12) (z 3)))))))
-
-(test two-addition-constraints
-  "Test CONSTRAINT-SYSTEM with two addition contraints."
-  (let* ((system (constraint-system
-		  ((c (+ a b))
-		   (d (+ a c)))))
-	 (satsifying-assignment (tuple (a 3) (b 2) (c 5) (d 8))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(a b) (tuple (c 5) (d 8)))))    
-    (is (same satsifying-assignment
-	      (solve-for system '(a d) (tuple (b 2) (c 5)))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(b c) (tuple (a 3) (d 8)))))
-    (is (same satsifying-assignment
-	      (solve-for system '(b d) (tuple (a 3) (c 5)))))
-    
-    (is (same satsifying-assignment
-	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
-
-    ;; This one can't (currently) be solved.
-    (is (same nil 
-	      (solve-for system '(a c) (tuple (b 2) (d 8)))))))
-
-(test subtraction-constraint
-  "Test CONSTRAINT-SYSTEM with a division constraint."
-  (let* ((system (constraint-system ((z (- x y)))))
-	 (satisfying-assignment (tuple (z 8) (x 12) (y 4))))
-    (is (same satisfying-assignment
-	      (solve-for system '(z) (tuple (x 12) (y 4)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(x) (tuple (y 4) (z 8)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
-
-(test constraint-constants
-  "Test CONSTRAINT-SYSTEM with some constants."
-  (let* ((system (constraint-system ((c (+ a 2)))))
-	 (satisfying-assignment (tuple (a 3) (c 5))))
-
-    (is (same satisfying-assignment
-	      (solve-for system '(a) (tuple (c 5)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(c) (tuple (a 3)))))))
-
-#|
-(defconstraint-system performance-b
-    ((aws-price-TiB-year (* aws-storage-price 12))
-     (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
-     (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
-     (daily-TiB (/ monthly-TiB (/ 365 12)))
-     (hourly-TiB (/ daily-Tib 24))
-     (hourly-GiB (* hourly-TiB 1024))
-     (up-front-drive-cost (* TiB-drive-cost annual-TiB))
-     (cycles-per-hour (* hourly-GiB GiB-replication-cycles))
-     (cycles-per-minute (* cycles-per-hour 60))
-     (cycles-per-second (* cycles-per-minute 60))
-     (needed-ghz (/ cycles-per-second 1e9))
-     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
-     (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
-     (seal-cost (/ total-up-front-cost hourly-GiB))))
-|#
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; TOOD: rename this to process-tuple-lambda-list
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun process-input-list (input)
-    (let* ((all-pos (position '&all input))
-	   (attrs (if all-pos
-		      (subseq input 0 all-pos)
-		      input))
-	   (all-var (when all-pos
-		      (nth (1+ all-pos) input))))
-      (values attrs all-var))))
-
-(test process-input-list
-  (multiple-value-bind (attrs all-var) (process-input-list '(a b c &all all))
-    (is (equal '(a b c) attrs))
-    (is (eql 'all all-var))))
-
-;; Convenience function for manipulating tuples.
-(defmacro tfn ((&rest tuple-lambda-list) &body body)
-  (multiple-value-bind (attrs all-var) (process-input-list tuple-lambda-list)
-    (let ((tuple (or all-var (gensym "TUPLE"))))
-      `(lambda (,tuple)
-	 (symbol-macrolet
-	     (,@(loop for in in attrs
-		   collect `(,in (tref ',in ,tuple))))
-	   ,@body)))))
-
-;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
-;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
-(defmacro tlambda ((&rest input) (&rest output) &body body)
-  (multiple-value-bind (input-attrs all-var) (process-input-list input)
-    (let ((tuple (or all-var (gensym "TUPLE")))
-	  (new-tuple (gensym "NEW-TUPLE"))
-	  (out (gensym "OUTPUT")))
-      `(lambda (,tuple)
-	 (symbol-macrolet
-	     (,@(loop for in in input-attrs
-		   collect `(,in (tref ',in ,tuple))))
-	   (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
-		 (,out (multiple-value-list (progn ,@body))))	   
-	     ,@(loop for attribute in output
-		  collect `(setf (tref ',attribute ,new-tuple) (pop ,out)))
-	     ,new-tuple))))))
-
-;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
-;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
-(defmacro xlambda ((&rest input) (&rest output) &body body)
-  (let ((tuple (gensym "TUPLE"))
-	(out (gensym "OUTPUT"))
-	(supplied-pairs (gensym "PAIRS")))
-    `(lambda (,tuple)
-       (symbol-macrolet
-	   (,@(loop for in in input
-		 collect `(,in (tref ',in ,tuple))))
-	 (let ((,out (progn ,@body))
-	       (,supplied-pairs (tuple-pairs ,tuple)))
-	   (build-relation ,supplied-pairs ',output ,out))))))
-
-;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
-;; Code in BODY should return a relation -- whose heading must be correct.
-(defmacro rlambda ((&rest input) (&rest output) &body body)
-  (declare (ignore output))
-  (multiple-value-bind (input-attrs all-var) (process-input-list input)
-    (let ((tuple (or all-var (gensym "TUPLE"))))
-      `(lambda (,tuple)
-	 (symbol-macrolet
-	     (,@(loop for in in input-attrs
-		   collect `(,in (tref ',in ,tuple))))
-	   (progn ,@body))))))
-
-#+(or)
-(test rlambda
-  "Test rlambda."
-  (apply-transformation (rlambda ((a b c &all tuple) (d))
-			    (relation (rename ((z q)) tuple)))
-			(relation (a b c z)
-				  (1 2 3 9)))
-  )
-
-(defmacro where (((&rest tuple-lambda-list) &body body) relation-form)
-  `(restrict (tfn (,@tuple-lambda-list) ,@body) ,relation-form))
-
-(test where "Test WHERE macro."
-      (is (same (rel (a b c)
-		     (4 5 6))
-		(where ((b) (= b 5))
-		       (rel (a b c)
-			    (1 2 3)
-			    (4 5 6)
-			    (7 8 9))))))
-
-(defmacro rename ((&rest pairs) attributed)
-  `(rename-attributes ',pairs ,attributed))
-
 ;; 
 (defclass tuple ()
   ((hash-table :initform (make-hash-table) :accessor tuple-hash-table)))
@@ -407,7 +32,8 @@
   "Set value of ATTRIBUTE to VALUE in TUPLE."
   (setf (gethash attribute (tuple-hash-table tuple)) value))
 
-(defsetf tref set-tref)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defsetf tref set-tref))
 
 (defmethod trem ((attribute t) (tuple tuple))
   "Remove ATTRIBUTE from TUPLE"
@@ -1015,12 +641,11 @@
   (let ((tuple (some (lambda (x) (and (typep x 'tuple) x)) (system-data *current-construction*))))
 
     (cond (tuple (setf (tref attribute tuple) value))
-	  (t  ;(push (tuple (attribute value)) (system-data *current-construction*))
-	   ))))
+	  (t  (push (tuple (attribute value)) (system-data *current-construction*))))))
 
-(defgeneric solve (system signature &optional initial-data &key)
+(defgeneric solve (system signature &optional initial-data &key report)
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
-  (:method ((system system) (signature signature)  &optional initial-data &key report) ;; TODO: create and use common supertype for tuple and relation.
+  (:method ((system system) (signature signature) &optional initial-data &key report) ;; TODO: create and use common supertype for tuple and relation.
     (let ((plan (plan system signature))
 	  (schema (system-schema system))
 	  (report-results '()))
@@ -1073,6 +698,7 @@
 
 (defun report-solution-for (output &key (system *current-construction*) initial-data)
   (multiple-value-bind (solution plan report) (solve-for system output initial-data :report t)
+    (declare (ignore plan))
     (cond (solution
 	   (assert (typep solution 'tuple))
 	   (values (apply #'concatenate 'string report)
@@ -1099,6 +725,129 @@
 				do (setf (tref attr base) val))
 			     base))))
     (make-relation tuples)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Constraints
+
+(defun expand-constraint-definitions (constraint-definitions)
+  `(list ,@(mapcar (lambda (constraint-form) (apply #'expand-constraint-definition constraint-form)) constraint-definitions)))
+
+(deftype multiplication-constraint-form () `(cons (eql *)))
+(deftype division-constraint-form () `(cons (eql /)))
+(deftype addition-constraint-form () `(cons (eql +)))
+(deftype subtraction-constraint-form () `(cons (eql -)))
+
+;; Only handles binary constraints, for now.
+(defun expand-constraint-definition (name constraint-form)
+  (etypecase constraint-form
+    (multiplication-constraint-form
+     (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (division-constraint-form
+     (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (addition-constraint-form
+     (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (subtraction-constraint-form
+     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))))
+
+(defun expand-multiplication-constraint (product a b)
+  "PRODUCT = A * B"
+  `(component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
+	       (transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
+	       (transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
+
+(defun expand-division-constraint (quotient dividend divisor)
+  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
+  (expand-multiplication-constraint dividend quotient divisor))
+
+(defun expand-addition-constraint (sum  a b)
+  "SUM = A + B"
+  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
+	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
+	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
+
+(defun expand-subtraction-constraint (difference minuend subtrahend)
+  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
+  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
+
+(test two-multiplication-constraints
+  "Test CONSTRAINT-SYSTEM with two multiplication contraints."
+  (let* ((system (constraint-system
+		  ((c (* a b))
+		   (d (* a c)))))
+	 (satsifying-assignment (tuple (a 3) (b 2) (c 6) (d 18))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(a b) (tuple (c 6) (d 18)))))    
+    (is (same satsifying-assignment
+	      (solve-for system '(a d) (tuple (b 2) (c 6)))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(b c) (tuple (a 3) (d 18)))))
+    (is (same satsifying-assignment
+	      (solve-for system '(b d) (tuple (a 3) (c 6)))))
+    
+    (is (same satsifying-assignment
+	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
+
+    ;; This one can't (currently) be solved.
+    (is (same nil 
+	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
+
+(test division-constraint
+  "Test CONSTRAINT-SYSTEM with a division constraint."
+  (let* ((system (constraint-system ((z (/ x y)))))
+	 (satisfying-assignment (tuple (z 3) (x 12) (y 4))))
+    (is (same satisfying-assignment
+	      (solve-for system '(z) (tuple (x 12) (y 4)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(x) (tuple (y 4) (z 3)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(y) (tuple (x 12) (z 3)))))))
+
+(test two-addition-constraints
+  "Test CONSTRAINT-SYSTEM with two addition contraints."
+  (let* ((system (constraint-system
+		  ((c (+ a b))
+		   (d (+ a c)))))
+	 (satsifying-assignment (tuple (a 3) (b 2) (c 5) (d 8))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(a b) (tuple (c 5) (d 8)))))    
+    (is (same satsifying-assignment
+	      (solve-for system '(a d) (tuple (b 2) (c 5)))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(b c) (tuple (a 3) (d 8)))))
+    (is (same satsifying-assignment
+	      (solve-for system '(b d) (tuple (a 3) (c 5)))))
+    
+    (is (same satsifying-assignment
+	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
+
+    ;; This one can't (currently) be solved.
+    (is (same nil 
+	      (solve-for system '(a c) (tuple (b 2) (d 8)))))))
+
+(test subtraction-constraint
+  "Test CONSTRAINT-SYSTEM with a division constraint."
+  (let* ((system (constraint-system ((z (- x y)))))
+	 (satisfying-assignment (tuple (z 8) (x 12) (y 4))))
+    (is (same satisfying-assignment
+	      (solve-for system '(z) (tuple (x 12) (y 4)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(x) (tuple (y 4) (z 8)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
+
+(test constraint-constants
+  "Test CONSTRAINT-SYSTEM with some constants."
+  (let* ((system (constraint-system ((c (+ a 2)))))
+	 (satisfying-assignment (tuple (a 3) (c 5))))
+
+    (is (same satisfying-assignment
+	      (solve-for system '(a) (tuple (c 5)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(c) (tuple (a 3)))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples
@@ -1109,7 +858,7 @@
   (let* ((d1 (tuple (a 2) (b 3) (c 4)))
 	 (d2 (tuple (a 2) (b 3) (c 4) (d 5)))
 	 (d3 (tuple (x 5) (y 6) (z 7)))
-	 (d4 (tuple (a 1) (b 2) (c 3)))
+	 ;(d4 (tuple (a 1) (b 2) (c 3)))
 
 	 ;; (r1 (make-relation (list d1 d4)))
 	 ;; (r2 (make-relation (list d2)))

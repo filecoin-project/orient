@@ -1,0 +1,228 @@
+(in-package :orient)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Macros
+
+;;;; Interactive Interface
+(defmacro with-construction ((system-form) &rest body)
+  `(let ((*current-construction* ,system-form))
+     ,@body))
+
+(defmacro forget (&rest attributes)
+  `(setf (system-data *current-construction*)
+	 (mapcar (lambda (d)
+		   (remove-attributes ',attributes d))
+		 (system-data *current-construction*))))
+
+(defmacro try-with (attribute value-form)
+  `(set-construction-parameter ',attribute ,value-form))
+
+;;;
+
+(defmacro remv (attributes attributed)
+  `(remove-attributes ',attributes ,attributed))
+
+(defmacro !> (&rest elements)
+  `(%!> ,@(reverse elements)))
+
+;; Helper for !>
+(defmacro %!> (&rest elements)
+  (if (cdr elements)
+      `(,@(car elements) (%!> ,@(cdr elements)))
+      `(,@(car elements))))
+
+(defmacro sig ((&rest input) arrow (&rest output))
+  (assert (eql arrow '->))
+  `(make-signature ',input ',output))
+
+(defun format-as-infix (prefix)
+  ;; TODO: actually do this
+  (format nil "~A" prefix)
+  )
+
+(defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
+  (assert (eql arrow '->))
+  (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
+	 (output (remove-if-not #'symbolp output))
+	 (input (process-input-list input-lambda-list)))
+    (ecase eqmark
+      (= `(let ((sig (make-signature ',input ',output)))
+	    (make-instance 'transformation :signature sig :implementation (rlambda ,input-lambda-list ,output ,implementation))))
+      (== `(let ((sig (make-signature ',input ',output)))
+	     (make-instance 'transformation
+			    :signature sig
+			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
+			    :description ,(format-as-infix implementation)
+			    )))
+      (=== `(let ((sig (make-signature ',input ',output)))
+	      (make-instance 'transformation :signature sig :implementation ,implementation))))))
+
+;; Idea: encode the choice of transformation syntax in the arrow. e.g. -> vs =>, etc.
+;; Uses TLAMBDA
+(defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
+  (assert (eql arrow '->))
+  `(eval-when (:load-toplevel :execute)
+     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
+
+;; Uses RLAMBDA
+(defmacro deftransformation= (name ((&rest input) arrow (&rest output)) &body implementation)
+  (assert (eql arrow '->))
+  `(eval-when (:load-toplevel :execute)
+     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) = (progn ,@implementation))))))
+
+(defmacro component (transformations)
+  `(make-instance 'component :transformations (list ,@transformations)))
+
+(defmacro defcomponent (name (&rest transformations))
+  `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
+
+;; Make a relation
+;; Example: (relation (a b c) (1 2 3) (4 5 6))
+(defmacro relation ((&rest attributes) &rest tuple-values)
+  `(make-relation (list ,@(loop for values in tuple-values
+			     collect `(make-tuple (list ,@(loop for attribute in attributes
+							     for value in values
+							     collect `(list ',attribute ,value))))))))
+
+;; Make a tuple.
+;; Example: (tuple (a 1) (b 2) (c 3))
+(defmacro tuple (&rest parameters)
+  `(make-tuple (list ,@(mapcar (lambda (param)
+				 (destructuring-bind (attribute value) param
+				   `(list ',attribute ,value)))
+			       parameters))))
+
+;; Make a relation. Shorthand for RELATION
+;; Example: (rel (a b c) (1 2 3) (4 5 6))
+(defmacro rel ((&rest attributes) &rest tuple-values)
+  `(relation (,@attributes) ,@tuple-values))
+
+;; Make a tuple.
+;; Example: (tpl (a b c) 1 2 3)
+(defmacro tpl ((&rest attributes) &rest values)
+  `(make-tuple (list ,@(loop for attribute in attributes
+			  for value in values
+			  collect `(list ',attribute ,value)))))
+
+(defmacro defschema (name description &rest parameters)
+  `(defparameter ,name
+     (make-instance 'schema
+		    :description ,description
+		    :parameters (list ,@(mapcar (lambda (parameter-spec)
+						  (destructuring-bind (name description &optional type) parameter-spec
+						    `(make-instance 'parameter :name ',name :description ,description :type ,(or type ""))))
+						parameters)))))
+
+(defmacro sys ((&rest components))
+  `(make-instance 'system :components (list ,@components)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Constraints
+
+(defmacro defconstraint-system (name constraint-definitions &key schema)  
+  `(eval-when (:load-toplevel :execute)
+     (let ((system (constraint-system ,constraint-definitions)))
+       (when ,schema
+	 (setf (system-schema system) ,schema))
+       (defparameter ,name system))))
+
+(defmacro constraint-system (constraint-definitions)
+  `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))
+
+
+
+;; TOOD: rename this to process-tuple-lambda-list
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun process-input-list (input)
+    (let* ((all-pos (position '&all input))
+	   (attrs (if all-pos
+		      (subseq input 0 all-pos)
+		      input))
+	   (all-var (when all-pos
+		      (nth (1+ all-pos) input))))
+      (values attrs all-var))))
+
+(test process-input-list
+  (multiple-value-bind (attrs all-var) (process-input-list '(a b c &all all))
+    (is (equal '(a b c) attrs))
+    (is (eql 'all all-var))))
+
+;; Convenience function for manipulating tuples.
+(defmacro tfn ((&rest tuple-lambda-list) &body body)
+  (multiple-value-bind (attrs all-var) (process-input-list tuple-lambda-list)
+    (let ((tuple (or all-var (gensym "TUPLE"))))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in attrs
+		   collect `(,in (tref ',in ,tuple))))
+	   ,@body)))))
+
+;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
+;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
+(defmacro tlambda ((&rest input) (&rest output) &body body)
+  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+    (let ((tuple (or all-var (gensym "TUPLE")))
+	  (new-tuple (gensym "NEW-TUPLE"))
+	  (out (gensym "OUTPUT")))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in input-attrs
+		   collect `(,in (tref ',in ,tuple))))
+	   (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
+		 (,out (multiple-value-list (progn ,@body))))
+	     (declare (ignorable ,out))
+	     ,@(loop for attribute in output
+		  collect `(setf (tref ',attribute ,new-tuple) (pop ,out)))
+	     ,new-tuple))))))
+
+;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
+;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
+(defmacro xlambda ((&rest input) (&rest output) &body body)
+  (let ((tuple (gensym "TUPLE"))
+	(out (gensym "OUTPUT"))
+	(supplied-pairs (gensym "PAIRS")))
+    `(lambda (,tuple)
+       (symbol-macrolet
+	   (,@(loop for in in input
+		 collect `(,in (tref ',in ,tuple))))
+	 (let ((,out (progn ,@body))
+	       (,supplied-pairs (tuple-pairs ,tuple)))
+	   (declare (ignorable ,out))
+	   (build-relation ,supplied-pairs ',output ,out))))))
+
+;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
+;; Code in BODY should return a relation -- whose heading must be correct.
+(defmacro rlambda ((&rest input) (&rest output) &body body)
+  (declare (ignore output))
+  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+    (let ((tuple (or all-var (gensym "TUPLE"))))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in input-attrs
+		   collect `(,in (tref ',in ,tuple))))
+	   (progn ,@body))))))
+
+#+(or)
+(test rlambda
+  "Test rlambda."
+  (apply-transformation (rlambda ((a b c &all tuple) (d))
+			    (relation (rename ((z q)) tuple)))
+			(relation (a b c z)
+				  (1 2 3 9)))
+  )
+
+(defmacro where (((&rest tuple-lambda-list) &body body) relation-form)
+  `(restrict (tfn (,@tuple-lambda-list) ,@body) ,relation-form))
+
+(test where "Test WHERE macro."
+      (is (same (rel (a b c)
+		     (4 5 6))
+		(where ((b) (= b 5))
+		       (rel (a b c)
+			    (1 2 3)
+			    (4 5 6)
+			    (7 8 9))))))
+
+(defmacro rename ((&rest pairs) attributed)
+  `(rename-attributes ',pairs ,attributed))
+
