@@ -3,6 +3,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Macros
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; General/Util -- Could have own package.
+
+(defmacro aif (condition then &optional else)
+  `(let ((it ,condition))
+     (if it
+	 ,then
+       ,else)))
+
+(defmacro awhen (condition &body body)
+  `(let ((it ,condition))
+     (when it
+       ,@body)))
+
+(defmacro if-bind ((var condition) then &optional else)
+  `(let ((,var ,condition))
+     (if ,var
+       ,then
+       ,else)))
+
+(defmacro when-bind ((var condition) &body body)
+  `(let ((,var ,condition))
+     (when ,var
+       ,@body)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;;; Interactive Interface
 (defmacro with-construction ((system-form) &rest body)
   `(let ((*current-construction* ,system-form))
@@ -47,7 +75,7 @@
 	 (input (process-input-list input-lambda-list)))
     (ecase eqmark
       (= `(let ((sig (make-signature ',input ',output)))
-	    (make-instance 'transformation :signature sig :implementation (rlambda ,input-lambda-list ,output ,implementation))))
+	    (make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
       (== `(let ((sig (make-signature ',input ',output)))
 	     (make-instance 'transformation
 			    :signature sig

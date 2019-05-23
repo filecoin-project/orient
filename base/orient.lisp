@@ -276,6 +276,11 @@
       ((a t) (b t))
     (and (equal (type-of a) (type-of b))
 	 (equal a b)))
+  ;; Numbers are same if they are =.
+  (:method ((a number) (b number))
+    (= a b))
+
+  ;; TODO: Implement for other lists and other compound types.
   (:method ((a tuple) (b tuple))
     (and (set-equal (attributes a) (attributes b))
 	 (every (lambda (attr) (same (tref attr a) (tref attr b))) (attributes a))))
@@ -654,22 +659,23 @@
 	   (let ((result (reduce (lambda (tuple-or-relation transformation)
 				   (let ((new (apply-transformation transformation tuple-or-relation)))
 				     (when report
-				       (typecase new
-					 (tuple 
-					  (let ((rep (loop for (key value) in (tuple-pairs new)
-							when (member key (signature-output (transformation-signature transformation)))
-							collect (format nil "~&~A: ~A = ~A~% ~A~%"
-									key
-									(describe-transformation-calculation transformation)
-									value
-									(let ((desc (and schema (lookup-description key schema))))
-									  (if desc (format nil "   ~A~%" desc) ""))
-									))))
-					    (setf report-results (append report-results rep))))
-					 (relation (assert nil) ;; unsupported for now
-						   )))
-				     new
-				     ))
+				       (flet ((tuple-report (tuple)
+						(let ((rep (loop for (key value) in (tuple-pairs tuple)
+							      when (member key (signature-output (transformation-signature transformation)))
+							      collect (format nil "~&~A: ~A = ~A~% ~A~%"
+									      key
+									      (describe-transformation-calculation transformation)
+									      value
+									      (let ((desc (and schema (lookup-description key schema))))
+										(if desc (format nil "   ~A~%" desc) ""))
+									      ))))
+						  (setf report-results (append report-results rep)))))
+					 (typecase new
+					   (tuple (tuple-report new))
+					   (relation
+					    (dolist (tuple (tuples new))
+					      (tuple-report tuple))))))
+				     new))
 				 plan
 				 :initial-value (defaulted-initial-data system initial-data))))
 	     (values result plan report-results))))))
@@ -735,6 +741,8 @@
 (deftype division-constraint-form () `(cons (eql /)))
 (deftype addition-constraint-form () `(cons (eql +)))
 (deftype subtraction-constraint-form () `(cons (eql -)))
+(deftype log-constraint-form () `(cons (eql log)))
+(deftype integer-constraint-form () `(cons (eql integer)))
 
 ;; Only handles binary constraints, for now.
 (defun expand-constraint-definition (name constraint-form)
@@ -746,7 +754,11 @@
     (addition-constraint-form
      (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
     (subtraction-constraint-form
-     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))))
+     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (log-constraint-form
+     (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (integer-constraint-form
+     (expand-integer-constraint name (first (cdr constraint-form))))))
 
 (defun expand-multiplication-constraint (product a b)
   "PRODUCT = A * B"
@@ -754,21 +766,8 @@
 	       (transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
 	       (transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
 
-(defun expand-division-constraint (quotient dividend divisor)
-  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
-  (expand-multiplication-constraint dividend quotient divisor))
 
-(defun expand-addition-constraint (sum  a b)
-  "SUM = A + B"
-  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
-	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
-	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
-
-(defun expand-subtraction-constraint (difference minuend subtrahend)
-  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
-  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
-
-(test two-multiplication-constraints
+(test multiplication-constraint
   "Test CONSTRAINT-SYSTEM with two multiplication contraints."
   (let* ((system (constraint-system
 		  ((c (* a b))
@@ -792,6 +791,10 @@
     (is (same nil 
 	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
 
+(defun expand-division-constraint (quotient dividend divisor)
+  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
+  (expand-multiplication-constraint dividend quotient divisor))
+
 (test division-constraint
   "Test CONSTRAINT-SYSTEM with a division constraint."
   (let* ((system (constraint-system ((z (/ x y)))))
@@ -803,7 +806,13 @@
     (is (same satisfying-assignment
 	      (solve-for system '(y) (tuple (x 12) (z 3)))))))
 
-(test two-addition-constraints
+(defun expand-addition-constraint (sum  a b)
+  "SUM = A + B"
+  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
+	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
+	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
+
+(test addition-constraint
   "Test CONSTRAINT-SYSTEM with two addition contraints."
   (let* ((system (constraint-system
 		  ((c (+ a b))
@@ -823,9 +832,13 @@
     (is (same satsifying-assignment
 	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
 
-    ;; This one can't (currently) be solved.
+    ;; This one can't (currently) be solved. TODO: Return relation of factorization tuples.
     (is (same nil 
 	      (solve-for system '(a c) (tuple (b 2) (d 8)))))))
+
+(defun expand-subtraction-constraint (difference minuend subtrahend)
+  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
+  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
 
 (test subtraction-constraint
   "Test CONSTRAINT-SYSTEM with a division constraint."
@@ -837,6 +850,59 @@
 	      (solve-for system '(x) (tuple (y 4) (z 8)))))
     (is (same satisfying-assignment
 	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
+
+(defun expand-log-constraint (log n base)
+  "LOG = (log n base)"
+  `(component ((transformation ((,n ,base) -> (,log)) == (log ,n ,base))
+	       ;; TODO:
+	       ;(transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
+	       (transformation ((,base ,log) -> (,n)) == (expt ,base ,log)))))
+
+(test log-constraint
+  "Test CONSTRAINT-SYSTEM with a log constraint."
+  (let* ((system (constraint-system ((l (log n base)))))
+	 (satisfying-assignment (tuple (base 2) (n 8.0) (l 3.0))))
+
+    (is (same satisfying-assignment
+	      (solve-for system '(l) (tuple (base 2) (n 8.0)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(n) (tuple (base 2) (l 3.0)))))
+
+    (is (not (same satisfying-assignment
+		   (solve-for system '(l) (tuple (base 3) (n 8.0))))))))
+
+(defun must-integer (n)
+  "Returns N if it is equivalent to an integer, otherwise NIL."
+  (multiple-value-bind (div rem)
+      (floor n)
+    (and (zerop rem) div)))
+
+(defun expand-integer-constraint (integer maybe-integer)
+  "Returns a component which returns a relation binding INTEGER to MAYBE-INTEGER if it is equal to an integer, otherwise an empty relation."
+  `(component ((transformation ((,maybe-integer) -> (,integer)) = (awhen (must-integer ,maybe-integer)
+								    `((,it))))
+	       (transformation ((,integer) -> (,maybe-integer)) = (progn (check-type ,integer integer)
+									 `((,,integer)))))))
+
+(test integer-constraint
+  "Test CONSTRAINT-SYSTEM with an integer."
+  (let* ((system (constraint-system ((k (integer n))))))
+    
+    (is (same (relation (k n) (4 4.0))
+	      (solve-for system '(k) (tuple (n 4.0)))))
+    (is (same (relation (k n) (4 4))
+    	      (solve-for system '(k) (tuple (n 4)))))
+
+    (is (same (relation (k n) (4 4))
+    	      (solve-for system '(n) (tuple (k 4)))))
+    (is (same (relation (k n) (4 4))
+    	      (solve-for system '(n) (tuple (k 4)))))
+
+    ;; It is a program error for the INTEGER input to the INTEGER constraint not to be an integer.
+    (signals (type-error) (solve-for system '(n) (tuple (k 4.0))))
+
+    (is (same (relation (k n)) ;; Empty relation with expected heading.
+	      (solve-for system '(k) (tuple (n 4.1)))))))
 
 (test constraint-constants
   "Test CONSTRAINT-SYSTEM with some constants."
@@ -999,16 +1065,3 @@
 	 (s1 (sys ((component (t1))))))
 
     (finishes (plan s1 (make-signature '(b c d) '(e))))))
-
-#|
-(plan s1 sig1) => (((SIG (A B C) -> (D)) . (TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))
-(plan s1 sig2) => nil
-(plan s1 sig3) => nil
-
-(plan s2 sig1) => (((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)))                          ; *transformations-tried* 3
-
-(plan s2 sig2) => (((TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                         ; *transformations-tried* 3
-
-		   (plan s2 sig3) => ((TRANSFORMATION (SIG (A B C) -> (D)) === ASDF)
-				      (TRANSFORMATION (SIG (B C D) -> (E F)) === FDSA))                          ; *transformations-tried* 6
-		   |#

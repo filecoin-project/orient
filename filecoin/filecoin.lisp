@@ -4,6 +4,9 @@
 
 (in-package :filecoin)
 
+(def-suite filecoin-suite)
+(in-suite filecoin-suite)
+
 (defconstant KiB 1024)
 (defconstant MiB (* KiB 1024))
 (defconstant GiB (* MiB 1024))
@@ -62,6 +65,38 @@
    (merkle-hash-function-name :pedersen)
 
    (sector-size (* 1 GiB))))
+
+(defun filecoin-system () (sys ((component (merkle-trees)) (component (select-merkle-hash-function)))))
+
+(test defaults
+  "Test and assert results of solving with defaults."
+  (let* ((initial-relation (join *hash-functions* *defaults*))
+	 (result (solve-for (filecoin-system) '(merkle-tree-leaves
+						merkle-tree-height
+						merkle-tree-hash-count
+						merkle-hash-function-time
+						merkle-hash-function-constraints)
+			    initial-relation))
+	 (expected
+	  (make-relation
+	   (list
+	    (tuple
+	     (PEDERSEN-HASH-SECONDS 1.7993e-5)
+	     (PEDERSEN-HASH-CONSTRAINTS 1152)
+	     (BLAKE-HASH-SECONDS 1.6055e-7)
+	     (BLAKE-HASH-CONSTRAINTS 10324)
+	     (SECTOR-SIZE 1073741824)
+	     (HASH-FUNCTION-NAME :PEDERSEN)
+	     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
+	     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
+	     (MERKLE-HASH-FUNCTION-TIME 0.000017993)
+	     (HASH-FUNCTION-CONSTRAINTS 1152)
+	     (HASH-FUNCTION-TIME 0.000017993)
+	     (MERKLE-TREE-LEAVES 33554432)
+	     (MERKLE-TREE-HEIGHT 25)
+	     (MERKLE-TREE-HASH-COUNT 33554431)
+	     (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))))
+    (is (same expected result))))
 
 #|
 From Übercalc Compoments document:
@@ -186,108 +221,6 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 		 :schema filecoin-price-performance
 		 :data (list *performance-defaults*)))
 
-#|
-(solve-for (performance-system) '(aws-price-TiB-year))
-
-(ask (performance-system) '(aws-price-TiB-year annual-TiB))
-
-(ask (performance-system) '(seal-cost))
-
-
-|#
-
-
-;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
-;;; Include option to validate that provided parameters exclude those which must be computed.
-
-(deftransformation merkle-trees
-    ((sector-size) -> (merkle-tree-leaves
-		       merkle-tree-height
-		       merkle-tree-hash-count
-		       merkle-inclusion-proof-hash-length))
-  (let* ((leaves (/ sector-size 32)) ;; FIXME: check power of two or round up.
-	 (height (ceiling (+ (log leaves 2)) 1))
-	 (hash-count (- leaves 1))
-	 (proof-hash-length (- height 1)))
-    (values leaves
-	    height
-	    hash-count
-	    proof-hash-length)))
-
-;; With explicit hash-function inputs. NOTE: This might be the right answer for this problem.
-(deftransformation= select-merkle-hash-function-x
-    ((merkle-hash-function-name hash-functions &all tuple) -> (merkle-hash-function-constraints merkle-hash-function-time))
-  (!> (join tuple (tpl (hash-function-name) merkle-hash-function-name) hash-functions)
-      (remv (hash-function-name))
-      (rename ((hash-function-time merkle-hash-function-time)
-	       (hash-function-constraints merkle-hash-function-constraints)))))
-
-(deftransformation= select-merkle-hash-function
-    ((merkle-hash-function-name hash-function-name hash-function-time hash-function-constraints &all tuple) -> (merkle-hash-function-constraints merkle-hash-function-time ;&remove hash-function-constraints hash-function-time
-																		 ))
-  (!> (make-relation (list tuple))
-      (where ((hash-function-name merkle-hash-function-name) (eql hash-function-name merkle-hash-function-name)))
-       (rename ((hash-function-time merkle-hash-function-time)
-		(hash-function-constraints merkle-hash-function-constraints)))
-       (join (make-relation (list  tuple)))
-      ))
-
-#|
-Incremental previous attempts.
-
-(deftransformation select-merkle-hash-function
-    ((merkle-hash-function-name hash-functions) -> (merkle-hash-function-constraints merkle-hash-function-time))
-  (let* ((d (tuple (hash-function-name merkle-hash-function-name)))
-	 (r (join d hash-functions))
-	 (q (first (tuples r))) ;; This should extract a guaranteed single tuple from a relationship cardinality 1. TODO: add that operator.
-	 )
-    (values (tref 'hash-function-constraints q) (tref 'hash-function-time q))))
-
-(deftransformation= select-merkle-hash-function
-    ((merkle-hash-function-name hash-functions &all tuple) ->ppp (merkle-hash-function-constraints merkle-hash-function-time))
-  (rename ((hash-function-time merkle-hash-function-time)
-	   (hash-function-constraints merkle-hash-function-constraints))
-	  (remv (hash-function-name)
-		(join tuple (tuple (hash-function-name merkle-hash-function-name)) hash-functions))))
-
-|#
-
-(defun filecoin-system () (sys ((component (merkle-trees)) (component (select-merkle-hash-function)))))
-(defparameter *system* (filecoin-system))
-
-(def-suite filecoin-suite)
-(in-suite filecoin-suite)
-
-(test defaults-test
-  "Test and assert results of solving with defaults."
-  (let* ((initial-relation (join *hash-functions* *defaults*))
-	 (result (solve-for (filecoin-system) '(merkle-tree-leaves
-						merkle-tree-height
-						merkle-tree-hash-count
-						merkle-hash-function-time
-						merkle-hash-function-constraints)
-			    initial-relation))
-	 (expected
-	  (make-relation
-	   (list
-	    (tuple
-	     (PEDERSEN-HASH-SECONDS 1.7993e-5)
-	     (PEDERSEN-HASH-CONSTRAINTS 1152)
-	     (BLAKE-HASH-SECONDS 1.6055e-7)
-	     (BLAKE-HASH-CONSTRAINTS 10324)
-	     (SECTOR-SIZE 1073741824)
-	     (HASH-FUNCTION-NAME :PEDERSEN)
-	     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-	     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-	     (MERKLE-HASH-FUNCTION-TIME 0.000017993)
-	     (HASH-FUNCTION-CONSTRAINTS 1152)
-	     (HASH-FUNCTION-TIME 0.000017993)
-	     (MERKLE-TREE-LEAVES 33554432)
-	     (MERKLE-TREE-HEIGHT 25)
-	     (MERKLE-TREE-HASH-COUNT 33554431)
-	     (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))))
-    (is (same expected result))))
-
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
   (let ((result (solve-for (performance-system) '(seal-cost)))
@@ -306,19 +239,91 @@ Incremental previous attempts.
     	      (ask (performance-system) '(seal-cost)))
     	"correctly calculates SEAL-COST")))
 
-#|
-(run! 'filecoin-suite)
-(report-solution-for '(seal-cost) :system performance-system :initial-data *performance-defaults*)
+;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
+;;; Include option to validate that provided parameters exclude those which must be computed.
 
-;;; Interaction example:
+(defschema merkle-tree-schema
+    "PoRep  Merkle Trees"
+  (node-bytes "The number of bytes in a node -- must also be the hash digest size.") ; TODO: Move to more general schema.
+  (merkle-tree-leaves "Number of leaves in the merkle tree.")
+  (merkle-tree-height "Height of the merkle tree, including leaves and root.")
+  (merkle-tree-hash-count "Total number of hashes required to construct the merkle tree (leaves are not hashed).")
+  (merkle-inclusion-proof-hash-length "Number of hashes required for a merkle inclusion proof."))
 
-(use-construction performance-constraint-system :data *performance-defaults*)
-(report-data)
-(report-solution-for '(seal-cost))
-(forget gib-replication-cycles)
-(report-solution-for '(seal-cost))
-(report-solution-for '(gib-replication-cycles))
-(try-with seal-cost 661.7256)
-(report-solution-for '(gib-replication-cycles))
+(defconstraint-system merkle-tree-constraint-system
+    ((merkle-tree-leaves (/ sector-size node-bytes))
+     (merkle-inclusion-proof-hash-length-raw (log merkle-tree-leaves 2))
+     (merkle-inclusion-proof-hash-length (integer merkle-inclusion-proof-hash-length-raw))
+     (merkle-tree-height (+ merkle-inclusion-proof-hash-length 1))))
 
-|#
+(test merkle-tree-constraint-system
+  "Test merkle tree constraint system."
+
+  ;; Compute MERKLE-TREE-HEIGHT from SECTOR-SIZE.
+  (is (same
+       (tuple (sector-size 32)
+	      (node-bytes 4)
+	      (merkle-tree-leaves 8)
+	      (merkle-inclusion-proof-hash-length 3)
+	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-tree-height 4))
+       (solve-for merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
+
+  ;; Compute SECTOR-SIZE from MERKLE-TREE-HEIGHT.
+  (is (same
+       (tuple (sector-size 32)
+	      (node-bytes 4)
+	      (merkle-tree-leaves 8)
+	      (merkle-inclusion-proof-hash-length 3)
+	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-tree-height 4))
+       (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 4) (node-bytes 4)))))
+
+  ;; Compute SECTOR-SIZE from MERKLE-INCLUSION-PROOF-HASH-LENGTH.
+  (is (same
+       (tuple (sector-size 32)
+	      (node-bytes 4)
+	      (merkle-tree-leaves 8)
+	      (merkle-inclusion-proof-hash-length 3)
+	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-tree-height 4))
+       (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
+
+(deftransformation merkle-trees
+    ((sector-size) -> (merkle-tree-leaves
+		       merkle-tree-height
+		       merkle-tree-hash-count
+		       merkle-inclusion-proof-hash-length))
+  (let* ((leaves (/ sector-size 32)) ;; FIXME: check power of two or round up.
+	 (height (ceiling (+ (log leaves 2)) 1))
+	 (hash-count (- leaves 1))
+	 (proof-hash-length (- height 1)))
+    (values leaves
+	    height
+	    hash-count
+	    proof-hash-length)))
+
+(deftransformation= select-merkle-hash-function
+    ((merkle-hash-function-name hash-function-name hash-function-time hash-function-constraints &all tuple)
+     -> (merkle-hash-function-constraints merkle-hash-function-time))
+  (when (eql hash-function-name merkle-hash-function-name)
+    `((,hash-function-constraints ,hash-function-time))))
+
+(test examples
+  "Some examples placed in a test to ensure they don't break."
+  (finishes
+    (report-solution-for '(seal-cost) :system (performance-system) :initial-data *performance-defaults*)
+    (solve-for (performance-system) '(aws-price-TiB-year))
+    (ask (performance-system) '(aws-price-TiB-year annual-TiB))
+    (ask (performance-system) '(seal-cost))
+    
+    ;;; Interaction example:
+
+    (use-construction performance-constraint-system :data *performance-defaults*)
+    (report-data)
+    (report-solution-for '(seal-cost))
+    (forget gib-replication-cycles)
+    (report-solution-for '(seal-cost))
+    (report-solution-for '(gib-replication-cycles))
+    (try-with seal-cost 661.7256)
+    (report-solution-for '(gib-replication-cycles))))
