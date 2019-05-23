@@ -5,7 +5,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; General/Util -- Could have own package.
+;; General/Util -- Could/should have own package.
 
 (defmacro aif (condition then &optional else)
   `(let ((it ,condition))
@@ -65,38 +65,38 @@
 
 (defun format-as-infix (prefix)
   ;; TODO: actually do this
-  (format nil "~A" prefix)
-  )
+  (format nil "~A" prefix))
+
+(deftype tlambda-arrow () '(eql ->))
+(deftype xlambda-arrow () '(eql =>))
+(deftype literal-arrow () '(eql ~>))
+
+(deftype transformation-arrow () '(or tlambda-arrow xlambda-arrow literal-arrow))
 
 (defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
-  (assert (eql arrow '->))
+  (check-type arrow transformation-arrow)
+  (check-type eqmark (eql ==))
   (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
 	 (output (remove-if-not #'symbolp output))
 	 (input (process-input-list input-lambda-list)))
-    (ecase eqmark
-      (= `(let ((sig (make-signature ',input ',output)))
-	    (make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
-      (== `(let ((sig (make-signature ',input ',output)))
+    (etypecase arrow
+            ;; -> tlambda
+      (tlambda-arrow `(let ((sig (make-signature ',input ',output)))
 	     (make-instance 'transformation
 			    :signature sig
 			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
-			    :description ,(format-as-infix implementation)
-			    )))
-      (=== `(let ((sig (make-signature ',input ',output)))
-	      (make-instance 'transformation :signature sig :implementation ,implementation))))))
+			    :description ,(format-as-infix implementation))))
+      ;; => xlambda
+      (xlambda-arrow `(let ((sig (make-signature ',input ',output)))
+			(make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
+      ;; ~> literal implementation
+      (literal-arrow `(let ((sig (make-signature ',input ',output)))
+			(make-instance 'transformation :signature sig :implementation ,implementation))))))
 
-;; Idea: encode the choice of transformation syntax in the arrow. e.g. -> vs =>, etc.
-;; Uses TLAMBDA
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
-  (assert (eql arrow '->))
+  (check-type arrow transformation-arrow)
   `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) == (progn ,@implementation))))))
-
-;; Uses RLAMBDA
-(defmacro deftransformation= (name ((&rest input) arrow (&rest output)) &body implementation)
-  (assert (eql arrow '->))
-  `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation ((,@input) -> (,@output)) = (progn ,@implementation))))))
+     (progn (defparameter ,name (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))

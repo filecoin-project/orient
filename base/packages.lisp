@@ -9,4 +9,4 @@
 	   :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for :sys :system :system-data
 	   :tpl :transformation :try-with :use-construction :use-attribute
 	   :where :with-construction
-	   :*current-construction* :*trace-plan* :-> :=== :== &all :!>))
+	   :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &all :!>))

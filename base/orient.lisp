@@ -879,9 +879,9 @@
 
 (defun expand-integer-constraint (integer maybe-integer)
   "Returns a component which returns a relation binding INTEGER to MAYBE-INTEGER if it is equal to an integer, otherwise an empty relation."
-  `(component ((transformation ((,maybe-integer) -> (,integer)) = (awhen (must-integer ,maybe-integer)
+  `(component ((transformation ((,maybe-integer) => (,integer)) == (awhen (must-integer ,maybe-integer)
 								    `((,it))))
-	       (transformation ((,integer) -> (,maybe-integer)) = (progn (check-type ,integer integer)
+	       (transformation ((,integer) => (,maybe-integer)) == (progn (check-type ,integer integer)
 									 `((,,integer)))))))
 
 (test integer-constraint

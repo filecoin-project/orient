@@ -303,9 +303,9 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	    hash-count
 	    proof-hash-length)))
 
-(deftransformation= select-merkle-hash-function
+(deftransformation select-merkle-hash-function
     ((merkle-hash-function-name hash-function-name hash-function-time hash-function-constraints &all tuple)
-     -> (merkle-hash-function-constraints merkle-hash-function-time))
+     => (merkle-hash-function-constraints merkle-hash-function-time))
   (when (eql hash-function-name merkle-hash-function-name)
     `((,hash-function-constraints ,hash-function-time))))
 
