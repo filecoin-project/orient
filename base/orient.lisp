@@ -527,8 +527,11 @@
     (let* ((plan (reverse (%plan (system-components system) :component-list signature plan)))
 	   (plan-signature (pipeline-signature plan)))
 
-      (when (subsetp (signature-output signature) (signature-input signature))
-	(return-from %plan (list (identity-transformation))))
+      ;; TODO: Figure out when/how we can perform this short-circuit safely?
+      ;; (when (subsetp (signature-output signature) (signature-input signature))
+      ;; 	;; This shortcuts constraint checks on already filled variables.
+      ;; 	(return-from %plan (list (identity-transformation))))
+      
       ;; FIXME: this will fail if there is no plan but none was needed. Fix that.
       
       ;; TODO: prune extraneous transformations from the plan.
@@ -737,12 +740,13 @@
 (defun expand-constraint-definitions (constraint-definitions)
   `(list ,@(mapcar (lambda (constraint-form) (apply #'expand-constraint-definition constraint-form)) constraint-definitions)))
 
-(deftype multiplication-constraint-form () `(cons (eql *)))
-(deftype division-constraint-form () `(cons (eql /)))
-(deftype addition-constraint-form () `(cons (eql +)))
-(deftype subtraction-constraint-form () `(cons (eql -)))
-(deftype log-constraint-form () `(cons (eql log)))
-(deftype integer-constraint-form () `(cons (eql integer)))
+(deftype multiplication-constraint-form () '(cons (eql *)))
+(deftype division-constraint-form () '(cons (eql /)))
+(deftype addition-constraint-form () '(cons (eql +)))
+(deftype subtraction-constraint-form () '(cons (eql -)))
+(deftype log-constraint-form () '(cons (eql log)))
+(deftype integer-constraint-form () '(cons (eql integer)))
+(deftype equality-constraint-form () '(cons (eql ==)))
 
 ;; Only handles binary constraints, for now.
 (defun expand-constraint-definition (name constraint-form)
@@ -758,7 +762,9 @@
     (log-constraint-form
      (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
     (integer-constraint-form
-     (expand-integer-constraint name (first (cdr constraint-form))))))
+     (expand-integer-constraint name (first (cdr constraint-form))))
+    (equality-constraint-form
+     (expand-equality-constraint name (first (cdr constraint-form))))))
 
 (defun expand-multiplication-constraint (product a b)
   "PRODUCT = A * B"
@@ -882,10 +888,10 @@
   `(component ((transformation ((,maybe-integer) => (,integer)) == (awhen (must-integer ,maybe-integer)
 								    `((,it))))
 	       (transformation ((,integer) => (,maybe-integer)) == (progn (check-type ,integer integer)
-									 `((,,integer)))))))
+									  `((,,integer)))))))
 
 (test integer-constraint
-  "Test CONSTRAINT-SYSTEM with an integer."
+  "Test CONSTRAINT-SYSTEM with an integer constraint."
   (let* ((system (constraint-system ((k (integer n))))))
     
     (is (same (relation (k n) (4 4.0))
@@ -903,6 +909,31 @@
 
     (is (same (relation (k n)) ;; Empty relation with expected heading.
 	      (solve-for system '(k) (tuple (n 4.1)))))))
+
+
+(defun expand-equality-constraint (a b)
+  ;; TODO: in general, constraints must be able to function as restrictions -- but they are at least sometimes now short-circuited
+  ;; by the planning process.
+  "Sets A to B or vice versa." 
+  `(component ((transformation ((,a) -> (,b)) == ,a)
+	       (transformation ((,b) -> (,a)) == ,b)
+	       (transformation ((,a ,b) => (,a ,b)) == (awhen (same ,a ,b)
+							 `((,,a ,,b)))))))
+
+(test equality-constraint
+  "Test CONSTRAINT-SYSTEM with an equality constraint."
+  (let ((system (constraint-system ((a (== b)))))
+	(satsifying-assignment (tuple (a 1) (b 1))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(a) (tuple (b 1)))))
+
+    (is (same satsifying-assignment
+	      (solve-for system '(b) (tuple (a 1)))))
+
+    #+(or) ;; FIXME: A tuple which fails the constraint should result in an empty relation.
+    (is (same (relation (a b))
+	      (solve-for system '(a b) (tuple (a 1) (b 2)))))))
 
 (test constraint-constants
   "Test CONSTRAINT-SYSTEM with some constants."

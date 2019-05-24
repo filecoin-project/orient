@@ -254,7 +254,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
     ((merkle-tree-leaves (/ sector-size node-bytes))
      (merkle-inclusion-proof-hash-length-raw (log merkle-tree-leaves 2))
      (merkle-inclusion-proof-hash-length (integer merkle-inclusion-proof-hash-length-raw))
-     (merkle-tree-height (+ merkle-inclusion-proof-hash-length 1))))
+     (merkle-tree-height (== merkle-inclusion-proof-hash-length))))
 
 (test merkle-tree-constraint-system
   "Test merkle tree constraint system."
@@ -266,7 +266,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
 	      (merkle-inclusion-proof-hash-length-raw 3.0)
-	      (merkle-tree-height 4))
+	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
 
   ;; Compute SECTOR-SIZE from MERKLE-TREE-HEIGHT.
@@ -276,8 +276,8 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
 	      (merkle-inclusion-proof-hash-length-raw 3.0)
-	      (merkle-tree-height 4))
-       (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 4) (node-bytes 4)))))
+	      (merkle-tree-height 3))
+       (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))
 
   ;; Compute SECTOR-SIZE from MERKLE-INCLUSION-PROOF-HASH-LENGTH.
   (is (same
@@ -286,7 +286,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
 	      (merkle-inclusion-proof-hash-length-raw 3.0)
-	      (merkle-tree-height 4))
+	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
 (deftransformation merkle-trees

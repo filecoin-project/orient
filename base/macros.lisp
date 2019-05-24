@@ -210,6 +210,7 @@
 	(out (gensym "OUTPUT"))
 	(supplied-pairs (gensym "PAIRS")))
     `(lambda (,tuple)
+       (declare (ignorable ,tuple))
        (symbol-macrolet
 	   (,@(loop for in in input
 		 collect `(,in (tref ',in ,tuple))))
