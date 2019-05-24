@@ -289,25 +289,17 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
-(deftransformation merkle-trees
-    ((sector-size) -> (merkle-tree-leaves
-		       merkle-tree-height
-		       merkle-tree-hash-count
-		       merkle-inclusion-proof-hash-length))
-  (let* ((leaves (/ sector-size 32)) ;; FIXME: check power of two or round up.
-	 (height (ceiling (+ (log leaves 2)) 1))
-	 (hash-count (- leaves 1))
-	 (proof-hash-length (- height 1)))
-    (values leaves
-	    height
-	    hash-count
-	    proof-hash-length)))
-
 (deftransformation select-merkle-hash-function
     ((merkle-hash-function-name hash-function-name hash-function-time hash-function-constraints &all tuple)
      => (merkle-hash-function-constraints merkle-hash-function-time))
   (when (eql hash-function-name merkle-hash-function-name)
     `((,hash-function-constraints ,hash-function-time))))
+
+(defschema zigzag-schema "ZigZag")
+
+(defconstraint-system zigzag-constraint-system
+    ()
+    :schema zigzag-schema)
 
 (test examples
   "Some examples placed in a test to ensure they don't break."
