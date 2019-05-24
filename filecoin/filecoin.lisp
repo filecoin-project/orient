@@ -26,8 +26,6 @@
   (blake2s-hash-second "Seconds required to hash 64 bytes with blake2s.")
   (blake2s-constraints "Number of circuit constraints required to prove blake2s hashing of 64 bytes.")
 
-  (sector-size "Size in bytes of a sealed sector.")
-
   ;;;; Optional parameters.
   (merkle-hash-function-name "Hash function name. Type is an enumeration of { PEDERSEN, BLAKE2S } (may change when types are implemented).")
 
@@ -45,28 +43,30 @@
   |#
   )
 
-(defparameter *hash-functions* (relation (hash-function-name hash-function-time hash-function-constraints)
-					 (:pedersen 0.000017993 1152)
-					 (:blake2s 1.6055e-7 10324)))
+(defparameter *hash-functions* (relation (hash-function-name hash-function-time hash-function-constraints hash-function-size)
+					 (:pedersen 0.000017993 1152 32)
+					 (:blake2s 1.6055e-7 10324 32)))
 
 (defparameter *defaults*
   (tuple
    ;; FIXME: This depends on the processor speed of the machine that produced the benchmark. We should express benchmarks in cycles.
-   (pedersen-hash-seconds 0.000017993)
-   (pedersen-hash-constraints 1152)
+   ;; (pedersen-hash-seconds 0.000017993)
+   ;; (pedersen-hash-constraints 1152)
 
-   (blake-hash-seconds 1.6055e-7)
-   (blake-hash-constraints 10324)
+   ;; (blake-hash-seconds 1.6055e-7)
+   ;; (blake-hash-constraints 10324)
 
    ;; (hash-functions (relation (hash-function-name hash-function-time hash-function-constraints)
    ;; 			     (:pedersen 0.000017993 1152)
    ;; 			     (:blake2s 1.6055e-7 10324)))
 
    (merkle-hash-function-name :pedersen)
-
+   (node-bytes 32)
    (sector-size (* 1 GiB))))
 
-(defun filecoin-system () (sys ((component (merkle-trees)) (component (select-merkle-hash-function)))))
+(defun filecoin-system () (make-instance 'system
+					 :components (list (component (select-merkle-hash-function)))
+					 :subsystems (list performance-constraint-system merkle-tree-constraint-system)))
 
 (test defaults
   "Test and assert results of solving with defaults."
@@ -78,24 +78,15 @@
 						merkle-hash-function-constraints)
 			    initial-relation))
 	 (expected
-	  (make-relation
-	   (list
-	    (tuple
-	     (PEDERSEN-HASH-SECONDS 1.7993e-5)
-	     (PEDERSEN-HASH-CONSTRAINTS 1152)
-	     (BLAKE-HASH-SECONDS 1.6055e-7)
-	     (BLAKE-HASH-CONSTRAINTS 10324)
-	     (SECTOR-SIZE 1073741824)
-	     (HASH-FUNCTION-NAME :PEDERSEN)
-	     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-	     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-	     (MERKLE-HASH-FUNCTION-TIME 0.000017993)
-	     (HASH-FUNCTION-CONSTRAINTS 1152)
-	     (HASH-FUNCTION-TIME 0.000017993)
-	     (MERKLE-TREE-LEAVES 33554432)
-	     (MERKLE-TREE-HEIGHT 25)
-	     (MERKLE-TREE-HASH-COUNT 33554431)
-	     (MERKLE-INCLUSION-PROOF-HASH-LENGTH 24))))))
+	  (tuple (HASH-FUNCTION-CONSTRAINTS 1152) (HASH-FUNCTION-NAME :PEDERSEN)
+		 (HASH-FUNCTION-SIZE 32) (HASH-FUNCTION-TIME 1.7993e-5)
+		 (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
+		 (MERKLE-HASH-FUNCTION-NAME :PEDERSEN) (MERKLE-HASH-FUNCTION-SIZE 32)
+		 (MERKLE-HASH-FUNCTION-TIME 1.7993e-5)
+		 (MERKLE-INCLUSION-PROOF-HASH-LENGTH 25)
+		 (MERKLE-INCLUSION-PROOF-HASH-LENGTH-RAW 25.0)
+		 (MERKLE-TREE-HASH-COUNT 33554431) (MERKLE-TREE-HEIGHT 25)
+		 (MERKLE-TREE-LEAVES 33554432) (NODE-BYTES 32) (SECTOR-SIZE 1073741824))))
     (is (same expected result))))
 
 #|
@@ -122,29 +113,29 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 
 |#
 
-(deftransformation performance ((aws-storage-price comparable-monthly-income miner-months-to-capacity TiB-drive-cost
-						   cpu-ghz-cost GiB-replication-cycles)
-				  ->
-				(aws-price-TiB-year annual-TiB monthly-TiB daily-TiB hourly-TiB hourly-GiB up-front-drive-cost
-						    up-front-compute-cost total-up-front-cost seal-cost))
-  (let* ((aws-price-TiB-year (* aws-storage-price 12))
-	 (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
-	 (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
-	 (daily-TiB (/ monthly-TiB (/ 365 12)))
-	 (hourly-TiB (/ daily-Tib 24))
-	 (hourly-GiB (* hourly-TiB 1024))
-	 (up-front-drive-cost (* TiB-drive-cost annual-TiB))
+;; (deftransformation performance ((aws-storage-price comparable-monthly-income miner-months-to-capacity TiB-drive-cost
+;; 						   cpu-ghz-cost GiB-replication-cycles)
+;; 				  ->
+;; 				(aws-price-TiB-year annual-TiB monthly-TiB daily-TiB hourly-TiB hourly-GiB up-front-drive-cost
+;; 						    up-front-compute-cost total-up-front-cost seal-cost))
+;;   (let* ((aws-price-TiB-year (* aws-storage-price 12))
+;; 	 (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
+;; 	 (monthly-TiB (/ annual-TiB miner-months-to-capacity)) ;; Rate at which we must seal.
+;; 	 (daily-TiB (/ monthly-TiB (/ 365 12)))
+;; 	 (hourly-TiB (/ daily-Tib 24))
+;; 	 (hourly-GiB (* hourly-TiB 1024))
+;; 	 (up-front-drive-cost (* TiB-drive-cost annual-TiB))
 
-	 (replication-cycles-per-hour (* hourly-GiB GiB-replication-cycles))
-	 (replication-cycles-per-minute (* replication-cycles-per-hour 60))
-	 (replication-cycles-per-second (* replication-cycles-per-minute 60))
-	 (needed-ghz (/ replication-cycles-per-second 1e9))
-	 (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
-	 (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
-	 (seal-cost (/ total-up-front-cost hourly-GiB)))
-    (values aws-price-TiB-year
-	    (float annual-TiB) (float monthly-TiB) (float daily-TiB) (float hourly-TiB) (float hourly-GiB)
-	    (float up-front-drive-cost) (float up-front-compute-cost) (float total-up-front-cost) (float seal-cost))))
+;; 	 (replication-cycles-per-hour (* hourly-GiB GiB-replication-cycles))
+;; 	 (replication-cycles-per-minute (* replication-cycles-per-hour 60))
+;; 	 (replication-cycles-per-second (* replication-cycles-per-minute 60))
+;; 	 (needed-ghz (/ replication-cycles-per-second 1e9))
+;; 	 (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+;; 	 (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
+;; 	 (seal-cost (/ total-up-front-cost hourly-GiB)))
+;;     (values aws-price-TiB-year
+;; 	    (float annual-TiB) (float monthly-TiB) (float daily-TiB) (float hourly-TiB) (float hourly-GiB)
+;; 	    (float up-front-drive-cost) (float up-front-compute-cost) (float total-up-front-cost) (float seal-cost))))
 
 (defschema filecoin-price-performance
     "Filecoin price performance."
@@ -215,29 +206,18 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 ;   (GiB-replication-cycles (* 13000 4300))
    ))
 
+
 (defun performance-system ()
   (make-instance 'system
-		 :components (list (component (performance)))
-		 :schema filecoin-price-performance
+		 :components (system-components performance-constraint-system)
+		 :schema (system-schema performance-constraint-system)
 		 :data (list *performance-defaults*)))
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (let ((result (solve-for (performance-system) '(seal-cost)))
-	(expected (tuple (ANNUAL-TIB 181.15942) (AWS-PRICE-TIB-YEAR 276.0)
-			 (AWS-STORAGE-PRICE 23.0) (COMPARABLE-MONTHLY-INCOME 50000.0)
-			 (CPU-GHZ-COST 10.0) (DAILY-TIB 1.9853088)
-			 (GIB-REPLICATION-CYCLES 5.59e7) (HOURLY-GIB 84.706505)
-			 (HOURLY-TIB 0.082721196) (INVESTMENT 100000.0)
-			 (MINER-MONTHS-TO-CAPACITY 3) (MONTHLY-TIB 60.386475)
-			 (ROI-INTERVAL-MONTHS 6) (SEAL-COST 661.7256) (TIB-DRIVE-COST 300.0)
-			 (TOTAL-UP-FRONT-COST 56052.46) (UP-FRONT-COMPUTE-COST 1704.6338)
-			 (UP-FRONT-DRIVE-COST 54347.83))))
-    (is (same expected result) "produces all expected results")
-
-    (is (same (tuple (seal-cost 661.7256))
-    	      (ask (performance-system) '(seal-cost)))
-    	"correctly calculates SEAL-COST")))
+  (is (same (tuple (seal-cost 661.7256))
+	    (ask (performance-system) '(seal-cost)))
+      "correctly calculates SEAL-COST"))
 
 ;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
 ;;; Include option to validate that provided parameters exclude those which must be computed.
@@ -254,7 +234,8 @@ TODO: block reward profitability can/should be folded into this as an incrementa
     ((merkle-tree-leaves (/ sector-size node-bytes))
      (merkle-inclusion-proof-hash-length-raw (log merkle-tree-leaves 2))
      (merkle-inclusion-proof-hash-length (integer merkle-inclusion-proof-hash-length-raw))
-     (merkle-tree-height (== merkle-inclusion-proof-hash-length))))
+     (merkle-tree-height (== merkle-inclusion-proof-hash-length))
+     (merkle-tree-hash-count (- merkle-tree-leaves 1))))
 
 (test merkle-tree-constraint-system
   "Test merkle tree constraint system."
@@ -266,6 +247,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
 	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-tree-hash-count 7)
 	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
 
@@ -276,6 +258,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
 	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-tree-hash-count 7)
 	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))
 
@@ -285,21 +268,61 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 	      (node-bytes 4)
 	      (merkle-tree-leaves 8)
 	      (merkle-inclusion-proof-hash-length 3)
-	      (merkle-inclusion-proof-hash-length-raw 3.0)
+	      (merkle-inclusion-proof-hash-length-raw 3)
+	      (merkle-tree-hash-count 7)
 	      (merkle-tree-height 3))
        (solve-for merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
 (deftransformation select-merkle-hash-function
-    ((merkle-hash-function-name hash-function-name hash-function-time hash-function-constraints &all tuple)
-     => (merkle-hash-function-constraints merkle-hash-function-time))
+    ((merkle-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints &all tuple)
+     => (merkle-hash-function-constraints merkle-hash-function-time merkle-hash-function-size))
   (when (eql hash-function-name merkle-hash-function-name)
-    `((,hash-function-constraints ,hash-function-time))))
+    `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
 
-(defschema zigzag-schema "ZigZag")
+(defschema zigzag-schema
+    "ZigZag"
+  (sector-size "Size in bytes of a sealed sector.")
+  (comm-d-size "")
+  (comm-r-size "")
+  (comm-r-star-size "")
+  (comm-rs-size "")
+  (commitments-size "")
+  (proof-size "")
+  (degree "")
+  (base-degree "")
+  (expansion-degree "")
+  (sloth-iter "")
+  (replicate-min "")
+  (replicate-max "")
+  ;; TODO: hierarchical namespacing of some parameters?
+  (zigzag-vanilla-proving-time "")
+  (zigzag-groth-proving-time "")
+  (zigzag-total-proving-time "")
+  (total-seal-time "")
+  
+  (zigzag-vanilla-proving-cycles "")
+  (zigzag-groth-proving-cycles "")
+  (zigzag-total-proving-cycles "")
+  (total-seal-cycles "")
+  
+  (zigzag-constraints "")
+  (zigzag-hashing-constraints "")
+  (zigzag-non-hashing-constraints "")
+  )
 
 (defconstraint-system zigzag-constraint-system
-    ()
-    :schema zigzag-schema)
+    ;; TODO: Make variadic version of + and ==.
+    ((comm-d-size (== merkle-hash-function-size))
+     (comm-r-size (== merkle-hash-function-size))
+     (comm-r-star-size (== merkle-hash-function-size))     
+     (comm-rs-size (+ comm-r-size comm-r-star-size))
+     (commitments-size (+ comm-rs-size comm-d-size)))
+  :schema zigzag-schema)
+
+(test zigzag-constraint-system
+  "Test ZigZag constraint system."
+  
+  )
 
 (test examples
   "Some examples placed in a test to ensure they don't break."

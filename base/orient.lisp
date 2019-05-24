@@ -251,12 +251,18 @@
 (defclass system ()
   ((schema :initarg :schema :initform nil :accessor system-schema)
    (components :initarg :components :initform '() :accessor system-components)
+   (subsystems :initarg :subsystems :initform '() :accessor system-subsystems)
    (data :initarg :data :initform '() :accessor system-data)))
+
+(defgeneric all-system-components (system)
+  (:method ((system system))
+    (reduce #'append (cons (system-components system)
+			   (mapcar #'all-system-components (system-subsystems system))))))    
 
 (defmethod print-object ((sys system) (stream t))
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
 
-5(defgeneric lookup (attribute schemable)
+(defgeneric lookup (attribute schemable)
    (:method ((attribute symbol) (schema schema))
      (find attribute (schema-parameters schema) :key #'parameter-name))
    (:method ((attribute symbol) (system system))
@@ -400,7 +406,7 @@
 	(component-transformations component)))
 
 (defgeneric signature-satisfies-p (signature thing)
-  (:documentation "True if signatures inputs are a subset of thing's.")
+  (:documentation "True if thing's inputs are a subset of signature's.")
   (:method ((signature signature) (transformation transformation))
     (subsetp (signature-input (transformation-signature transformation)) (signature-input signature)))
   (:method ((signature signature) (component component))
@@ -413,74 +419,10 @@
   (when *trace-plan*
     (print args)))
 
-(defgeneric %plan-backward (system element signature plan)
-  (:method ((remaining-component-list list) (transformation transformation) (signature signature) (plan list))
-    (when *trace-plan* (print (list :signature signature :plan plan)))
-    
-    (incf (transformations-tried *plan-profile*))
-    (let* ((tran-sig (transformation-signature transformation))
-	   ;; Which of the still-needed output, if any, does the this transformation's signature provide?
-	   (provided-output (provides (signature-output signature) tran-sig)))
-      (unless provided-output
-	;; If this transformation doesn't provide any needed output, continue to the next com
-	(return-from %plan-backward nil))
-      ;; Otherwise, add the transformation to the plan and update the signature to satisfy.
-      (let* ((new-plan (cons transformation plan))
-	     ;; Input of the current transformation which aren't trivially provided must now be output of the
-	     ;; remaining plan (to be provided before this step's transformation is applied).
-	     (additional-output (set-difference (signature-input tran-sig) (signature-input signature)))
-	     ;; Output which still need to be provided.
-	     (remaining-output-needed  (set-difference (union (signature-output signature) additional-output) provided-output)))
-	(if remaining-output-needed
-	    ;; If there are still output which need to be satisfied, continue planning the component list.
-	    (%plan-backward remaining-component-list :component-list (make-signature (signature-input signature) remaining-output-needed) new-plan)
-	    ;; Otherwise, return the new plan.
-	    new-plan))))
-  (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (tr) (transformation-provides-p signature tr)) (component-transformations component)))
-	   (all-candidate-orderings (permutations candidates)))
-      (loop for ordering in all-candidate-orderings
-	 do (loop for transformation in ordering
-	       for maybe-plan = (%plan-backward remaining-component-list transformation signature plan)
-	       when maybe-plan do (return-from %plan-backward maybe-plan)))))
-  #+(or) ;; Trying to return all plans eventually becomes too expensive. Leave here for now in case we want to adapt to stream plans incrementally.
-  (:method ((component-list list) (selector (eql :component-list)) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (c) (component-provides-p signature c)) component-list))
-	   (all-candidate-orderings (permutations candidates)))
-      (remove nil (loop for ordering in all-candidate-orderings
-		     append (mapcan
-			     ;; If we want to only return one plan, we could shortcut and return on first non-NIL result here.
-			     (lambda (component)
-			       (%plan-backward (remove component component-list) ;; Each component can only be used once.
-					       component signature plan))
-			     ordering)))))
-  (:method ((component-list list) (selector (eql :component-list)) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (c) (component-provides-p signature c)) component-list))
-	   (all-candidate-orderings (permutations candidates)))
-      (when candidates
-	(loop for ordering in all-candidate-orderings
-	   do (loop for component in ordering
-		 for maybe-plan = (%plan-backward (remove component component-list) ;; Each component can only be used once.
-						  component signature plan)
-		 ;; short-circuit after first complete plan is returned.
-		 when maybe-plan
-		 do (return-from %plan-backward maybe-plan))))))
-  
-  (:method ((system system) (start (eql :system)) (signature signature) (plan list))
-    (%plan-backward (system-components system) :component-list signature plan)))
-
-(defgeneric plan-backward (system signature)
-  (:method ((system system) (signature signature))
-    (let* ((*plan-profile* (make-instance 'plan-profile)))
-      ;; For now, ignore all but first plan.
-      (values  (%plan-backward system :system (pruned-signature signature) '())
-	       *plan-profile*))))
-
-
 (defgeneric plan (system signature)
   (:method ((system system) (signature signature))
     (let* ((*plan-profile* (make-instance 'plan-profile))
-	   (plan (%plan system :system (pruned-signature signature) '())))
+	   (plan (%plan :system system (pruned-signature signature) '())))
       (debug-plan :found-plan plan)
       ;; For now, ignore all but first plan.
       (values  plan
@@ -488,6 +430,42 @@
 
 (defgeneric %plan (system element signature plan)
   (:documentation "Accumulates and returns a plan in reverse (result needs to be reversed).")
+  (:method ((start (eql :system)) (system system) (signature signature) (plan list))
+    ;; If the final pipeline doesn't satisfy SIGNATURE's output, PLAN is no good.
+    (let* ((plan (reverse (%plan :component-list (all-system-components system) signature plan)))
+	   (plan-signature (pipeline-signature plan)))
+
+      ;; TODO: Figure out when/how we can perform this short-circuit safely?
+      ;; (when (subsetp (signature-output signature) (signature-input signature))
+      ;; 	;; This shortcuts constraint checks on already filled variables.
+      ;; 	(return-from %plan (list (identity-transformation))))
+      
+      ;; FIXME: this will fail if there is no plan but none was needed. Fix that.
+      
+      ;; TODO: prune extraneous transformations from the plan.
+      (and plan-signature (subsetp (signature-output signature) (signature-output plan-signature))
+	   plan)))
+    (:method ((selector (eql :component-list)) (component-list list) (signature signature) (plan list))
+      (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))
+	     (all-candidate-orderings (permutations candidates)))
+	(debug-plan :signature signature :component-list component-list :candidates candidates)
+	(if candidates
+	    (loop for ordering in all-candidate-orderings
+	       do (loop for component in ordering
+		     for maybe-plan = (%plan (remove component component-list) ;; Each component can only be used once.
+					     component signature plan)
+		     ;; short-circuit after first complete plan is returned.
+		     when maybe-plan
+		     do (return-from %plan maybe-plan)))
+	    plan)))
+    (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
+      (debug-plan :planning :component component)
+      (let* ((candidates (remove-if-not (lambda (tr) (signature-satisfies-p signature tr)) (component-transformations component)))
+	     (all-candidate-orderings (permutations candidates)))
+	(loop for ordering in all-candidate-orderings
+	   do (loop for transformation in ordering		 
+		 for maybe-plan = (%plan remaining-component-list transformation signature plan)
+		 when maybe-plan do (return-from %plan maybe-plan)))))
   (:method ((remaining-component-list list) (transformation transformation) (signature signature) (plan list))
     (debug-plan :transformation transformation :signature signature :plan plan)
     
@@ -500,126 +478,7 @@
 	     (new-signature (make-signature (union (signature-input signature) (signature-output tran-sig))
 					    (signature-output signature))))
 	(debug-plan :new-plan new-plan :new-signature new-signature)
-	(%plan remaining-component-list :component-list new-signature new-plan))))
-  (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
-    (debug-plan :planning :component component)
-    (let* ((candidates (remove-if-not (lambda (tr) (signature-satisfies-p signature tr)) (component-transformations component)))
-	   (all-candidate-orderings (permutations candidates)))
-      (loop for ordering in all-candidate-orderings
-	 do (loop for transformation in ordering		 
-	       for maybe-plan = (%plan remaining-component-list transformation signature plan)
-	       when maybe-plan do (return-from %plan maybe-plan)))))
-  (:method ((component-list list) (selector (eql :component-list)) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))
-	   (all-candidate-orderings (permutations candidates)))
-      (debug-plan :signature signature :component-list component-list :candidates candidates)
-      (if candidates
-	  (loop for ordering in all-candidate-orderings
-	     do (loop for component in ordering
-		   for maybe-plan = (%plan (remove component component-list) ;; Each component can only be used once.
-					   component signature plan)
-		   ;; short-circuit after first complete plan is returned.
-		   when maybe-plan
-		   do (return-from %plan maybe-plan)))
-	  plan)))  
-  (:method ((system system) (start (eql :system)) (signature signature) (plan list))
-    ;; If the final pipeline doesn't satisfy SIGNATURE's output, PLAN is no good.
-    (let* ((plan (reverse (%plan (system-components system) :component-list signature plan)))
-	   (plan-signature (pipeline-signature plan)))
-
-      ;; TODO: Figure out when/how we can perform this short-circuit safely?
-      ;; (when (subsetp (signature-output signature) (signature-input signature))
-      ;; 	;; This shortcuts constraint checks on already filled variables.
-      ;; 	(return-from %plan (list (identity-transformation))))
-      
-      ;; FIXME: this will fail if there is no plan but none was needed. Fix that.
-      
-      ;; TODO: prune extraneous transformations from the plan.
-      (and plan-signature (subsetp (signature-output signature) (signature-output plan-signature))
-	   plan))))
-
-(defvar *tsort-result*)
-(defvar *tsort-remaining*)
-(defvar *tsort-marked*)
-(defun tsort-transformations (available attributes)
-  (let ((*tsort-result* '())
-	(*tsort-marked* '())
-	(*tsort-remaining* available))
-    (%tsort-transformations attributes)
-    *tsort-result*))
-
-
-(defun %tsort-transformations (attributes)
-  (when *tsort-remaining*
-    (loop for out in attributes
-       for next-transformations = (remove-if-not (lambda (transformation)
-						   (member out (signature-input (transformation-signature transformation))))
-						 *tsort-remaining*)
-       do (when *trace-plan* (print (list :out out :next-transformations next-transformations)))
-       do (loop for next in next-transformations
-	     do (progn ;(setq *tsort-remaining* (remove next *tsort-remaining*))
-		  (assert (not (member next *tsort-marked*))) ;; Not a DAG
-		  (push next *tsort-marked*)
-		  (%tsort-transformations  (signature-output (transformation-signature next)))
-		  (push next *tsort-result*)
-		  (when *trace-plan* (print (list :next next)))
-		  (setq *tsort-remaining* (remove next *tsort-remaining*))
-		  (when *trace-plan* (print (list :result *tsort-result* :remaining *tsort-remaining*)))
-		  ))
-	 )))
-
-(defun tsort-components (available attributes)
-  (let ((*tsort-result* '())
-	(*tsort-marked* '())
-	(*tsort-remaining* available))
-    (%tsort-components attributes)
-    *tsort-result*))
-
-(defun %tsort-components (attributes)
-  (when *tsort-remaining*
-    (loop for out in attributes
-       for next-components = (remove-if-not (lambda (component)
-					      (some (lambda (transformation)
-						      (member out (signature-input (transformation-signature transformation))))
-						    (component-transformations component)))
-					    *tsort-remaining*)
-       do (when *trace-plan* (print (list :out out :next-components next-components)))
-       do (loop for next in next-components
-	     do (progn ;(setq *tsort-remaining* (remove next *tsort-remaining*))
-		  (assert (not (member next *tsort-marked*))) ;; Not a DAG
-		  (let ((*tsort-marked* (cons next *tsort-marked*)))
-		    (when *trace-plan* (print (list :marking next :marked *tsort-marked*)))
-		    (%tsort-components (signature-output (loop for transformation in (component-transformations next)
-							    for sig = (transformation-signature transformation)
-							    when (member out (signature-input sig))
-							    return sig)
-							 )
-				       ))
-		  (push next *tsort-result*)
-		  (when *trace-plan* (print (list :next next)))
-		  (setq *tsort-remaining* (remove next *tsort-remaining*))
-		  (when *trace-plan* (print (list :result *tsort-result* :remaining *tsort-remaining*))))))))
-
-(defgeneric plan-tsort-transformations (system signature)
-  (:method ((system system) (signature signature))
-    (let* ((all-transformations (loop for component in (system-components system) append (component-transformations component)))
-	   (tsorted-transformations (tsort-transformations all-transformations (signature-input signature))))
-      tsorted-transformations)))
-
-(defgeneric plan-tsort-components (system signature)
-  (:method ((system system) (signature signature))
-    (let* ((all-components (system-components system))
-	   (tsorted-components (tsort-components all-components (signature-input signature))))
-      tsorted-components)))
-
-;; (test diamond-plan
-;;   ;; NOTE: this never actually triggered the problem yet.
-;;   "Test that a potentially pathological 'diamond' plan terminates when computing."
-;;   (let ((system (constraint-system ((a (+ initial 1))
-;; 				    (b (+ a 2))
-;; 				    (c (+ a 3))
-;; 				    (d (* b c))))))
-;;     (plan system '(d))))
+	(%plan :component-list remaining-component-list new-signature new-plan)))))
 
 (defmethod defaulted-initial-data ((system system) (provided t))
   ;; TODO: allow merging of provided data.
@@ -631,7 +490,6 @@
   (:method ((transformation transformation))
     (or (transformation-description transformation)
 	(signature-input (transformation-signature transformation)))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface
