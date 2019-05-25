@@ -93,16 +93,19 @@
       (literal-arrow `(let ((sig (make-signature ',input ',output)))
 			(make-instance 'transformation :signature sig :implementation ,implementation))))))
 
+(defmacro deftoplevel (name &body body)
+  `(setf (symbol-value ',name) ,@body))
+
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (check-type arrow transformation-arrow)
   `(eval-when (:load-toplevel :execute)
-     (progn (defparameter ,name (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
+     (progn (deftoplevel ,name (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))
 
 (defmacro defcomponent (name (&rest transformations))
-  `(defparameter ,name (make-instance 'component :transformations (list ,@transformations))))
+  `(deftoplevel ,name (make-instance 'component :transformations (list ,@transformations))))
 
 ;; Make a relation
 ;; Example: (relation (a b c) (1 2 3) (4 5 6))
@@ -133,7 +136,7 @@
 			  collect `(list ',attribute ,value)))))
 
 (defmacro defschema (name description &rest parameters)
-  `(defparameter ,name
+  `(deftoplevel ,name
      (make-instance 'schema
 		    :description ,description
 		    :parameters (list ,@(mapcar (lambda (parameter-spec)
@@ -152,7 +155,7 @@
      (let ((system (constraint-system ,constraint-definitions)))
        (when ,schema
 	 (setf (system-schema system) ,schema))
-       (defparameter ,name system))))
+       (deftoplevel ,name system))))
 
 (defmacro constraint-system (constraint-definitions)
   `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))

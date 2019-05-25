@@ -346,6 +346,9 @@
 
 ;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation tuple)
+  (:method ((transformation t) (null null))
+    ;; Everything collapses to NIL. This simplifies uniform handling of tuples/relations, but may need to be revisited.
+    nil)
   (:method ((transformation transformation) (tuple tuple))
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple))
@@ -361,9 +364,11 @@
 	    list
 	    :initial-value tuple))
   (:method ((f function) (tuple tuple))
-    (funcall f tuple))
+    ;; All transformation applications need to go through here.
+    (let* ((result (funcall f tuple)))
+      (join tuple result)))
   (:method ((s symbol) (tuple tuple))
-    (funcall s tuple)))
+    (apply-transformation (symbol-function s) tuple)))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
@@ -425,14 +430,14 @@
 	   (plan (%plan :system system (pruned-signature signature) '())))
       (debug-plan :found-plan plan)
       ;; For now, ignore all but first plan.
-      (values  plan
-	       *plan-profile*))))
+      (values plan *plan-profile*))))
 
 (defgeneric %plan (system element signature plan)
   (:documentation "Accumulates and returns a plan in reverse (result needs to be reversed).")
   (:method ((start (eql :system)) (system system) (signature signature) (plan list))
     ;; If the final pipeline doesn't satisfy SIGNATURE's output, PLAN is no good.
-    (let* ((plan (reverse (%plan :component-list (all-system-components system) signature plan)))
+    (let* ((reversed-plan (%plan :component-list (all-system-components system) signature plan))
+	   (plan (reverse reversed-plan))
 	   (plan-signature (pipeline-signature plan)))
 
       ;; TODO: Figure out when/how we can perform this short-circuit safely?
@@ -441,34 +446,28 @@
       ;; 	(return-from %plan (list (identity-transformation))))
       
       ;; FIXME: this will fail if there is no plan but none was needed. Fix that.
-      
+
+      (debug-plan :signature-output  (signature-output signature))
       ;; TODO: prune extraneous transformations from the plan.
-      (and plan-signature (subsetp (signature-output signature) (signature-output plan-signature))
-	   plan)))
-    (:method ((selector (eql :component-list)) (component-list list) (signature signature) (plan list))
-      (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))
-	     (all-candidate-orderings (permutations candidates)))
-	(debug-plan :signature signature :component-list component-list :candidates candidates)
-	(if candidates
-	    (loop for ordering in all-candidate-orderings
-	       do (loop for component in ordering
-		     for maybe-plan = (%plan (remove component component-list) ;; Each component can only be used once.
-					     component signature plan)
-		     ;; short-circuit after first complete plan is returned.
-		     when maybe-plan
-		     do (return-from %plan maybe-plan)))
-	    plan)))
-    (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
-      (debug-plan :planning :component component)
-      (let* ((candidates (remove-if-not (lambda (tr) (signature-satisfies-p signature tr)) (component-transformations component)))
-	     (all-candidate-orderings (permutations candidates)))
-	(loop for ordering in all-candidate-orderings
-	   do (loop for transformation in ordering		 
-		 for maybe-plan = (%plan remaining-component-list transformation signature plan)
-		 when maybe-plan do (return-from %plan maybe-plan)))))
+      (let ((needed-output (set-difference (signature-output signature) (signature-input signature))))
+	(and plan-signature (subsetp needed-output (signature-output plan-signature))
+	     plan))))
+  (:method ((selector (eql :component-list)) (component-list list) (signature signature) (plan list))
+    (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))	   )
+      (debug-plan :signature signature :component-list component-list :candidates candidates :plan plan)
+      (or (some (lambda (component)
+		  (%plan (remove component component-list) ;; Each component can only be used once.
+			 component signature plan))
+		candidates)
+	  plan)))
+  (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
+    (debug-plan :planning :component component)
+    (let ((candidates (remove-if-not (lambda (tr) (signature-satisfies-p signature tr)) (component-transformations component))))
+      (some (lambda (transformation)
+	      (%plan remaining-component-list transformation signature plan))
+	    candidates)))
   (:method ((remaining-component-list list) (transformation transformation) (signature signature) (plan list))
-    (debug-plan :transformation transformation :signature signature :plan plan)
-    
+    (debug-plan :transformation transformation :signature signature :plan plan)    
     (incf (transformations-tried *plan-profile*))
     (let* ((tran-sig (transformation-signature transformation)))
       ;; TODO: Under what circumstances, if any, can we skip following a branch forward?
@@ -651,6 +650,9 @@
     (is (same satsifying-assignment
 	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
 
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (a 3) (b 2) (c 5) (d 10)))))
+    
     ;; This one can't (currently) be solved.
     (is (same nil 
 	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
@@ -668,7 +670,11 @@
     (is (same satisfying-assignment
 	      (solve-for system '(x) (tuple (y 4) (z 3)))))
     (is (same satisfying-assignment
-	      (solve-for system '(y) (tuple (x 12) (z 3)))))))
+	      (solve-for system '(y) (tuple (x 12) (z 3)))))
+
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (z 3) (x 12) (y 5)))))
+    ))
 
 (defun expand-addition-constraint (sum  a b)
   "SUM = A + B"
@@ -695,6 +701,9 @@
     
     (is (same satsifying-assignment
 	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
+
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (a 3) (b 2) (c 5) (d 9)))))
 
     ;; This one can't (currently) be solved. TODO: Return relation of factorization tuples.
     (is (same nil 
@@ -733,7 +742,11 @@
 	      (solve-for system '(n) (tuple (base 2) (l 3.0)))))
 
     (is (not (same satisfying-assignment
-		   (solve-for system '(l) (tuple (base 3) (n 8.0))))))))
+		   (solve-for system '(l) (tuple (base 3) (n 8.0))))))
+
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (base 3) (n 8.0) (l 5.0)))))
+    ))
 
 (defun must-integer (n)
   "Returns N if it is equivalent to an integer, otherwise NIL."
@@ -753,7 +766,7 @@
   (let* ((system (constraint-system ((k (integer n))))))
     
     (is (same (relation (k n) (4 4.0))
-	      (solve-for system '(k) (tuple (n 4.0)))))
+     	      (solve-for system '(k) (tuple (n 4.0)))))
     (is (same (relation (k n) (4 4))
     	      (solve-for system '(k) (tuple (n 4)))))
 
@@ -765,8 +778,13 @@
     ;; It is a program error for the INTEGER input to the INTEGER constraint not to be an integer.
     (signals (type-error) (solve-for system '(n) (tuple (k 4.0))))
 
+    ;; Inconsistent data are not produced. NOTE: Most such constraints yield NIL, but this explicitly produces an empty relation. Normalize?
+    (is (same (relation (k n))
+	      (solve-for system '() (tuple (k 3) (n 4.0)))))
+    
     (is (same (relation (k n)) ;; Empty relation with expected heading.
-	      (solve-for system '(k) (tuple (n 4.1)))))))
+    	      (solve-for system '(k) (tuple (n 4.1)))))
+    ))
 
 
 (defun expand-equality-constraint (a b)
@@ -789,9 +807,9 @@
     (is (same satsifying-assignment
 	      (solve-for system '(b) (tuple (a 1)))))
 
-    #+(or) ;; FIXME: A tuple which fails the constraint should result in an empty relation.
-    (is (same (relation (a b))
-	      (solve-for system '(a b) (tuple (a 1) (b 2)))))))
+					;    #+(or) ;; FIXME: A tuple which fails the constraint should result in an empty relation.
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '(a b) (tuple (a 1) (b 2)))))))
 
 (test constraint-constants
   "Test CONSTRAINT-SYSTEM with some constants."
