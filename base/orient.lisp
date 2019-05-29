@@ -54,6 +54,13 @@
     (and (first (tuples r))
 	 (attributes (first (tuples r))))))
 
+(defgeneric ensure-tuples (attributed)
+  (:method ((tuple tuple))
+    (list tuple))
+  (:method ((relation relation))
+    (tuples relation))
+  (:method ((null null)) nil))
+
 (defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
 (defgeneric make-relation (tuples)
@@ -253,17 +260,21 @@
 (defgeneric all-system-data (system)
   (:method ((system system))
     (reduce #'append (cons (system-data system) (mapcar #'all-system-data (system-subsystems system))))))
-    
+
+(defmethod system-schema :around ((system system))
+  (find-schema (call-next-method)))
 
 (defmethod print-object ((sys system) (stream t))
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
 
 (defgeneric lookup (attribute schemable)
-   (:method ((attribute symbol) (schema schema))
-     (find attribute (schema-parameters schema) :key #'parameter-name))
-   (:method ((attribute symbol) (system system))
-     (when (system-schema system)
-       (lookup attribute (system-schema system)))))
+  (:method ((attribute symbol) (schema schema))
+    (find attribute (schema-parameters schema) :key #'parameter-name))
+  (:method ((attribute symbol) (system system))
+    (or (awhen (find-schema (system-schema system))
+	  (lookup attribute it))
+	(some (lambda (system) (lookup attribute system))
+	      (system-subsystems system)))))
 
 (defun lookup-description (attribute schemable)
   (let ((parameter (lookup attribute schemable)))
@@ -356,7 +367,8 @@
     (reduce #'combine-potential-relations
 	    (mapcar (lambda (tuple)
 		      (apply-transformation transformation tuple))
-		    (tuples relation))))
+		    (tuples relation))
+	    :initial-value nil))
   (:method ((list list) (tuple tuple))
     (check-type list (cons transformation-spec))
     (reduce (lambda (tuple transformation)
@@ -477,16 +489,18 @@
 	(debug-plan :new-plan new-plan :new-signature new-signature)
 	(%plan :component-list remaining-component-list new-signature new-plan)))))
 
-(defmethod defaulted-initial-data ((system system) (provided t))
+(defmethod defaulted-initial-data ((system system) (provided t) &key override-data)
   ;; TODO: allow merging of provided data.
-  (or provided
-      (and (all-system-data system)
-	   (apply #'join (all-system-data system)))))
+  (let ((defaulted (duplicate (or provided
+				  (and (all-system-data system)
+				       (apply #'join (all-system-data system)))))))
+    (loop for (key value) in (and override-data (tuple-pairs override-data))
+       do (setf (tref key defaulted) value))
+    defaulted))
 
 (defgeneric describe-transformation-calculation (transformation)
   (:method ((transformation transformation))
-    (or (transformation-description transformation)
-	(signature-input (transformation-signature transformation)))))
+    (transformation-description transformation)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface
@@ -506,45 +520,59 @@
     (cond (tuple (setf (tref attribute tuple) value))
 	  (t  (push (tuple (attribute value)) (system-data *current-construction*))))))
 
-(defgeneric solve (system signature initial-data &key report)
+(defgeneric solve (system signature initial-data &key report override-data)
+  (:documentation "REPORT, if true, specifies format to use, defaulting to plain text.")
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
   (:method ((system-name symbol) (signature t) (initial-data t) &rest keys)
     (apply #'solve (find-system system-name) signature initial-data keys))
-  (:method ((system system) (signature null) (initial-data t) &rest keys)
-    (let* ((initial-value (defaulted-initial-data system initial-data))
+  (:method ((system system) (signature null) (initial-data t) &rest keys &key report override-data)
+    (let* ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	   (signature (or signature (make-signature (attributes initial-value) (attributes initial-value)))))
       (apply #'solve system signature initial-value keys)))
-  (:method ((system system) (signature signature) (initial-data t) &key report) ;; TODO: create and use common supertype for tuple and relation.
-    (let ((initial-value (defaulted-initial-data system initial-data))
+  (:method ((system system) (signature signature) (initial-data t) &key report override-data)
+    (let ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	  (plan (plan system signature))
-	  (schema (system-schema system))
-	  (report-results '())
-)
+	  (report-results '()))
       (and plan
 	   (satisfies-input-p initial-data signature)
+	   ;; TODO: Finish refactoring this to be cleaner.
 	   (let ((result (reduce (lambda (tuple-or-relation transformation)
-				   (let ((new (apply-transformation transformation tuple-or-relation)))
+				   (let ((transformed (apply-transformation transformation tuple-or-relation)))
 				     (when report
-				       (flet ((tuple-report (tuple)
-						(let ((rep (loop for (key value) in (tuple-pairs tuple)
-							      when (member key (signature-output (transformation-signature transformation)))
-							      collect (format nil "~&~A: ~A = ~A~% ~A~%"
-									      key
-									      (describe-transformation-calculation transformation)
-									      value
-									      (let ((desc (and schema (lookup-description key schema))))
-										(if desc (format nil "   ~A~%" desc) ""))
-									      ))))
-						  (setf report-results (append report-results rep)))))
-					 (typecase new
-					   (tuple (tuple-report new))
-					   (relation
-					    (dolist (tuple (tuples new))
-					      (tuple-report tuple))))))
-				     new))
-				 plan
-				 :initial-value initial-value)))
-	     (values result plan report-results))))))
+				       (setf report-results
+					     (append report-results (report-step transformed transformation system :format report))))
+				     transformed))
+				   plan
+				   :initial-value initial-value)))
+		 (values result plan (synthesize-report-steps report report-results)))))))
+
+(defun report-step (step transformation system &key format)
+  (let* ((tuples (ensure-tuples step))
+	 (multiple (> (length tuples) 1)))
+    (loop for tuple in tuples
+       for i from 0
+       append (create-tuple-report-step format tuple transformation system :n (and multiple i)))))
+
+(defgeneric synthesize-report-steps (format steps)
+  (:method ((format t) (steps list))
+    (reduce (lambda (&optional acc step)
+	      (concatenate 'string acc step))
+	    steps
+	    :initial-value "")))
+
+(defgeneric create-tuple-report-step (format tuple transformation system &key n)  
+  (:documentation "N is index of TUPLE if TUPLE has siblings.")
+  (:method ((format t) (tuple tuple) (transformation transformation) (system system) &key n)
+    (loop for (key value) in (tuple-pairs tuple)
+       when (member key (signature-output (transformation-signature transformation)))
+       collect (format nil "~&~@[~A. ~]~A: ~A = ~A~% ~A~%"
+		       n
+		       key
+		       (describe-transformation-calculation transformation)
+		       value
+		       (let ((desc (and system (lookup-description key system))))
+			 (if desc (format nil "   ~A~%" desc) ""))))))
+
 
 (defgeneric report (thing context)
   (:method ((null null) (context t))
@@ -558,34 +586,28 @@
 		    (let ((desc (and schema (lookup-description key schema))))
 		      (if desc (format nil "   ~A~%" desc) ""))))))
   (:method ((tuple tuple) (system system))
-    (report tuple (system-schema system))))
+    (report tuple (find-schema (system-schema system))))
+  (:method ((tuple tuple) (system-name symbol))
+    (when system-name
+      (report tuple (find-system system-name)))))
 
 (defun report-data (&optional (system *current-construction*))
   (mapcar (lambda (data) (report data system)) (system-data system)))
 
-(defun solve-for (system output &optional initial-data &key report)
+(defun solve-for (system output &optional initial-data &key report override-data)
   (let* ((system (find-system system))
-	 (defaulted (defaulted-initial-data system initial-data))
+	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (attributes defaulted) output)))
-    (solve system sig defaulted :report report)))
+    (solve system sig defaulted :report report :override-data override-data)))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data)
-  (multiple-value-bind (solution plan report) (solve-for system output initial-data :report t)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data)
+  (multiple-value-bind (solution plan report) (solve-for system output initial-data :report format :override-data override-data)
     (declare (ignore plan))
-    (typecase solution
-	(tuple
-	 (values (apply #'concatenate 'string report)
-		 solution
-		 ))
-	(relation
-	 (values (loop for tuple in (tuples solution)
-		      collect (apply #'concatenate 'string report))
-		 solution))
-      (null (values "NO SOLUTION" nil)))))
+    (values (if solution report "NO SOLUTION")  solution)))
 
-(defun ask (system output &optional initial-data)
+(defun ask (system output &optional initial-data &key override-data)
   "Like solve-for but only returns the requested attributes in response tuple."
-  (let ((solution  (solve-for system output initial-data)))
+  (let ((solution (solve-for system output initial-data :override-data override-data)))
     (when solution
       (project output solution))))
 
@@ -615,6 +637,9 @@
 (deftype log-constraint-form () '(cons (eql log)))
 (deftype integer-constraint-form () '(cons (eql integer)))
 (deftype equality-constraint-form () '(cons (eql ==)))
+
+(deftype constraint-form () '(or multiplication-constraint-form division-constraint-form addition-constraint-form subtraction-constraint-form
+			      log-constraint-form integer equality-constraint-form))
 
 ;; Only handles binary constraints, for now.
 (defun expand-constraint-definition (name constraint-form)
@@ -771,6 +796,13 @@
 								    `((,it))))
 	       (transformation ((,integer) => (,maybe-integer)) == (progn (check-type ,integer integer)
 									  `((,,integer)))))))
+
+(defgeneric transformation-description (transformation)
+  (:method ((transformation transformation))
+    (let ((source (transformation-source transformation)))
+      (typecase source
+	((or constraint-form (and symbol (not null))) (format nil "~A" source))
+	(t nil)))))
 
 (test integer-constraint
   "Test CONSTRAINT-SYSTEM with an integer constraint."
@@ -949,32 +981,6 @@
 	 (s1 (sys (c1))))
     (is (same d3 (solve-for s1 '(b) d1)))
     (is (same d4 (solve-for s1 '(a) d2)))))
-
-#+(or) ;; TODO: Make this work.
-(test expressive-bidirectional
-  "Simple test of a bidirectional constraint."
-  
-  (let* ((d1 (tuple (a 1)))
-	 (d2 (tuple (b 10)))
-	 (d3 (tuple (a 1) (b 5)))
-	 (d4 (tuple (a 2) (b 10)))
-
-	 (t1 (somesyntax (a b c) ==
-			 (c (* a b))
-			 (a (/ c b))
-			 (b (/ c a))))
-	 
-	 (t1 (transformation ((a) <-> (b)) == (times a b 5)))
-
-	 ;; TODO: Simplify defining components like this 'constraint'.
-	 ;; TODO2: Represent it as a relation.
-	 ;; TODO3: Allow for planning through relations (consider signatures).
-	 (c1 (component (t1 t2)))
-
-	 (s1 (sys (c1))))
-    (is (same (solve-for s1 '(b) d1) d3))
-    (is (same (solve-for s1 '(a) d2) d4))))
-
 
 (test planning-terminates
   "Regression test for infinite stack bug."

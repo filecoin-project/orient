@@ -63,10 +63,6 @@
   (assert (eql arrow '->))
   `(make-signature ',input ',output))
 
-(defun format-as-infix (prefix)
-  ;; TODO: actually do this
-  (format nil "~A" prefix))
-
 (deftype tlambda-arrow () '(eql ->))
 (deftype xlambda-arrow () '(eql =>))
 (deftype literal-arrow () '(eql ~>))
@@ -85,7 +81,7 @@
 	     (make-instance 'transformation
 			    :signature sig
 			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
-			    :description ,(format-as-infix implementation))))
+			    :source ',implementation)))
       ;; => xlambda
       (xlambda-arrow `(let ((sig (make-signature ',input ',output)))
 			(make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))

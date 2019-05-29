@@ -1,6 +1,10 @@
 (defpackage filecoin
   (:use :common-lisp :orient :it.bese.FiveAm)
-  (:nicknames :fc))
+  (:nicknames :fc)
+  (:export
+   :seal-cost :seal-time :sector-size :performance-system
+   :zigzag-system
+   :*performance-defaults*))
 
 (in-package :filecoin)
 
@@ -45,23 +49,23 @@
 (defparameter *zigzag-defaults* (tuple
 				 (merkle-hash-function-name :pedersen)
 				 (kdf-hash-function-name :blake2s)
-				 (partition-challenges 100)
+				 (partition-challenges 400)
 				 (single-circuit-proof-size 192) ;; Groth16 -- eventually should allow selection of proving systems.
 				 (sloth-iter 0)
 				 (layers 10)
-				 (degree 5)
-				 (base-degree 8)
+				 (base-degree 5)
+				 (expansion-degree 8)
 
 				 (total-challenges 8000)
 
-				 (total-zigzag-non-hashing-constraints 0) ;; TODO
+				 ;; TODO: account for other constraint sources.
+				 (total-zigzag-other-constraints 0) 
+
 				 ;; Need from benchmarks
 				 (single-sloth-iteration-time 123) ;; BOGUS
+				 (single-sloth-iteration-constraints 321) ;; BOGUS
 				 (bench-circuit-proving-time (* 2.785 60))
-				 (bench-circuit-constraints 16e6)
-				       ;;; TEMP
-					;(single-node-encoding-time 123)
-				 ))
+				 (bench-circuit-constraints 16e6)))
 
 (defparameter *defaults*
   (tuple
@@ -165,7 +169,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
      (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
      (seal-cost (/ total-up-front-cost hourly-GiB)))
-  :schema (find-schema 'filecoin-price-performance))
+  :schema 'filecoin-price-performance)
 
 (defun performance-system ()
   (let ((pcs (find-system 'performance-constraint-system)))
@@ -189,49 +193,57 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (merkle-tree-leaves "Number of leaves in the merkle tree.")
   (merkle-tree-height "Height of the merkle tree, including leaves and root.")
   (merkle-tree-hash-count "Total number of hashes required to construct the merkle tree (leaves are not hashed).")
-  (merkle-inclusion-proof-hash-length "Number of hashes required for a merkle inclusion proof."))
+  (merkle-inclusion-proof-hash-length "Number of hashes required for a merkle inclusion proof.")
+  (merkle-inclusion-proof-hash-length-raw "Number of hashes required for a merkle inclusion proof. Unit: float which MUST be integer-valued."))
 
 (defconstraint-system merkle-tree-constraint-system
     ((merkle-tree-leaves (/ sector-size node-bytes))
      (merkle-inclusion-proof-hash-length-raw (log merkle-tree-leaves 2))
      (merkle-inclusion-proof-hash-length (integer merkle-inclusion-proof-hash-length-raw))
      (merkle-tree-height (== merkle-inclusion-proof-hash-length))
-     (merkle-tree-hash-count (- merkle-tree-leaves 1))))
+     (merkle-tree-hash-count (- merkle-tree-leaves 1)))
+  :schema 'merkle-tree-schema)
 
 (test merkle-tree-constraint-system
   "Test merkle tree constraint system."
 
   ;; Compute MERKLE-TREE-HEIGHT from SECTOR-SIZE.
   (is (same
-       (tuple (sector-size 32)
-	      (node-bytes 4)
-	      (merkle-tree-leaves 8)
-	      (merkle-inclusion-proof-hash-length 3)
-	      (merkle-inclusion-proof-hash-length-raw 3.0)
-	      (merkle-tree-hash-count 7)
-	      (merkle-tree-height 3))
+       (make-relation
+	(list
+	 (tuple (sector-size 32)
+		(node-bytes 4)
+		(merkle-tree-leaves 8)
+		(merkle-inclusion-proof-hash-length 3)
+		(merkle-inclusion-proof-hash-length-raw 3.0)
+		(merkle-tree-hash-count 7)
+		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
 
   ;; Compute SECTOR-SIZE from MERKLE-TREE-HEIGHT.
   (is (same
-       (tuple (sector-size 32)
-	      (node-bytes 4)
-	      (merkle-tree-leaves 8)
-	      (merkle-inclusion-proof-hash-length 3)
-	      (merkle-inclusion-proof-hash-length-raw 3.0)
-	      (merkle-tree-hash-count 7)
-	      (merkle-tree-height 3))
+       (make-relation
+	(list 
+	 (tuple (sector-size 32)
+		(node-bytes 4)
+		(merkle-tree-leaves 8)
+		(merkle-inclusion-proof-hash-length 3)
+		(merkle-inclusion-proof-hash-length-raw 3.0)
+		(merkle-tree-hash-count 7)
+		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))
 
   ;; Compute SECTOR-SIZE from MERKLE-INCLUSION-PROOF-HASH-LENGTH.
   (is (same
-       (tuple (sector-size 32)
-	      (node-bytes 4)
-	      (merkle-tree-leaves 8)
-	      (merkle-inclusion-proof-hash-length 3)
-	      (merkle-inclusion-proof-hash-length-raw 3)
-	      (merkle-tree-hash-count 7)
-	      (merkle-tree-height 3))
+       (make-relation
+	(list 
+	 (tuple (sector-size 32)
+		(node-bytes 4)
+		(merkle-tree-leaves 8)
+		(merkle-inclusion-proof-hash-length 3)
+		(merkle-inclusion-proof-hash-length-raw 3)
+		(merkle-tree-hash-count 7)
+		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
 (deftransformation select-merkle-hash-function
@@ -366,25 +378,52 @@ Which is
 
 (defschema zigzag-schema
     "ZigZag"
-  (comm-d-size "")
-  (comm-r-size "")
-  (comm-r-star-size "")
-  (comm-rs-size "")
-  (commitments-size "")
-  (proof-size "")
-  (degree "")
-  (base-degree "")
-  (expansion-degree "")
-  (sloth-iter "")
-  (partitions "")
+  (comm-d-size "Size of the data commitment (CommD). Unit: bytes")
+  (comm-r-size "Size of the replica commitment (CommR). Unit: bytes")
+  (comm-r-star-size "Size of the aggregated commitment to each layer's replica (CommR*). Unit: bytes")
+  (comm-rs-size "Size of all replica commitments. Unit: bytes")
+  (commitments-size "Size of all commitments returned by Seal. Unit: bytes")
+  (proof-size "Size of one Seal proof. Unit: bytes")
+  (degree "Total in-degree of the ZigZag graph.")
+  (base-degree "In-degree of the base depth-robust graph (DRG).")
+  (expansion-degree "Maximum in-degree of the bipartite expander graph component of a ZigZag graph.")
+  (sloth-iter "Number of iterations of sloth verifiable delay encoding (VDE) to perform.")
+  (partitions "Number of circuit partitions into which a proof is divided.")
   ;; TODO: hierarchical namespacing of some parameters?
-  (replication-time "")
-  (sealing-time "")
-  (zigzag-vanilla-proving-time "")
-  (zigzag-groth-proving-time "")
-  (zigzag-total-proving-time "")
-  (total-seal-time "")
+  (replication-time "Time to replicate one sector. Unit: seconds")
+  (sealing-time "Time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
+  (non-circuit-proving-time "Time to generate a non-circuit proof of replication. Unit: seconds")
+  (vector-commitment-time "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds")
+  (circuit-proving-time-per-constraint "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds")
+  (circuit-proving-time "Time to generate a circuit proof of replication using Groth16. Unit: seconds")
+  (zigzag-total-proving-time "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds")
+  (seal-time "Total time to seal (replication + proving) one sector. Unit: seconds")
+  (total-parents "Number of parents (or padding) each node uses when performing key derivation.")
+  (single-kdf-hashes "Number of hashes performed as part of a single application of the key-derivation function (KDF).")
+  (kdf-hashes "Number of hashes performed as part of the key-derivation function (KDF).") 
+  (single-kdf-time "Hashing time to perform a single KDF. Unit: seconds")
+  (single-layer-merkle-hashing-time "Merkle hashing time for a single layer. Unit: seconds")
+  (total-merkle-trees "Total merkle trees which must be generated.")
+  (total-merkle-hashing-time "Total time to generate all merkle trees. Unit: seconds")
+
+  (total-nodes-to-encode "Total nodes to encode across all layers.")
+  (single-node-sloth-time "Time to perform sloth (VDE) for a single node. Unit: seconds")
+  (single-node-encoding-time "Time to encode a single node. Unit: seconds")
   
+  (single-challenge-inclusion-proofs "Number of inclusion proofs which must be verified for a single challenge.")
+  (single-challenge-kdf-hashes "Number of KDF hashes which must be verified for a single challenge.")
+  (single-challenge-sloth-verifications "Number of sloth iterations which must be verified for a single challenge.")
+  (total-kdf-hashes "Total number of KDF (key-derivation function) required during replication.")
+  (total-zigzag-merkle-hashing-constraints "Total number of merkle hashing constraints in a ZigZag circuit.")
+  (total-zigzag-kdf-hashing-constraints "Total number of kdf hashing constraints in a ZigZag circuit.")
+  (total-zigzag-hashing-constraints "Total number of hashing constraints in a ZigZag circuit.")
+  (total-zigzag-non-hashing-constraints "Total number of hashes which must be verified in a ZigZag circuit.")
+  (total-zigzag-circuit-merkle-hashes "Total number of merkle hashes which must be verified in a ZigZag circuit.")
+  (total-zigzag-circuit-kdf-hashes "Total number of KDF hashes which must be verified in a ZigZag circuit.")
+
+  (total-zigzag-sloth-constraints "Total number of constraints due to sloth verification.")
+  (total-zigzag-constraints "Total number of constraints which must be verified in a ZigZag circuit.")
+  (layer-replication-time "Time to replicate one layer. Unit: seconds")
   (replication-cycles "")
   (sealing-cycles "")
   (zigzag-vanilla-proving-cycles "")
@@ -397,7 +436,7 @@ Which is
   (zigzag-non-hashing-constraints "")
 
   (single-circuit-proof-size "")
-  (total-circuit-proof-size "")
+  (total-circuit-proof-size "Total size of a single circuit proof. Unit: bytes")
 
   (total-challenges "")
   (partition-challenges "")
@@ -417,23 +456,43 @@ Which is
      (degree (+ base-degree expansion-degree))
      (total-parents (== degree))
 
-     (parents-plus (+ total-parents 1))
-     (kdf-hashes (/ parents-plus 2))
-     (single-kdf-time (* kdf-hashes kdf-hash-function-time))
-     
+;;     (parents-plus (+ total-parents 1))
+     (single-kdf-hashes (== total-parents))
+     (single-kdf-time (* single-kdf-hashes kdf-hash-function-time))
+     (total-nodes-to-encode (* merkle-tree-leaves layers))
      (single-node-sloth-time (* sloth-iter single-sloth-iteration-time))
-     (single-node-encoding-time (+ single-kdf-time single-node-sloth-time))
+     (single-node-encoding-time (+ single-kdf-time single-node-sloth-time)) ;; Excludes parent loading time.
+     
+     (single-challenge-inclusion-proofs (+ total-parents 2))
+     (single-challenge-kdf-hashes (* single-kdf-hashes total-parents))
+     (single-challenge-sloth-verifications (== sloth-iter))
+     
+     (total-zigzag-circuit-kdf-hashes (* single-challenge-kdf-hashes total-challenges))
+     
      (layer-replication-time (* single-node-encoding-time merkle-tree-leaves))
      (replication-time (* layers layer-replication-time))
-     (vector-commitment-time (* merkle-tree-hash-count merkle-hash-function-time))
-     (non-circuit-time (+ replication-time vector-commitment-time))
+
+     (single-layer-merkle-hashing-time (* merkle-tree-hash-count merkle-hash-function-time))
+     (total-merkle-trees (+ layers 1))
+     (total-merkle-hashing-time (* total-merkle-trees single-layer-merkle-hashing-time))
+     
+     (non-circuit-proving-time (+ replication-time total-merkle-hashing-time))
      (circuit-proving-time-per-constraint (/ bench-circuit-proving-time bench-circuit-constraints))
-     (total-zigzag-circuit-hashes (* total-challenges merkle-inclusion-proof-hash-length))
-     (total-zigzag-hashing-constraints (* total-zigzag-circuit-hashes merkle-hash-function-constraints))
+     
+     (total-zigzag-circuit-merkle-hashes (* total-challenges merkle-inclusion-proof-hash-length))
+     (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function-constraints))
+
+     (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function-constraints))
+     (total-zigzag-hashing-constraints (+ total-zigzag-merkle-hashing-constraints total-zigzag-kdf-hashing-constraints))
+
+     (total-zigzag-sloth-constraints (* total-challenges single-sloth-iteration-constraints))
+     
+     (total-zigzag-non-hashing-constraints (+ total-zigzag-sloth-constraints total-zigzag-other-constraints))
+     
      (total-zigzag-constraints (+ total-zigzag-hashing-constraints total-zigzag-non-hashing-constraints))
      (circuit-proving-time (* total-zigzag-constraints circuit-proving-time-per-constraint))
-     (seal-time (+ non-circuit-time circuit-proving-time)))
-  :schema (find-schema 'zigzag-schema))
+     (seal-time (+ non-circuit-proving-time circuit-proving-time)))
+  :schema 'zigzag-schema)
 
 (defun zigzag-system ()
   (make-instance 'system
@@ -450,7 +509,7 @@ Which is
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (tuple (seal-time  3171.5999))
+    (is (same (relation (seal-time) (155548.95))
 	      result))))
 
 (defun filecoin-system ()
@@ -458,10 +517,9 @@ Which is
 
 (test filecoin-defaults
   "Test and assert results of solving with defaults."
-  (let* (;(initial-relation (join *hash-functions* *defaults*))
-	 (result (ask (filecoin-system) '(seal-cost seal-time)))
+  (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (tuple  (SEAL-COST 661.7256) (SEAL-TIME 3171.5999))))
+	  (relation (SEAL-COST SEAL-TIME) (661.7256 155548.95))))
     (is (same expected result))))
 
 (test examples
@@ -481,4 +539,5 @@ Which is
     (report-solution-for '(seal-cost))
     (report-solution-for '(gib-replication-cycles))
     (try-with seal-cost 661.7256)
-    (report-solution-for '(gib-replication-cycles))))
+    (report-solution-for '(gib-replication-cycles))
+     ))

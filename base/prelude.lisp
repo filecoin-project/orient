@@ -14,7 +14,8 @@
 
 (defclass schema ()
   ((description :initarg :description :initform nil :accessor schema-description)
-   (parameters :initarg :parameters :initform '() :accessor schema-parameters)))    
+   (parameters :initarg :parameters :initform '() :accessor schema-parameters)
+   (subscheams :initarg :subschemas :initform '() :accessor schema-subschemas)))
 
 (defclass system ()
   ((schema :initarg :schema :initform nil :accessor system-schema)
@@ -25,7 +26,7 @@
 (defclass transformation ()
   ((signature :initarg :signature :initform (make-signature '() '()) :accessor transformation-signature)
    (implementation :initarg :implementation :initform nil :accessor transformation-implementation)
-   (description :initarg :description :initform nil :accessor transformation-description)))
+   (source :initarg :source :initform nil :accessor transformation-source)))
 
 (defclass component ()
   ((transformations :initarg :transformations :initform '() :accessor component-transformations)))
@@ -73,4 +74,3 @@
   (if (typep component-spec 'component)
       component-spec
       (gethash component-spec *components*)))
-
