@@ -37,7 +37,8 @@
 
 (defmethod trem ((attribute t) (tuple tuple))
   "Remove ATTRIBUTE from TUPLE"
-  (remhash attribute (tuple-hash-table tuple)))
+  (remhash attribute (tuple-hash-table tuple))
+  tuple)
 
 (defclass relation () ())
 
@@ -78,6 +79,8 @@
     (length (attributes r))))
 
 ;; TODO: Pitiher name, but can't use REMOVE, since it's taken by CL.
+;; NOTE: This is destructive!
+;; TODO: We should really have a non-destructive/pure-functional version.
 (defgeneric remove-attributes (atributes attributed)
   (:method ((attributes list) (tuple tuple))
     (let ((new-tuple (duplicate tuple)))
@@ -186,14 +189,15 @@
 					  (1 2 3)
 					  (9 2 3))))))
 
+(defgeneric extract (relation)
+  (:method ((relation relation))
+    (and (= (cardinality relation) 1)
+	 (first (tuples relation)))))
+
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
    (description :initarg :description :accessor parameter-description)
    (type :initarg :type :initform nil :accessor parameter-type)))
-
-(defclass schema ()
-  ((description :initarg :description :initform nil :accessor schema-description)
-   (parameters :initarg :parameters :initform '() :accessor schema-parameters)))    
 
 (defclass signature ()
   ((input :initarg :input :initform '() :accessor signature-input)
@@ -228,10 +232,6 @@
   "Returns the names in OUTPUT which are provided as output of signature, S."
   (intersection (signature-output s) output))
 
-(defclass transformation ()
-  ((signature :initarg :signature :initform (make-signature '() '()) :accessor transformation-signature)
-   (implementation :initarg :implementation :initform nil :accessor transformation-implementation)
-   (description :initarg :description :initform nil :accessor transformation-description)))
 
 (defmethod print-object ((trans transformation) (stream t))
   (let ((implementation (transformation-implementation trans)))
@@ -239,25 +239,21 @@
 
 (defun identity-transformation () (make-instance 'transformation :implementation (lambda (attributed) attributed)))
 
-(defclass component ()
-  ((transformations :initarg :transformations :initform '() :accessor component-transformations)))
-
 (defmethod print-object ((comp component) (stream t))
   (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
 (defclass problem ()
   ((signature :initarg :signature :initform (make-signature '() '()) :accessor problem-signature)))
 
-(defclass system ()
-  ((schema :initarg :schema :initform nil :accessor system-schema)
-   (components :initarg :components :initform '() :accessor system-components)
-   (subsystems :initarg :subsystems :initform '() :accessor system-subsystems)
-   (data :initarg :data :initform '() :accessor system-data)))
-
 (defgeneric all-system-components (system)
   (:method ((system system))
     (reduce #'append (cons (system-components system)
-			   (mapcar #'all-system-components (system-subsystems system))))))    
+			   (mapcar #'all-system-components (system-subsystems system))))))
+
+(defgeneric all-system-data (system)
+  (:method ((system system))
+    (reduce #'append (cons (system-data system) (mapcar #'all-system-data (system-subsystems system))))))
+    
 
 (defmethod print-object ((sys system) (stream t))
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
@@ -344,8 +340,12 @@
   (:method ((a relation) (b list))
     (combine-potential-relations b a)))
 
+(deftype transformation-spec () '(or transformation symbol))
+
 ;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation tuple)
+  (:method ((transformation-name symbol) (tuple t))
+    (awhen (find-transformation transformation-name) (apply-transformation it tuple)))
   (:method ((transformation t) (null null))
     ;; Everything collapses to NIL. This simplifies uniform handling of tuples/relations, but may need to be revisited.
     nil)
@@ -358,7 +358,7 @@
 		      (apply-transformation transformation tuple))
 		    (tuples relation))))
   (:method ((list list) (tuple tuple))
-    (check-type list (cons transformation))
+    (check-type list (cons transformation-spec))
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
 	    list
@@ -366,9 +366,7 @@
   (:method ((f function) (tuple tuple))
     ;; All transformation applications need to go through here.
     (let* ((result (funcall f tuple)))
-      (join tuple result)))
-  (:method ((s symbol) (tuple tuple))
-    (apply-transformation (symbol-function s) tuple)))
+      (join tuple result))))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
@@ -482,8 +480,8 @@
 (defmethod defaulted-initial-data ((system system) (provided t))
   ;; TODO: allow merging of provided data.
   (or provided
-      (and (system-data system)
-	   (apply #'join (system-data system)))))
+      (and (all-system-data system)
+	   (apply #'join (all-system-data system)))))
 
 (defgeneric describe-transformation-calculation (transformation)
   (:method ((transformation transformation))
@@ -496,10 +494,10 @@
 (defvar *current-construction*)
 
 (defun use-construction (system &key data)
-  (progn
+  (let ((system (find-system system)))
     (when data
       (setf (system-data system) (if (listp data) data (list data))))
-    (setq *current-construction* system)))  
+    (setq *current-construction* (find-system system))))
 
 (defun set-construction-parameter (attribute value)
   ;; Quick and dirty for now, just set data in first naked tuple we find.
@@ -508,12 +506,20 @@
     (cond (tuple (setf (tref attribute tuple) value))
 	  (t  (push (tuple (attribute value)) (system-data *current-construction*))))))
 
-(defgeneric solve (system signature &optional initial-data &key report)
+(defgeneric solve (system signature initial-data &key report)
   ;;(:method ((system system) (signature signature) (initial-tuple tuple))
-  (:method ((system system) (signature signature) &optional initial-data &key report) ;; TODO: create and use common supertype for tuple and relation.
-    (let ((plan (plan system signature))
+  (:method ((system-name symbol) (signature t) (initial-data t) &rest keys)
+    (apply #'solve (find-system system-name) signature initial-data keys))
+  (:method ((system system) (signature null) (initial-data t) &rest keys)
+    (let* ((initial-value (defaulted-initial-data system initial-data))
+	   (signature (or signature (make-signature (attributes initial-value) (attributes initial-value)))))
+      (apply #'solve system signature initial-value keys)))
+  (:method ((system system) (signature signature) (initial-data t) &key report) ;; TODO: create and use common supertype for tuple and relation.
+    (let ((initial-value (defaulted-initial-data system initial-data))
+	  (plan (plan system signature))
 	  (schema (system-schema system))
-	  (report-results '()))
+	  (report-results '())
+)
       (and plan
 	   (satisfies-input-p initial-data signature)
 	   (let ((result (reduce (lambda (tuple-or-relation transformation)
@@ -537,7 +543,7 @@
 					      (tuple-report tuple))))))
 				     new))
 				 plan
-				 :initial-value (defaulted-initial-data system initial-data))))
+				 :initial-value initial-value)))
 	     (values result plan report-results))))))
 
 (defgeneric report (thing context)
@@ -558,19 +564,24 @@
   (mapcar (lambda (data) (report data system)) (system-data system)))
 
 (defun solve-for (system output &optional initial-data &key report)
-  (let* ((defaulted (defaulted-initial-data system initial-data))
+  (let* ((system (find-system system))
+	 (defaulted (defaulted-initial-data system initial-data))
 	 (sig (make-signature (attributes defaulted) output)))
     (solve system sig defaulted :report report)))
 
 (defun report-solution-for (output &key (system *current-construction*) initial-data)
   (multiple-value-bind (solution plan report) (solve-for system output initial-data :report t)
     (declare (ignore plan))
-    (cond (solution
-	   (assert (typep solution 'tuple))
-	   (values (apply #'concatenate 'string report)
-		   solution
-		   ))
-	  (t (values "NO SOLUTION" nil)))))
+    (typecase solution
+	(tuple
+	 (values (apply #'concatenate 'string report)
+		 solution
+		 ))
+	(relation
+	 (values (loop for tuple in (tuples solution)
+		      collect (apply #'concatenate 'string report))
+		 solution))
+      (null (values "NO SOLUTION" nil)))))
 
 (defun ask (system output &optional initial-data)
   "Like solve-for but only returns the requested attributes in response tuple."

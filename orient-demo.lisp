@@ -17,7 +17,7 @@
 	 (problem (make-signature '(height width depth density) '(mass)))
 	 (plan (plan system problem)))
     (format t "~&~%Evaluating tuple with transformationation: ")
-    (encode-json (apply-transformation my-transf tuple))
+    (encode-json (apply-transformation 'my-transf tuple))
 
     (format t "~&~%Evaluating tuple with pipeline: ")
     (encode-json (apply-transformation  pipeline tuple))

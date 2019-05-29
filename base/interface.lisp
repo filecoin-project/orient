@@ -34,7 +34,7 @@
 	 (package-name (when package-string (string-upcase package-string)))
 	 (symbol-name (cdr (assoc :name implementation-spec)))
 	 (symbol (find-symbol (camel-case-to-lisp symbol-name) package-name))
-	 (implementation (symbol-value symbol))
+	 (implementation symbol)
 	 (string-inputs (cdr (assoc :input transformation-alist	)))
 	 (string-outputs (cdr (assoc :output transformation-alist)))
 	 (input (if package-name

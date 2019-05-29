@@ -93,19 +93,20 @@
       (literal-arrow `(let ((sig (make-signature ',input ',output)))
 			(make-instance 'transformation :signature sig :implementation ,implementation))))))
 
-(defmacro deftoplevel (name &body body)
-  `(setf (symbol-value ',name) ,@body))
+(defmacro deftoplevel (name (type) &body body)
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (define-toplevel-thing ',name ',type (progn ,@body))))
 
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (check-type arrow transformation-arrow)
-  `(eval-when (:load-toplevel :execute)
-     (progn (deftoplevel ,name (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (progn (deftoplevel ,name (:transformation) (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))
 
 (defmacro defcomponent (name (&rest transformations))
-  `(deftoplevel ,name (make-instance 'component :transformations (list ,@transformations))))
+  `(deftoplevel ,name (:component) (make-instance 'component :transformations (list ,@transformations))))
 
 ;; Make a relation
 ;; Example: (relation (a b c) (1 2 3) (4 5 6))
@@ -130,13 +131,13 @@
 
 ;; Make a tuple.
 ;; Example: (tpl (a b c) 1 2 3)
-(defmacro tpl ((&rest attributes) &rest values)
+(defmacro tpl ((&rest attributes) values)
   `(make-tuple (list ,@(loop for attribute in attributes
 			  for value in values
 			  collect `(list ',attribute ,value)))))
 
 (defmacro defschema (name description &rest parameters)
-  `(deftoplevel ,name
+  `(deftoplevel ,name (:schema)
      (make-instance 'schema
 		    :description ,description
 		    :parameters (list ,@(mapcar (lambda (parameter-spec)
@@ -151,16 +152,14 @@
 ;;;; Constraints
 
 (defmacro defconstraint-system (name constraint-definitions &key schema)  
-  `(eval-when (:load-toplevel :execute)
+  `(eval-when (:load-toplevel :compile-toplevel :execute)
      (let ((system (constraint-system ,constraint-definitions)))
-       (when ,schema
-	 (setf (system-schema system) ,schema))
-       (deftoplevel ,name system))))
+       (awhen ,schema
+	 (setf (system-schema system) it))
+       (deftoplevel ,name (:system) system))))
 
 (defmacro constraint-system (constraint-definitions)
   `(make-instance 'system :components ,(expand-constraint-definitions constraint-definitions)))
-
-
 
 ;; TOOD: rename this to process-tuple-lambda-list
 (eval-when (:compile-toplevel :load-toplevel :execute)
