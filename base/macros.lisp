@@ -3,6 +3,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Macros
 
+;;; Macro-writing macros come first.
+(defmacro with-gensyms ((&rest vars) &body body)
+  (let ((binding-form 
+         (lambda (var)
+                `(,var (gensym ,(format nil "~a-" (string var)))))))
+    (declare (dynamic-extent binding-form))
+    `(let (,@(mapcar binding-form vars))
+       ,@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; General/Util -- Could/should have own package.
@@ -28,6 +36,34 @@
   `(let ((,var ,condition))
      (when ,var
        ,@body)))
+
+;;;; Debugging
+
+(defun expand-display (form)
+  (with-gensyms (values)
+    `(let ((,values (multiple-value-list ,form)))
+       (format *debug-io* ,(format nil "~w => ~~w~%" form) (car ,values))
+       (values-list ,values))))
+
+(defvar *debug* t)
+(defvar *break-on-display* nil)
+
+(defvar *break-on-debugging* nil)
+(defvar *silence-debug-warning* nil)
+
+(defmacro dbg (&body body)
+  `(cond (*debug* (progn (unless *silence-debug-warning*
+                           (warn (format nil "~w" `(debugging ,',@body))))
+                    ,@body))
+         (t (when *break-on-debugging*
+              (error "debugging form")))))
+
+(defmacro display (&rest forms)
+  `(if *debug*
+     (multiple-value-prog1 (progn ,@(mapcar #'expand-display forms))
+       (when *break-on-display* (break))
+       (terpri *debug-io*))
+     (progn ,@forms)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

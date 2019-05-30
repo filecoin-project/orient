@@ -7,6 +7,15 @@
 
 (defparameter *orient-web-port* 8888)
 
+(eval-when
+    (:compile-toplevel :load-toplevel :execute)
+  (defvar *calculation-pages* '())
+
+  (defstruct calc-page name title base-uri)
+
+  (defun register-calc-page (name title base-uri)
+    (pushnew (make-calc-page :name name :title title :base-uri base-uri) *calculation-pages* :key #'calc-page-name)))
+
 (defun start-web (&key (port *orient-web-port*))
   (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port port)))
 
@@ -17,7 +26,8 @@
        (html
 	(:html
 	 (:head (:title ,title)
-		(:h1 ,title))
+		(:h1 ,title)
+		((:a href "/") "INDEX"))
 	 (:body ,@body))))))
 
 (defmacro with-report-page ((title &key vars system initial-data override-data) &body body)
@@ -27,6 +37,14 @@
      (:hr)
      (:pre
       (nth-value 0 (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data)))))
+
+(defun serve-report-page (title &key vars system initial-data override-data body-html)
+  (with-page (title)
+     (:div body-html)
+     (:p "Solving for " (comma-list vars) ".")
+     (:hr)
+     (:pre
+      (nth-value 0 (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data)))))
 
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
@@ -55,33 +73,66 @@
 			;; '(:div "XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
 			)))))
 
-(hunchentoot:define-easy-handler (index :uri "/") ()
-  (with-page ("Orient to Filecoin")
-    (:ul
-     (:li ((:a :href "filecoin/performance") "Filecoin Performance"))
-     (:li ((:a :href "filecoin/zigzag") "ZigZag Proof of Replication ")))))
+(defmacro define-calculation-pages ((base-name &key uri title vars system initial-data override-parameters) (&rest parameters)
+				    &body body)
+  (let* ((graph-uri (format nil "~A-graph" uri))
+	 (graph-name (symbolconc base-name '-graph))
+	 (graph-namestring (symbol-name graph-name)))
+    (register-calc-page base-name  title uri)
+    `(eval-when
+	 (:compile-toplevel :load-toplevel :execute)
+       (hunchentoot:define-easy-handler (,base-name :uri ,uri) ,parameters
+	 (with-report-page (,title
+			    :vars ,vars
+			    :system ,system
+			    :initial-data ,initial-data
+			    :override-data (make-override-data (list ,@(loop for parameter in override-parameters
+									  collect `(list ',parameter  ,parameter)
+									    )))
+			    )
+	   (:div
+	    (:p ,@body)
+	    (:p ((:a :href ,graph-uri) "See a Graph")))))
+       
+       (hunchentoot:define-easy-handler (,graph-name :uri ,graph-uri) ()
+	 (serve-graph (plan-for ,system ',vars ,initial-data)
+		      ,graph-namestring)))))
 
-(hunchentoot:define-easy-handler (filecoin-performance :uri "/filecoin/performance") ()
-  (with-report-page ("Filecoin Performance" :vars (seal-cost) :system (performance-system) :initial-data *performance-defaults*)
-    "Performance is defined economically."))
-
-;;; TODO: a single macro which generates the query page and the graph.
-(hunchentoot:define-easy-handler (zigzag :uri "/filecoin/zigzag") ((sector-size :parameter-type 'integer))
-  (with-report-page ("ZigZag Proof of Replication"
-		     :vars (seal-time)
-		     :system (zigzag-system)
-		     :override-data (tuple (sector-size sector-size)))
-    (:div
-     (:p (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size))
-     (:p ((:a :href "zigzag-graph") "See a Graph")))))
-
-(hunchentoot:define-easy-handler (zigzag-graph :uri "/filecoin/zigzag-graph") ()
+(defun make-override-data (parameters)
+  ;; Don't support explicit nulls -- remove.
+  (let ((pairs (remove nil parameters :key #'cadr))) 
+    (when pairs (make-tuple pairs))))
+ 
+(defun serve-graph (plan tmp-name &key (layout "dot") (format "svg"))
   ;; FIXME: There must be a better way.
-  (let ((image-file "/tmp/zigzag-graph.png"))
+  (let ((image-file (make-pathname :directory "tmp" :name tmp-name :type format)))
     (orient::dot
      (orient::dot-format
-      (generate-directed-graph (plan-for (zigzag-system) '(seal-time))) nil)
-     :layout "dot"
-     :format "png"
+      (generate-directed-graph plan) nil)
+     :layout layout
+     :format format
      :output-file image-file)
-  (hunchentoot:handle-static-file image-file)))
+    (hunchentoot:handle-static-file image-file)))
+
+(define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
+						:title "Filecoin Economic Performance Requirements"
+						:vars (seal-cost)
+						:system (performance-system)
+						:initial-data *performance-defaults*)
+    ()
+  "The economic component of Filecoin performance requirements")
+
+(define-calculation-pages (zigzag :uri "/filecoin/zigzag"
+				   :title "ZigZag Proof of Replication"
+				   :vars (seal-time)
+				   :system (zigzag-system)
+				   :override-parameters (sector-size))
+    ((sector-size :parameter-type 'integer))
+  (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size))
+
+(hunchentoot:define-easy-handler (index :uri "/") ()
+  (with-page ("Orient to Filecoin")    
+    (:ul
+     `(:div
+       ,@(loop for calc-page in *calculation-pages*
+	    collect `(:li ((:a :href ,(calc-page-base-uri calc-page)) ,(calc-page-title calc-page))))))))

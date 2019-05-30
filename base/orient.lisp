@@ -633,11 +633,15 @@
 			 collect (list dependency target)))))
 
 (defun write-dot-format (directed-graph stream)
-  (flet ((make-label (symbol)
-	   (substitute #\_ #\- (symbol-name symbol))))
+  (flet ((make-label (symbol &key url)
+	   (let ((cleaned (substitute #\_ #\- (symbol-name symbol))))
+	     (if url
+		 (format nil "~A~%~A [URL = \"~A\"] " cleaned cleaned cleaned)
+		 cleaned
+		 ))))
     (format stream "digraph {~%")
     (loop for (dependency target) in directed-graph
-       do (format stream "~A -> ~A~%" (make-label dependency) (make-label target)))
+       do (format stream "~A -> ~A ~%" (make-label dependency) (make-label target :url "xxx")))
     (format stream "}~%")))
 
 (defun dot-format (directed-graph stream)
@@ -646,8 +650,7 @@
 
 (defun dot (dot-format &key format output-file (layout "dot"))
   (with-input-from-string (in dot-format)
-    (uiop:run-program  (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)
-    ))
+    (uiop:run-program  (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraints
