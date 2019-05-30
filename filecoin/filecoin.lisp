@@ -29,6 +29,7 @@
    (roi-interval-months 6)
    (TiB-drive-cost 300.0)
    (cpu-ghz-cost 10.0)
+   (up-front-memory-cost 0.0) ;; FIXME: Incorporate.
    (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
    ))
 
@@ -139,20 +140,21 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (miner-months-to-capacity "Months it should take a miner to reach full storage capacity.")
   (roi-interval-months "Months over which a miner should see return on investment.")
 
-  (annual-TiB "Amount of storage, in TiB, which must be brought online per year.")
-  (monthly-TiB "Amount of storage, in TiB, which must be brought online per month.")
-  (daily-TiB "Amount of storage, in TiB, which must be brought online per day.")
-  (hourly-TiB "Amount of storage, in TiB, which must be brought online per hour.")
-  (hourly-GiB "Amount of storage, in GiB, which must be brought online per hour.")
+  (annual-TiB "TiB of storage which must be brought online per year. Unit: TiB/year")
+  (monthly-TiB "TiB of storage which must be brought online per month. Unit: TiB/month")
+  (daily-TiB "TiB of storage which must be brought online per day. Unit: TiB/day")
+  (hourly-TiB "TiB of storage which must be brought online per hour. Unit: TiB/hour")
+  (hourly-GiB "GiB of storage which must be brought online per hour. Unit: GiB/hour")
 
-  (seal-cycles-per-hour "CPU cycles required to seal at required rate for one hour.")
-  (seal-cycles-per-minute "CPU cycles required to seal at required rate for one minute.")
-  (seal-cycles-per-second "CPU cycles required to seal at required rate for one second.")
+  (seal-cycles-per-hour "CPU required to seal at required rate for one hour. Unit: cycles")
+  (seal-cycles-per-minute "CPU required to seal at required rate for one minute. Unit: cycles")
+  (seal-cycles-per-second "CPU required to seal at required rate for one second. Unit: cycles")
   (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB.")
   (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
-  (up-front-drive-cost "Dollar cost of hard drives required to generate MONTHLY-INCOME.")
-  (up-front-compute-cost "Dollar cost of investment needed to purchase sufficient compute power to generate MONTHLY-INCOME.")
-  (total-up-front-cost "Total dollar cost of investment needed to generate MONTHLY-INCOME."))
+  (up-front-drive-cost "Up-front investment in hard drives required to store sufficient data. Unit: dollars.")
+  (up-front-memory-cost "Up-front investment in RAM required to seal at necessary rate. Unit: dollars")
+  (up-front-compute-cost "Up-front investement in compute hardware required to seal at necessary rate. Unit: dollars")
+  (total-up-front-cost "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars"))
 
 (defconstraint-system performance-constraint-system
     ((aws-price-TiB-year (* aws-storage-price 12))
@@ -166,7 +168,8 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (seal-cycles-per-minute (* seal-cycles-per-hour 60))
      (seal-cycles-per-second (* seal-cycles-per-minute 60))
      (needed-ghz (/ seal-cycles-per-second 1e9))
-     (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
+     (up-front-sealing-cost (+ up-front-compute-cost up-front-memory-cost))
+     (total-up-front-cost (+ up-front-sealing-cost up-front-drive-cost))
      (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
      (seal-cost (/ total-up-front-cost hourly-GiB)))
   :schema 'filecoin-price-performance)
