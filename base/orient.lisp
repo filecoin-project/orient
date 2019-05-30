@@ -644,6 +644,11 @@
   (with-output-to-string (stream)
     (write-dot-format directed-graph stream)))
 
+(defun dot (dot-format &key format output-file (layout "dot"))
+  (with-input-from-string (in dot-format)
+    (uiop:run-program  (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)
+    ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraints
 

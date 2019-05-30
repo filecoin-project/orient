@@ -12,6 +12,16 @@ When configured correctly, this should work and show no failures:
 (asdf:test-system :orient)
 ```
 
+To start a web server, from REPL:
+
+```lisp
+(orient.web:start-web)
+```
+
+Then navigate to `http://localhost:8888`.
+
+To generate and view graphs, `graphviz` must be installed locally, and `dot` must be in the path.
+
 ## License
 
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

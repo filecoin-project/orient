@@ -65,10 +65,23 @@
   (with-report-page ("Filecoin Performance" :vars (seal-cost) :system (performance-system) :initial-data *performance-defaults*)
     "Performance is defined economically."))
 
-(hunchentoot:define-easy-handler (filecoin-zigzag :uri "/filecoin/zigzag") ((sector-size :parameter-type 'integer))
+;;; TODO: a single macro which generates the query page and the graph.
+(hunchentoot:define-easy-handler (zigzag :uri "/filecoin/zigzag") ((sector-size :parameter-type 'integer))
   (with-report-page ("ZigZag Proof of Replication"
 		     :vars (seal-time)
 		     :system (zigzag-system)
 		     :override-data (tuple (sector-size sector-size)))
+    (:div
+     (:p (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size))
+     (:p ((:a :href "zigzag-graph") "See a Graph")))))
 
-    (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size)))
+(hunchentoot:define-easy-handler (zigzag-graph :uri "/filecoin/zigzag-graph") ()
+  ;; FIXME: There must be a better way.
+  (let ((image-file "/tmp/zigzag-graph.png"))
+    (orient::dot
+     (orient::dot-format
+      (generate-directed-graph (plan-for (zigzag-system) '(seal-time))) nil)
+     :layout "dot"
+     :format "png"
+     :output-file image-file)
+  (hunchentoot:handle-static-file image-file)))

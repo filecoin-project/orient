@@ -512,7 +512,7 @@ Which is
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (155548.95))
+    (is (same (relation (seal-time) (54675.355))
 	      result))))
 
 (defun filecoin-system ()
@@ -522,7 +522,7 @@ Which is
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (661.7256 155548.95))))
+	  (relation (SEAL-COST SEAL-TIME) (661.7256 54675.355))))
     (is (same expected result))))
 
 (test examples

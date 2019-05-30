@@ -3,7 +3,7 @@
   :version "0.0.1"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop")
   :components ((:module "base"
 			:serial t
 			:components			
