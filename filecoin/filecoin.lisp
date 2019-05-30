@@ -191,6 +191,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
     "PoRep  Merkle Trees"
   (node-bytes "The number of bytes in a node -- must also be the hash digest size.") ; TODO: Move to more general schema.
   (merkle-tree-leaves "Number of leaves in the merkle tree.")
+  (merkle-tree-height-raw "Height of the merkle tree. Unit: float which MUST be integer-valued")
   (merkle-tree-height "Height of the merkle tree, including leaves and root.")
   (merkle-tree-hash-count "Total number of hashes required to construct the merkle tree (leaves are not hashed).")
   (merkle-inclusion-proof-hash-length "Number of hashes required for a merkle inclusion proof.")
@@ -198,9 +199,9 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 
 (defconstraint-system merkle-tree-constraint-system
     ((merkle-tree-leaves (/ sector-size node-bytes))
-     (merkle-inclusion-proof-hash-length-raw (log merkle-tree-leaves 2))
-     (merkle-inclusion-proof-hash-length (integer merkle-inclusion-proof-hash-length-raw))
-     (merkle-tree-height (== merkle-inclusion-proof-hash-length))
+     (merkle-tree-height-raw (log merkle-tree-leaves 2))
+     (merkle-tree-height (integer merkle-tree-height-raw))
+     (merkle-inclusion-proof-hash-length (== merkle-tree-height))
      (merkle-tree-hash-count (- merkle-tree-leaves 1)))
   :schema 'merkle-tree-schema)
 
@@ -215,7 +216,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 		(node-bytes 4)
 		(merkle-tree-leaves 8)
 		(merkle-inclusion-proof-hash-length 3)
-		(merkle-inclusion-proof-hash-length-raw 3.0)
+		(merkle-tree-height-raw 3.0)
 		(merkle-tree-hash-count 7)
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
@@ -228,7 +229,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 		(node-bytes 4)
 		(merkle-tree-leaves 8)
 		(merkle-inclusion-proof-hash-length 3)
-		(merkle-inclusion-proof-hash-length-raw 3.0)
+		(merkle-tree-height-raw 3.0)
 		(merkle-tree-hash-count 7)
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))
@@ -241,7 +242,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 		(node-bytes 4)
 		(merkle-tree-leaves 8)
 		(merkle-inclusion-proof-hash-length 3)
-		(merkle-inclusion-proof-hash-length-raw 3)
+		(merkle-tree-height-raw 3)
 		(merkle-tree-hash-count 7)
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
