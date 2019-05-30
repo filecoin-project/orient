@@ -2,8 +2,8 @@
   (:use :common-lisp :orient :it.bese.FiveAm)
   (:nicknames :fc)
   (:export
-   :seal-cost :seal-time :sector-size :performance-system
-   :zigzag-system
+   :seal-cost :seal-time :sector-size
+   :filecoin-system :performance-system :zigzag-system
    :*performance-defaults*))
 
 (in-package :filecoin)
@@ -29,21 +29,21 @@
    (roi-interval-months 6)
    (TiB-drive-cost 300.0)
    (cpu-ghz-cost 10.0)
-   (GiB-replication-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
+   (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
    ))
 
 (defparameter *alt-performance-defaults*
   (tuple
    (investment 100000.0)
    (comparable-monthly-income 50000.0)
-   (seal-cost 661.7256) ;; Here, use the previously calculated value and try to calculate something else (GiB-replication-cycles) backward.
+   (seal-cost 661.7256) ;; Here, use the previously calculated value and try to calculate something else (GiB-seal-cycles) backward.
    ;;(seal-cost 640)
    (aws-storage-price 23.0)
    (miner-months-to-capacity 3)
    (roi-interval-months 6)
    (TiB-drive-cost 300.0)
    (cpu-ghz-cost 10.0)
-;   (GiB-replication-cycles (* 13000 4300))
+;   (GiB-seal-cycles (* 13000 4300))
    ))
 
 (defparameter *zigzag-defaults* (tuple
@@ -145,10 +145,10 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (hourly-TiB "Amount of storage, in TiB, which must be brought online per hour.")
   (hourly-GiB "Amount of storage, in GiB, which must be brought online per hour.")
 
-  (replication-cycles-per-hour "CPU cycles required to replicate at required rate for one hour.")
-  (replication-cycles-per-minute "CPU cycles required to replicate at required rate for one minute.")
-  (replication-cycles-per-second "CPU cycles required to replicate at required rate for one second.")
-  (GiB-replication-cycles "Total CPU cycles required to replicate 1 GiB.")
+  (seal-cycles-per-hour "CPU cycles required to seal at required rate for one hour.")
+  (seal-cycles-per-minute "CPU cycles required to seal at required rate for one minute.")
+  (seal-cycles-per-second "CPU cycles required to seal at required rate for one second.")
+  (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB.")
   (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
   (up-front-drive-cost "Dollar cost of hard drives required to generate MONTHLY-INCOME.")
   (up-front-compute-cost "Dollar cost of investment needed to purchase sufficient compute power to generate MONTHLY-INCOME.")
@@ -162,21 +162,19 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (hourly-TiB (/ daily-Tib 24))
      (hourly-GiB (* hourly-TiB 1024))
      (up-front-drive-cost (* TiB-drive-cost annual-TiB))
-     (replication-cycles-per-hour (* hourly-GiB GiB-replication-cycles))
-     (replication-cycles-per-minute (* replication-cycles-per-hour 60))
-     (replication-cycles-per-second (* replication-cycles-per-minute 60))
-     (needed-ghz (/ replication-cycles-per-second 1e9))
+     (seal-cycles-per-hour (* hourly-GiB GiB-seal-cycles))
+     (seal-cycles-per-minute (* seal-cycles-per-hour 60))
+     (seal-cycles-per-second (* seal-cycles-per-minute 60))
+     (needed-ghz (/ seal-cycles-per-second 1e9))
      (total-up-front-cost (+ up-front-compute-cost up-front-drive-cost))
      (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
      (seal-cost (/ total-up-front-cost hourly-GiB)))
   :schema 'filecoin-price-performance)
 
 (defun performance-system ()
-  (let ((pcs (find-system 'performance-constraint-system)))
-    (make-instance 'system
-		   :components (system-components pcs)
-		   :schema (system-schema pcs)
-		   :data (list *performance-defaults*))))
+  (make-instance 'system
+		 :subsystems (list (find-system 'performance-constraint-system))
+		 :data (list *performance-defaults*)))
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
@@ -539,8 +537,8 @@ Which is
     (use-construction 'performance-constraint-system :data *performance-defaults*)
     (report-data)
     (report-solution-for '(seal-cost))
-    (forget gib-replication-cycles)
+    (forget gib-seal-cycles)
     (report-solution-for '(seal-cost))
-    (report-solution-for '(gib-replication-cycles))
+    (report-solution-for '(gib-seal-cycles))
     (try-with seal-cost 661.7256)
-    (report-solution-for '(gib-replication-cycles))))
+    (report-solution-for '(gib-seal-cycles))))

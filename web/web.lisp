@@ -105,6 +105,7 @@
  
 (defun serve-graph (plan tmp-name &key (layout "dot") (format "svg"))
   ;; FIXME: There must be a better way.
+  ;; Or maybe this is good, and we should cache (based on content).
   (let ((image-file (make-pathname :directory "tmp" :name tmp-name :type format)))
     (orient::dot
      (orient::dot-format
@@ -117,8 +118,7 @@
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
 						:vars (seal-cost)
-						:system (performance-system)
-						:initial-data *performance-defaults*)
+						:system (performance-system))
     ()
   "The economic component of Filecoin performance requirements")
 
@@ -129,6 +129,15 @@
 				   :override-parameters (sector-size))
     ((sector-size :parameter-type 'integer))
   (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size))
+
+(define-calculation-pages (filecoin :uri "/filecoin"
+				    :title "Filecoin Writ Large"
+				    :vars (seal-cost seal-time)
+				    :system (filecoin-system)
+				    ;:initial-data *performance-defaults*
+				    )
+    ()
+  "Filecoin is Filecoin.")
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (with-page ("Orient to Filecoin")    
