@@ -5,7 +5,7 @@
 	   :describe-transformation-calculation :defschema
 	   :deftransformation :deftransformation= :extract
 	   :find-component :find-schema :find-system :find-transformation
-	   :forget :it
+	   :forget :generate-directed-graph :it
 	   :tref :join :lookup-description :make-relation
 	   :make-signature
 	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :report-data :report-solution-for :same
@@ -13,5 +13,5 @@
 	   :synthesize-report-steps :symbolconc :sys :system :system-components
 	   :system-data :system-schema
 	   :tpl :transformation :transformation-signature :tref :trem :try-with :use-construction :use-attribute
-	   :where :with-construction
+	   :where :with-construction :write-dot-format
 	   :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &all :!>))

@@ -624,6 +624,26 @@
 				do (setf (tref attr base) val))
 			     base))))
     (make-relation tuples)))
+
+(defun generate-directed-graph (plan)
+  (loop for transformation in plan
+       for signature = (transformation-signature transformation)
+     append (loop for dependency in (signature-input signature)
+	       append (loop for target in (signature-output signature)
+			 collect (list dependency target)))))
+
+(defun write-dot-format (directed-graph stream)
+  (flet ((make-label (symbol)
+	   (substitute #\_ #\- (symbol-name symbol))))
+    (format stream "digraph {~%")
+    (loop for (dependency target) in directed-graph
+       do (format stream "~A -> ~A~%" (make-label dependency) (make-label target)))
+    (format stream "}~%")))
+
+(defun dot-format (directed-graph stream)
+  (with-output-to-string (stream)
+    (write-dot-format directed-graph stream)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraints
 

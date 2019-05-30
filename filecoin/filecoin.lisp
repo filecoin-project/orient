@@ -383,7 +383,7 @@ Which is
   (comm-r-star-size "Size of the aggregated commitment to each layer's replica (CommR*). Unit: bytes")
   (comm-rs-size "Size of all replica commitments. Unit: bytes")
   (commitments-size "Size of all commitments returned by Seal. Unit: bytes")
-  (proof-size "Size of one Seal proof. Unit: bytes")
+  (on-chain-porep-size "On-chain size of one Seal proof plus commitments. Unit: bytes")
   (degree "Total in-degree of the ZigZag graph.")
   (base-degree "In-degree of the base depth-robust graph (DRG).")
   (expansion-degree "Maximum in-degree of the bipartite expander graph component of a ZigZag graph.")
@@ -411,6 +411,7 @@ Which is
   (single-node-encoding-time "Time to encode a single node. Unit: seconds")
   
   (single-challenge-inclusion-proofs "Number of inclusion proofs which must be verified for a single challenge.")
+  (single-challenge-merkle-hases "Number of merkle hashes which must be verified for a single challenge.")
   (single-challenge-kdf-hashes "Number of KDF hashes which must be verified for a single challenge.")
   (single-challenge-sloth-verifications "Number of sloth iterations which must be verified for a single challenge.")
   (total-kdf-hashes "Total number of KDF (key-derivation function) required during replication.")
@@ -424,6 +425,7 @@ Which is
   (total-zigzag-sloth-constraints "Total number of constraints due to sloth verification.")
   (total-zigzag-constraints "Total number of constraints which must be verified in a ZigZag circuit.")
   (layer-replication-time "Time to replicate one layer. Unit: seconds")
+
   (replication-cycles "")
   (sealing-cycles "")
   (zigzag-vanilla-proving-cycles "")
@@ -435,7 +437,7 @@ Which is
   (zigzag-hashing-constraints "")
   (zigzag-non-hashing-constraints "")
 
-  (single-circuit-proof-size "")
+  (single-circuit-proof-size "Size of a single Groth16 Proof. Unit: bytes")
   (total-circuit-proof-size "Total size of a single circuit proof. Unit: bytes")
 
   (total-challenges "")
@@ -450,7 +452,7 @@ Which is
      (comm-rs-size (+ comm-r-size comm-r-star-size))
      (commitments-size (+ comm-rs-size comm-d-size))
      (total-circuit-proof-size (* single-circuit-proof-size partitions))
-     (proof-size (+ commitments-size total-circuit-proof-size))
+     (on-chain-porep-size (+ commitments-size total-circuit-proof-size))
      (total-challenges (* partitions partition-challenges))
 
      (degree (+ base-degree expansion-degree))
@@ -464,7 +466,7 @@ Which is
      (single-node-encoding-time (+ single-kdf-time single-node-sloth-time)) ;; Excludes parent loading time.
      
      (single-challenge-inclusion-proofs (+ total-parents 2))
-     (single-challenge-kdf-hashes (* single-kdf-hashes total-parents))
+     (single-challenge-kdf-hashes (* single-kdf-hashes 1))
      (single-challenge-sloth-verifications (== sloth-iter))
      
      (total-zigzag-circuit-kdf-hashes (* single-challenge-kdf-hashes total-challenges))
@@ -478,8 +480,9 @@ Which is
      
      (non-circuit-proving-time (+ replication-time total-merkle-hashing-time))
      (circuit-proving-time-per-constraint (/ bench-circuit-proving-time bench-circuit-constraints))
-     
-     (total-zigzag-circuit-merkle-hashes (* total-challenges merkle-inclusion-proof-hash-length))
+
+     (total-zigzag-circuit-inclusion-proofs (* total-challenges single-challenge-inclusion-proofs))
+     (total-zigzag-circuit-merkle-hashes (* total-zigzag-circuit-inclusion-proofs merkle-inclusion-proof-hash-length))
      (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function-constraints))
 
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function-constraints))
@@ -539,5 +542,4 @@ Which is
     (report-solution-for '(seal-cost))
     (report-solution-for '(gib-replication-cycles))
     (try-with seal-cost 661.7256)
-    (report-solution-for '(gib-replication-cycles))
-     ))
+    (report-solution-for '(gib-replication-cycles))))
