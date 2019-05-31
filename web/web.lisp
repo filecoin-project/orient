@@ -20,7 +20,7 @@
   (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port port)))
 
 (defmacro with-page ((title) &body body)
-  `(progn
+  `(let ((*package* (find-package :filecoin)))
      (setf (hunchentoot:content-type*) "text/html")
      (with-output-to-string (*html-output-stream*)
        (html
@@ -34,9 +34,12 @@
   `(with-page (,title)
      (:div ,@body)
      (:p "Solving for " ',(comma-list vars) ".")
-     (:hr)
      (:pre
-      (nth-value 0 (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data)))))
+      (multiple-value-bind (report solution)
+	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data)	
+	`(:div (:html-escape ,(princ-to-string solution))
+	       (:hr)
+	       (:p ,report))))))
 
 (defun serve-report-page (title &key vars system initial-data override-data body-html)
   (with-page (title)
@@ -117,10 +120,11 @@
 
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
-						:vars (seal-cost roi-months)
+						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost)
+						:override-parameters (gib-seal-cycles)
 						:system (performance-system))
-    ()
-  "The economic component of Filecoin performance requirements")
+    ((gib-seal-cycles :parameter-type 'integer))
+  (format nil "The economic component of Filecoin performance requirements. GiB-seal-cycles: ~A" gib-seal-cycles))
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				   :title "ZigZag Proof of Replication"
@@ -133,9 +137,7 @@
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
 				    :vars (seal-cost seal-time)
-				    :system (filecoin-system)
-				    ;:initial-data *performance-defaults*
-				    )
+				    :system (filecoin-system))
     ()
   "Filecoin is Filecoin.")
 

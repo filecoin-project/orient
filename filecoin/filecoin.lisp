@@ -3,8 +3,9 @@
   (:use :common-lisp :orient :it.bese.FiveAm)
   (:nicknames :fc)
   (:export
+   :GiB-seal-cycles
    :roi-months
-   :seal-cost :seal-time :sector-size
+   :seal-cost :seal-time :sector-size :up-front-compute-cost :total-up-front-cost
    :filecoin-system :performance-system :zigzag-system
    :*performance-defaults*))
 
@@ -30,8 +31,10 @@
    (TiB-drive-cost 30.0)
    (cpu-ghz-cost 10.0)
    (up-front-memory-cost 0.0) ;; FIXME: Incorporate.
+;;   (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
    (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
    ))
+
 
 (defparameter *zigzag-defaults* (tuple
 				 (merkle-hash-function-name :pedersen)
