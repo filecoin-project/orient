@@ -47,7 +47,7 @@
    (tuples :initarg :tuples :initform nil :accessor tuples)))
 
 (defmethod print-object ((relation relation) (stream t))
-  (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string< :key #'car) (tuples relation)))
+  (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
 (defgeneric attributes (tuple)
   (:method ((d tuple))
@@ -599,19 +599,22 @@
 (defun report-data (&optional (system *current-construction*))
   (mapcar (lambda (data) (report data system)) (system-data system)))
 
-(defun solve-for (system output &optional initial-data &key report override-data return-all)
+(defun solve-for (system output &optional initial-data &key report override-data project-solution)
   (let* ((system (find-system system))
 	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (attributes defaulted) output)))
     (multiple-value-bind (solution plan report)
 	(solve system sig defaulted :report report :override-data override-data)
-      (values (if return-all
-		  solution
-		  (project output solution))
+      (values (if project-solution
+		  (project output solution)
+		  solution)
 	      plan report))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data)
-  (multiple-value-bind (solution plan report) (solve-for system output initial-data :report format :override-data override-data)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution)
+  (multiple-value-bind (solution plan report) (solve-for system output initial-data
+							 :report format
+							 :override-data override-data
+							 :project-solution project-solution)
     (declare (ignore plan))
     (values (if solution report "NO SOLUTION")  solution)))
 

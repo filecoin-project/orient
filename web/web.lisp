@@ -36,8 +36,10 @@
      (:p "Solving for " ',(comma-list vars) ".")
      (:pre
       (multiple-value-bind (report solution)
-	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data)	
-	`(:div (:html-escape ,(princ-to-string solution))
+	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data :project-solution t)
+	`(:div (:html-escape ,(princ-to-string  solution)
+	       ,@(when ,override-data
+		   (list :p (format nil "Supplied: ~s" ,override-data))))
 	       (:hr)
 	       (:p ,report))))))
 
@@ -122,7 +124,7 @@
 						:title "Filecoin Economic Performance Requirements"
 						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost)
 						:override-parameters (gib-seal-cycles)
-						:system (performance-system))
+						:system (performance-system :isolated t))
     ((gib-seal-cycles :parameter-type 'integer))
   (format nil "The economic component of Filecoin performance requirements. GiB-seal-cycles: ~A" gib-seal-cycles))
 
@@ -136,9 +138,13 @@
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
-				    :vars (seal-cost seal-time)
+				    :vars (seal-cost seal-time roi-months total-up-front-cost)
+				    :override-parameters (annual-income layers total-challenges sector-size)
 				    :system (filecoin-system))
-    ()
+    ((annual-income :parameter-type 'integer)
+     (layers :parameter-type 'integer)
+     (total-challenges :parameter-type 'integer)
+     (sector-size :parameter-type 'integer))
   "Filecoin is Filecoin.")
 
 (hunchentoot:define-easy-handler (index :uri "/") ()

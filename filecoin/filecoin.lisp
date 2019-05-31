@@ -1,11 +1,10 @@
-
 (defpackage filecoin
   (:use :common-lisp :orient :it.bese.FiveAm)
   (:nicknames :fc)
   (:export
    :GiB-seal-cycles
    :roi-months
-   :seal-cost :seal-time :sector-size :up-front-compute-cost :total-up-front-cost
+   :seal-cost :seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers :total-challenges
    :filecoin-system :performance-system :zigzag-system
    :*performance-defaults*))
 
@@ -31,10 +30,11 @@
    (TiB-drive-cost 30.0)
    (cpu-ghz-cost 10.0)
    (up-front-memory-cost 0.0) ;; FIXME: Incorporate.
-;;   (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
-   (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
-   ))
+   )
+  )
 
+(defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles 2.3510403e8)))
+(defparameter *integrated-performance-defaults* (tuple (seal-GHz 4300)))
 
 (defparameter *zigzag-defaults* (tuple
 				 (merkle-hash-function-name :pedersen)
@@ -63,7 +63,7 @@
    (sector-size (* 1 GiB))))
 
 (defschema filecoin-price-performance
-    "Filecoin price performance."
+    "Filecoin price performance."  
   (aws-glacier-price "Cost of one GiB storage from AWS glacier for one month. Unit: dollars")
   (annual-income "Annual income from selling storage on the storage market. Unit: dollars")
   (monthly-income "Monthly income from selling storage on the storage market. Unit: dollars")
@@ -93,15 +93,16 @@
   (up-front-sealing-cost "Up-front investment in total hardware require to seal at necessary rate. Unit: dollars")
   (total-up-front-cost "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars")
   
-  (average-income-during-ramp-up "Average income before miner reaches capacity (assuming linear growth). Unit: dollars/month")
+  (average-monthly-income-during-ramp-up "Average monthly income before miner reaches capacity (assuming linear growth). Unit: dollars")
   (income-during-ramp-up "Total income during ramp-up period (before reaching capacity). Unit: dollars")
   (income-to-roi-at-capacity "Income still required to reach return on investment after reaching capacity. Unit: dollars")
   (roi-months-at-capacity "Months needed after reaching capacity before return on investment.")
   (roi-months "Months over which a miner should see return on investment.")
   )
 
-(defconstraint-system performance-constraint-system
-    ((monthly-income (/ annual-income 12))
+(defconstraint-system performance-constraint-system    
+    ((GiB-seal-cycles (* seal-time seal-GHz))
+     (monthly-income (/ annual-income 12))
      (monthly-income (* comparable-monthly-cost commodity-storage-discount)) 
      (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
      (TiB-capacity (/ GiB-capacity 1024))
@@ -118,23 +119,24 @@
      (total-up-front-cost (+ up-front-sealing-cost up-front-drive-cost))
      (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
      (seal-cost (/ total-up-front-cost hourly-GiB))
-     (average-income-during-ramp-up (/ comparable-monthly-cost 2))
-     (income-during-ramp-up (* average-income-during-ramp-up miner-months-to-capacity))
+     (average-monthly-income-during-ramp-up (/ monthly-income 2))
+     (income-during-ramp-up (* average-monthly-income-during-ramp-up miner-months-to-capacity))
      (income-to-roi-at-capacity (- total-up-front-cost income-during-ramp-up))
      (roi-months-at-capacity (/ income-to-roi-at-capacity monthly-income))
      (roi-months (+ roi-months-at-capacity miner-months-to-capacity)))
   :schema 'filecoin-price-performance)
 
-(defun performance-system ()
+(defun performance-system (&key isolated)
   (make-instance 'system
 		 :subsystems (list (find-system 'performance-constraint-system))
-		 :data (list *performance-defaults*)))
+		 :data (list *performance-defaults* (if isolated
+							*isolated-performance-defaults*
+							*integrated-performance-defaults*))))
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 148.4443))
-	    (ask (performance-system) '(seal-cost)))
-      "correctly calculates SEAL-COST"))
+  (is (same (tuple (seal-cost 212.95776))
+	    (ask (performance-system :isolated t) '(seal-cost)))))
 
 ;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
 ;;; Include option to validate that provided parameters exclude those which must be computed.
@@ -312,6 +314,8 @@ Which is
   (partitions "Number of circuit partitions into which a proof is divided.")
   ;; TODO: hierarchical namespacing of some parameters?
   (replication-time "Time to replicate one sector. Unit: seconds")
+  (replication-time-per-byte "Time to replicate one byte. Unit: seconds / byte")
+  (replication-time-per-GiB "Time to replicate one GiB. Unit: seconds / GiB")
   (sealing-time "Time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
   (non-circuit-proving-time "Time to generate a non-circuit proof of replication. Unit: seconds")
   (vector-commitment-time "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds")
@@ -393,6 +397,8 @@ Which is
      
      (layer-replication-time (* single-node-encoding-time merkle-tree-leaves))
      (replication-time (* layers layer-replication-time))
+     (replication-time-per-byte (/ replication-time sector-size))
+     (replication-time-per-GiB (* replication-time-per-byte (* 1024 1024 1024)))
 
      (single-layer-merkle-hashing-time (* merkle-tree-hash-count merkle-hash-function-time))
      (total-merkle-trees (+ layers 1))
@@ -442,7 +448,7 @@ Which is
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (148.4443 54675.355))))
+	  (relation (SEAL-COST SEAL-TIME) (212.95776 54675.355))))
     (is (same expected result))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
