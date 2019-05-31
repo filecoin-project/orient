@@ -117,7 +117,7 @@
 
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
-						:vars (seal-cost)
+						:vars (seal-cost roi-months)
 						:system (performance-system))
     ()
   "The economic component of Filecoin performance requirements")

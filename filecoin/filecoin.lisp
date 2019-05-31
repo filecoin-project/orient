@@ -1,7 +1,9 @@
+
 (defpackage filecoin
   (:use :common-lisp :orient :it.bese.FiveAm)
   (:nicknames :fc)
   (:export
+   :roi-months
    :seal-cost :seal-time :sector-size
    :filecoin-system :performance-system :zigzag-system
    :*performance-defaults*))
@@ -21,30 +23,14 @@
 
 (defparameter *performance-defaults*
   (tuple
-   (investment 100000.0)
-   (comparable-monthly-income 50000.0)
-;   (seal-cost 10) ;; We should derive this or reject/refine it.
-   (aws-storage-price 23.0)
-   (miner-months-to-capacity 3)
-   (roi-interval-months 6)
-   (TiB-drive-cost 300.0)
+   (annual-income 50000.0)
+   (aws-glacier-price 0.004)
+   (commodity-storage-discount 0.9)
+   (miner-months-to-capacity 6)
+   (TiB-drive-cost 30.0)
    (cpu-ghz-cost 10.0)
    (up-front-memory-cost 0.0) ;; FIXME: Incorporate.
    (GiB-seal-cycles (* 13000 4300.0)) ;; This will eventually calculated elsewhere.
-   ))
-
-(defparameter *alt-performance-defaults*
-  (tuple
-   (investment 100000.0)
-   (comparable-monthly-income 50000.0)
-   (seal-cost 661.7256) ;; Here, use the previously calculated value and try to calculate something else (GiB-seal-cycles) backward.
-   ;;(seal-cost 640)
-   (aws-storage-price 23.0)
-   (miner-months-to-capacity 3)
-   (roi-interval-months 6)
-   (TiB-drive-cost 300.0)
-   (cpu-ghz-cost 10.0)
-;   (GiB-seal-cycles (* 13000 4300))
    ))
 
 (defparameter *zigzag-defaults* (tuple
@@ -70,100 +56,57 @@
 
 (defparameter *defaults*
   (tuple
-   ;; FIXME: This depends on the processor speed of the machine that produced the benchmark. We should express benchmarks in cycles.
-   ;; (pedersen-hash-seconds 0.000017993)
-   ;; (pedersen-hash-constraints 1152)
-
-   ;; (blake-hash-seconds 1.6055e-7)
-   ;; (blake-hash-constraints 10324)
-
-   ;; (hash-functions (relation (hash-function-name hash-function-time hash-function-constraints)
-   ;; 			     (:pedersen 0.000017993 1152)
-   ;; 			     (:blake2s 1.6055e-7 10324)))
-
    (node-bytes 32)
    (sector-size (* 1 GiB))))
 
-(defschema filecoin
-    "Everything Filecoin"
-  (investment "Dollar cost of infrastructure purchase required to mine at scale.")
-  (comparable-monthly-income "Expected dollar income for selling storage equivalent to what can be sealed for `investment`.")
-  (seal-cost "Dollar cost of investment required to seal one GiB in one hour at scale.")
-  (aws-storage-price "Dollar cost of one TiB storage from AWS S3 for one month.")
-  (miner-months-to-capacity "Months it should take a miner to reach full storage capacity.")
-  (roi-interval-months "Months over which a miner should see return on investment.")
-  
-  (pedersen-hash-seconds "Seconds required to hash 64 bytes with pedersen hashing.")
-  (pedersen-constraints "Number of circuit constraints required to prove pedersen hashing of 64 bytes.")
-
-  (blake2s-hash-second "Seconds required to hash 64 bytes with blake2s.")
-  (blake2s-constraints "Number of circuit constraints required to prove blake2s hashing of 64 bytes.")
-
-  ;;;; Optional parameters.
-  (merkle-hash-function-name "Hash function name. Type is an enumeration of { PEDERSEN, BLAKE2S } (may change when types are implemented).")
-
-  (hash-functions "Relation containing hash function names, times (should be cycles), and constraints.")
-
-  (sector-size "Size in bytes of a sealed sector."))
-
-#|
-From Übercalc Compoments document:
-
-Performance: for every $10 spent (at scale), it must be possible to seal 1GiB/hour.
-
-Notes on how this is derived:
-
-Miner needs a reasonable return, say $50k/yr for investment.
-Compare with pure storage service business.
-Upper bound on storage pricing is AWS S3.
-S3 = ~$23/TiB-month = $276 / TiB-year [Tune this variable down to something more realistic.]
-$50k / $276 = ~181TiB
-Miner should be at capacity in ‘3 months’.
-So must seal 181TiB/3months = 60TiB/month = ~2TiB/day = ~85GiB/hr
-Pick some ROI interval: say 6 months.
-Assume $10 / GiB/hr sealing: then sealing 85GiB/hr costs $850 up-front.
-18 10TiB drives at $300 = $5400 up-front.
-Should amortize costs over 6 months. Compare with profits.
-Express up-front investment in terms of number of months of profit.
-This is one of the variables we can tune.
-TODO: block reward profitability can/should be folded into this as an incremental improvement, but ignoring block reward is the right way to get best long-term numbers.
-
-|#
-
 (defschema filecoin-price-performance
     "Filecoin price performance."
-  (aws-price-TiB-year  "Dollar cost of one TiB storage from AWS S3 for one year.")
-  (investment "Dollar cost of infrastructure purchase required to mine at scale.")
-  (comparable-monthly-income "Expected dollar income for selling storage equivalent to what can be sealed for `investment`.")
-  (seal-cost "Dollar cost of investment required to seal one GiB in one hour at scale.")
-  (aws-storage-price "Dollar cost of one TiB storage from AWS S3 for one month.")
-  (miner-months-to-capacity "Months it should take a miner to reach full storage capacity.")
-  (roi-interval-months "Months over which a miner should see return on investment.")
+  (aws-glacier-price "Cost of one GiB storage from AWS glacier for one month. Unit: dollars")
+  (annual-income "Annual income from selling storage on the storage market. Unit: dollars")
+  (monthly-income "Monthly income from selling storage on the storage market. Unit: dollars")
+  (comparable-monthly-cost "Expected cost of purchasing monthly storage from commodity provider. Unit: dollars")
+  (seal-cost "Cost of investment required to seal one GiB in one hour at scale. Unit: dollars")
+  (commodity-storage-discount "Fraction of commodity storage pricing expected as income from storage market. Unit: decimal fraction")
+  (miner-months-to-capacity "Months it should take a miner to reach full storage capacity. Unit: months")
 
-  (annual-TiB "TiB of storage which must be brought online per year. Unit: TiB/year")
-  (monthly-TiB "TiB of storage which must be brought online per month. Unit: TiB/month")
-  (daily-TiB "TiB of storage which must be brought online per day. Unit: TiB/day")
-  (hourly-TiB "TiB of storage which must be brought online per hour. Unit: TiB/hour")
-  (hourly-GiB "GiB of storage which must be brought online per hour. Unit: GiB/hour")
+  (GiB-capacity "GiB of storage at full capacity. Unit: GiB")
+  (TiB-capacity "TiB of storage at full capacity. Unit: TiB")
+  
+  (annual-TiB "TiB of storage which must be brought online per year. Unit: TiB")
+  (monthly-TiB "TiB of storage which must be brought online per month. Unit: TiB")
+  (daily-TiB "TiB of storage which must be brought online per day. Unit: TiB")
+  (hourly-TiB "TiB of storage which must be brought online per hour. Unit: TiB")
+  (hourly-GiB "GiB of storage which must be brought online per hour. Unit: GiB")
 
   (seal-cycles-per-hour "CPU required to seal at required rate for one hour. Unit: cycles")
   (seal-cycles-per-minute "CPU required to seal at required rate for one minute. Unit: cycles")
   (seal-cycles-per-second "CPU required to seal at required rate for one second. Unit: cycles")
   (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB.")
   (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
-  (up-front-drive-cost "Up-front investment in hard drives required to store sufficient data. Unit: dollars.")
-  (up-front-memory-cost "Up-front investment in RAM required to seal at necessary rate. Unit: dollars")
+
+  (up-front-drive-cost "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars.")
+  (up-front-memory-cost "Up-front investment in memory (RAM) required to seal at necessary rate. Unit: dollars")
   (up-front-compute-cost "Up-front investement in compute hardware required to seal at necessary rate. Unit: dollars")
-  (total-up-front-cost "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars"))
+  (up-front-sealing-cost "Up-front investment in total hardware require to seal at necessary rate. Unit: dollars")
+  (total-up-front-cost "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars")
+  
+  (average-income-during-ramp-up "Average income before miner reaches capacity (assuming linear growth). Unit: dollars/month")
+  (income-during-ramp-up "Total income during ramp-up period (before reaching capacity). Unit: dollars")
+  (income-to-roi-at-capacity "Income still required to reach return on investment after reaching capacity. Unit: dollars")
+  (roi-months-at-capacity "Months needed after reaching capacity before return on investment.")
+  (roi-months "Months over which a miner should see return on investment.")
+  )
 
 (defconstraint-system performance-constraint-system
-    ((aws-price-TiB-year (* aws-storage-price 12))
-     (annual-TiB (/ comparable-monthly-income aws-price-TiB-year))
-     (monthly-TiB (/ annual-TiB miner-months-to-capacity))
+    ((monthly-income (/ annual-income 12))
+     (monthly-income (* comparable-monthly-cost commodity-storage-discount)) 
+     (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
+     (TiB-capacity (/ GiB-capacity 1024))
+     (monthly-TiB (/ TiB-capacity miner-months-to-capacity)) 
      (daily-TiB (/ monthly-TiB (/ 365 12)))
      (hourly-TiB (/ daily-Tib 24))
-     (hourly-GiB (* hourly-TiB 1024))
-     (up-front-drive-cost (* TiB-drive-cost annual-TiB))
+     (hourly-GiB (* hourly-TiB 1024)) 
+     (up-front-drive-cost (* TiB-drive-cost TiB-capacity))
      (seal-cycles-per-hour (* hourly-GiB GiB-seal-cycles))
      (seal-cycles-per-minute (* seal-cycles-per-hour 60))
      (seal-cycles-per-second (* seal-cycles-per-minute 60))
@@ -171,7 +114,12 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (up-front-sealing-cost (+ up-front-compute-cost up-front-memory-cost))
      (total-up-front-cost (+ up-front-sealing-cost up-front-drive-cost))
      (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
-     (seal-cost (/ total-up-front-cost hourly-GiB)))
+     (seal-cost (/ total-up-front-cost hourly-GiB))
+     (average-income-during-ramp-up (/ comparable-monthly-cost 2))
+     (income-during-ramp-up (* average-income-during-ramp-up miner-months-to-capacity))
+     (income-to-roi-at-capacity (- total-up-front-cost income-during-ramp-up))
+     (roi-months-at-capacity (/ income-to-roi-at-capacity monthly-income))
+     (roi-months (+ roi-months-at-capacity miner-months-to-capacity)))
   :schema 'filecoin-price-performance)
 
 (defun performance-system ()
@@ -181,7 +129,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 661.7256))
+  (is (same (tuple (seal-cost 148.4443))
 	    (ask (performance-system) '(seal-cost)))
       "correctly calculates SEAL-COST"))
 
@@ -253,38 +201,6 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      => (merkle-hash-function-constraints merkle-hash-function-time merkle-hash-function-size))
   (when (eql hash-function-name merkle-hash-function-name)
     `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
-
-#+(or)
-(test select-merkle-hash-function
-  (let* ((data (join (tuple (merkle-hash-function-name :pedersen)) *hash-functions*))
-	 (result (apply-transformation 'select-merkle-hash-function data))
-	 (expected (make-relation
-		    (list
-		     (tuple (HASH-FUNCTION-CONSTRAINTS 1152)
-			    (HASH-FUNCTION-NAME :PEDERSEN)
-			    (HASH-FUNCTION-SIZE 32)
-			    (HASH-FUNCTION-TIME 1.7993e-5)
-			    (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-			    (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-			    (MERKLE-HASH-FUNCTION-SIZE 32)
-			    (MERKLE-HASH-FUNCTION-TIME 1.7993e-5))))))
-    (setq asdf expected fdsa result)
-    (is (same expected result))))
-
-#+(or)
-(test select-kdf-hash-function
-  (let* ((data (join (tuple (kdf-hash-function-name :blake2s)) *hash-functions*))
-	 (result (apply-transformation 'select-kdf-hash-function data))
-	 (expected (make-relation
-		    (list
-		     (TUPLE (HASH-FUNCTION-CONSTRAINTS 10324) (HASH-FUNCTION-NAME :BLAKE2S)
-			    (HASH-FUNCTION-SIZE 32) (HASH-FUNCTION-TIME 1.6055e-7)
-			    (KDF-HASH-FUNCTION-CONSTRAINTS 10324)
-			    (KDF-HASH-FUNCTION-NAME :BLAKE2S) (KDF-HASH-FUNCTION-SIZE 32)
-			    (KDF-HASH-FUNCTION-TIME 1.6055e-7))))))
-    (setq asdf expected fdsa result)
-    (is (same expected result))))
-
 
 (deftransformation select-kdf-hash-function
     ((kdf-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
@@ -460,7 +376,6 @@ Which is
      (degree (+ base-degree expansion-degree))
      (total-parents (== degree))
 
-;;     (parents-plus (+ total-parents 1))
      (single-kdf-hashes (== total-parents))
      (single-kdf-time (* single-kdf-hashes kdf-hash-function-time))
      (total-nodes-to-encode (* merkle-tree-leaves layers))
@@ -524,24 +439,31 @@ Which is
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (661.7256 54675.355))))
+	  (relation (SEAL-COST SEAL-TIME) (148.4443 54675.355))))
     (is (same expected result))))
 
-(test examples
-  "Some examples placed in a test to ensure they don't break."
-  (finishes
-    (report-solution-for '(seal-cost) :system (performance-system) :initial-data *performance-defaults*)
-    (solve-for (performance-system) '(aws-price-TiB-year))
-    (ask (performance-system) '(aws-price-TiB-year annual-TiB))
-    (ask (performance-system) '(seal-cost))
-    
-    ;;; Interaction example:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-    (use-construction 'performance-constraint-system :data *performance-defaults*)
-    (report-data)
-    (report-solution-for '(seal-cost))
-    (forget gib-seal-cycles)
-    (report-solution-for '(seal-cost))
-    (report-solution-for '(gib-seal-cycles))
-    (try-with seal-cost 661.7256)
-    (report-solution-for '(gib-seal-cycles))))
+#|
+From Übercalc Compoments document:
+
+Performance: for every $10 spent (at scale), it must be possible to seal 1GiB/hour.
+
+Notes on how this is derived:
+
+Miner needs a reasonable return, say $50k/yr for investment.
+Compare with pure storage service business.
+Upper bound on storage pricing is AWS S3.
+S3 = ~$23/TiB-month = $276 / TiB-year [Tune this variable down to something more realistic.]
+$50k / $276 = ~181TiB
+Miner should be at capacity in ‘3 months’.
+So must seal 181TiB/3months = 60TiB/month = ~2TiB/day = ~85GiB/hr
+Pick some ROI interval: say 6 months.
+Assume $10 / GiB/hr sealing: then sealing 85GiB/hr costs $850 up-front.
+18 10TiB drives at $300 = $5400 up-front.
+Should amortize costs over 6 months. Compare with profits.
+Express up-front investment in terms of number of months of profit.
+This is one of the variables we can tune.
+TODO: block reward profitability can/should be folded into this as an incremental improvement, but ignoring block reward is the right way to get best long-term numbers.
+
+|#

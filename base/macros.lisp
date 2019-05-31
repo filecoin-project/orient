@@ -73,6 +73,7 @@
      ,@body))
 
 (defmacro forget (&rest attributes)
+  ;; This is actually evil. If we want this UX, we need to be able to do it without permanently mutating *current-construction*.
   `(setf (system-data *current-construction*)
 	 (mapcar (lambda (d)
 		   (remove-attributes ',attributes d))
