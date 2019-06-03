@@ -37,7 +37,9 @@
 (defparameter *integrated-performance-defaults* (tuple (seal-GHz 4300)))
 
 (defparameter *zigzag-defaults* (tuple
+				 (alpha-merkle-hash-function-name :pedersen)
 				 (merkle-hash-function-name :pedersen)
+				 (beta-hash-function-name :blake2s)
 				 (kdf-hash-function-name :blake2s)
 				 (partition-challenges 400)
 				 (single-circuit-proof-size 192) ;; Groth16 -- eventually should allow selection of proving systems.
@@ -55,7 +57,10 @@
 				 (single-sloth-iteration-time 123) ;; BOGUS
 				 (single-sloth-iteration-constraints 321) ;; BOGUS
 				 (bench-circuit-proving-time (* 2.785 60))
-				 (bench-circuit-constraints 16e6)))
+				 (bench-circuit-constraints 16e6)
+
+				 (beta-merkle-height 0)
+				 ))
 
 (defparameter *defaults*
   (tuple
@@ -207,6 +212,12 @@
   (when (eql hash-function-name merkle-hash-function-name)
     `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
 
+(deftransformation select-beta-merkle-hash-function
+    ((beta-merkle-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
+     => (beta-merkle-hash-function-constraints beta-merkle-hash-function-time beta-merkle-hash-function-size))
+  (when (eql hash-function-name beta-merkle-hash-function-name)
+    `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
+
 (deftransformation select-kdf-hash-function
     ((kdf-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
      => (kdf-hash-function-constraints kdf-hash-function-time kdf-hash-function-size))
@@ -301,6 +312,7 @@ Which is
 
 (defschema zigzag-schema
     "ZigZag"
+  (sector-size "Size of one sector. Unit: bytes")
   (comm-d-size "Size of the data commitment (CommD). Unit: bytes")
   (comm-r-size "Size of the replica commitment (CommR). Unit: bytes")
   (comm-r-star-size "Size of the aggregated commitment to each layer's replica (CommR*). Unit: bytes")

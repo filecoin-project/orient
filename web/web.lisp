@@ -145,7 +145,7 @@
      (layers :parameter-type 'integer)
      (total-challenges :parameter-type 'integer)
      (sector-size :parameter-type 'integer))
-  "Filecoin is Filecoin.")
+  "Filecoin is " ((:a :href "filecoin") "Filecoin") ".")
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (with-page ("Orient to Filecoin")    
