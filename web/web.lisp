@@ -16,8 +16,12 @@
   (defun register-calc-page (name title base-uri)
     (pushnew (make-calc-page :name name :title title :base-uri base-uri) *calculation-pages* :key #'calc-page-name)))
 
+(defvar *acceptor*)
+
 (defun start-web (&key (port *orient-web-port*))
-  (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port port)))
+  (let ((acceptor (make-instance 'hunchentoot:easy-acceptor :port port)))
+    (prog1 (hunchentoot:start acceptor)
+      (setq *acceptor* acceptor))))
 
 (defmacro with-page ((title) &body body)
   `(let ((*package* (find-package :filecoin)))
