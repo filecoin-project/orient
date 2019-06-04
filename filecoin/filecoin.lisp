@@ -131,7 +131,19 @@
      (income-during-ramp-up (* average-monthly-income-during-ramp-up miner-months-to-capacity))
      (income-to-roi-at-capacity (- total-up-front-cost income-during-ramp-up))
      (roi-months-at-capacity (/ income-to-roi-at-capacity monthly-income))
-     (roi-months (+ roi-months-at-capacity miner-months-to-capacity)))
+     (roi-months (+ roi-months-at-capacity miner-months-to-capacity))
+
+     (one-year-profit-months (- 12 roi-months))
+     (one-year-profit (* one-year-profit-months monthly-income))
+     (one-year-roi (/ one-year-profit total-up-front-cost))
+
+     (two-year-profit-months (- 24 roi-months))
+     (two-year-profit (* two-year-profit-months monthly-income))
+     (two-year-roi (/ two-year-profit total-up-front-cost))
+
+     (three-year-profit-months (- 36 roi-months))
+     (three-year-profit (* three-year-profit-months monthly-income))
+     (three-year-roi (/ three-year-profit total-up-front-cost)))
   :schema 'filecoin-price-performance)
 
 (defun performance-system (&key isolated)
