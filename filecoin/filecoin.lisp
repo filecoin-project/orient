@@ -5,7 +5,10 @@
    :GiB-seal-cycles
    :roi-months
    :seal-cost :seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers :total-challenges
-   :filecoin-system :performance-system :zigzag-system
+   :total-zigzag-challenges
+   :zigzag-layers :zigzag-layer-challenges
+   :zigzag-soundness
+   :filecoin-system :performance-system :zigzag-system :zigzag-security-system
    :*performance-defaults*))
 
 (in-package :filecoin)
@@ -106,7 +109,7 @@
   )
 
 (defconstraint-system performance-constraint-system    
-    ((GiB-seal-cycles (* seal-time seal-GHz))
+    ((GiB-seal-cycles (* GiB-seal-time seal-GHz))
      (monthly-income (/ annual-income 12))
      (monthly-income (* comparable-monthly-cost commodity-storage-discount)) 
      (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
@@ -328,13 +331,15 @@ Which is
   (replication-time "Time to replicate one sector. Unit: seconds")
   (replication-time-per-byte "Time to replicate one byte. Unit: seconds / byte")
   (replication-time-per-GiB "Time to replicate one GiB. Unit: seconds / GiB")
-  (sealing-time "Time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
+  (sealing-time "Total CPU time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
   (non-circuit-proving-time "Time to generate a non-circuit proof of replication. Unit: seconds")
   (vector-commitment-time "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds")
   (circuit-proving-time-per-constraint "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds")
   (circuit-proving-time "Time to generate a circuit proof of replication using Groth16. Unit: seconds")
   (zigzag-total-proving-time "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds")
   (seal-time "Total time to seal (replication + proving) one sector. Unit: seconds")
+  (sector-GiB "Number of GiB in one sector. Unit: GiB")
+  (GiB-seal-time "Total time to seal (replication + proving) one GiB. Unit: seconds")
   (total-parents "Number of parents (or padding) each node uses when performing key derivation.")
   (single-kdf-hashes "Number of hashes performed as part of a single application of the key-derivation function (KDF).")
   (kdf-hashes "Number of hashes performed as part of the key-derivation function (KDF).") 
@@ -432,8 +437,63 @@ Which is
      
      (total-zigzag-constraints (+ total-zigzag-hashing-constraints total-zigzag-non-hashing-constraints))
      (circuit-proving-time (* total-zigzag-constraints circuit-proving-time-per-constraint))
-     (seal-time (+ non-circuit-proving-time circuit-proving-time)))
+     (seal-time (+ non-circuit-proving-time circuit-proving-time))
+     (sector-GiB (/ sector-size #.GiB))
+     (GiB-seal-time (/ seal-time sector-GiB)))
   :schema 'zigzag-schema)
+
+(defschema zigzag-security-schema
+    "ZigZag Security"
+  (zigzag-lambda "ZigZag soundness: Unit bits")
+  (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
+  (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
+  (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
+  (zigzag-soundness "ZigZag soundness: Unit fraction")
+  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
+  )
+
+(defconstraint-system zigzag-security-constraint-system
+    ((zigzag-lambda (log zigzag-soundness (/ 1 2)))
+     (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
+     (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
+     (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
+     (total-untapered-challenges (* layers zigzag-basic-layer-challenges)) ;; TODO: TOTAL-CHALLENGES and LAYERS should have zigzag-specific names.
+     (total-challenges (== total-zigzag-challenges)))
+  :schema 'zigzag-security-schema)
+
+(deftransformation compute-zigzag-layers ((zigzag-delta zigzag-epsilon) -> (zigzag-layers))
+  (+ (log (/ 1
+	     (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
+	  2)
+     4))
+
+(deftransformation compute-zigzag-tapered-layers ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper zigzag-taper-layers)
+						  -> (zigzag-layer-challenges total-zigzag-challenges))
+  (let* ((reduction (- 1 zigzag-taper))
+	 (layer-challenges (loop for i from 0 below layers
+			      collect (* zigzag-lambda (max 20 (floor (* zigzag-basic-layer-challenge-factor (expt reduction i))))))))
+    (values (apply #'vector layer-challenges) (reduce #'+ layer-challenges))))
+
+(defparameter *default-zigzag-security*
+  (tuple
+   (zigzag-lambda 8)
+   (zigzag-taper (/ 1 3))
+   (zigzag-taper-layers 7)
+   (zigzag-epsilon 0.007)
+   (zigzag-delta 0.003)))
+
+;; (defparameter *isolated-zigzag-security-defaults* (tuple (layers 10)))
+;; (defparameter *integrated-zigzag-security-defaults* nil))
+
+(defun zigzag-security-system (&key isolated)
+  (make-instance 'system
+		 :components (list (component((find-transformation 'compute-zigzag-layers)))
+				   (component((find-transformation 'compute-zigzag-tapered-layers)))
+				   )
+		 :subsystems (list (find-system 'zigzag-security-constraint-system))
+		 :data (if isolated
+			   (list (tuple (layers 10)) *default-zigzag-security*)
+			   (list *default-zigzag-security*))))
 
 (defun zigzag-system ()
   (make-instance 'system

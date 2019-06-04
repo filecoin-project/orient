@@ -151,6 +151,15 @@
      (sector-size :parameter-type 'integer))
   "Filecoin is " ((:a :href "filecoin") "Filecoin") ".")
 
+(define-calculation-pages (filecoin-security :uri "/filecoin/zigzag-security"
+				    :title "ZigZag Security"
+				    :system (zigzag-security-system :isolated t)
+				    :vars (total-zigzag-challenges
+					   zigzag-layers
+					   zigzag-layer-challenges))
+    ()
+  "ZigZag security")
+
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (with-page ("Orient to Filecoin")    
     (:ul
