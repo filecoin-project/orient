@@ -106,6 +106,19 @@
   (income-to-roi-at-capacity "Income still required to reach return on investment after reaching capacity. Unit: dollars")
   (roi-months-at-capacity "Months needed after reaching capacity before return on investment.")
   (roi-months "Months over which a miner should see return on investment.")
+
+  (one-year-profit-months "Months from ROI to one year of profit. Unit: months")
+  (one-year-profit "Profit after one year of operation: Unit: dollars")
+  (one-year-roi "ROI after one year of operation: Unit: fraction")
+  
+  (two-year-profit-months "Months from ROI to two years of profit. Unit: months")
+  (two-year-profit "Profit after two years of operation: Unit: dollars")
+  (two-year-roi "ROI after two years of operation: Unit: fraction")
+  
+  (three-year-profit-months "Months from ROI to three years of profit. Unit: months")
+  (three-year-profit "Profit after three years of operation: Unit: dollars")
+  (three-year-roi "ROI after two years of operation: Unit: fraction")
+  
   )
 
 (defconstraint-system performance-constraint-system    
@@ -456,11 +469,11 @@ Which is
 
 (defschema zigzag-security-schema
     "ZigZag Security"
+  (zigzag-soundness "ZigZag soundness: Unit fraction")
   (zigzag-lambda "ZigZag soundness: Unit bits")
   (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
   (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
-  (zigzag-soundness "ZigZag soundness: Unit fraction")
   (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction"))
 
 (defconstraint-system zigzag-security-constraint-system
@@ -521,15 +534,32 @@ Which is
 
 (defschema filecoin-requirements-schema
     "Filecoin Requirements -- sine qua non (without which not)"
-  (must-have-filecoin "WE MUST HAVE FILECOIN -- SWEET, SWEET FILECOIN."))
+  (must-have-filecoin "WE MUST HAVE FILECOIN -- SWEET, SWEET FILECOIN.")
+  (space-gap-satisfied "Is the actual space gap less than or equal to the maximum allowable space gap?")
+  (filecoin-requirements-satisfied "Are the Filecoin requirements all satisfied?")
+  (minimum-one-year-ROI "Minimum allowable ROI after one year.")
+  (minimum-two-year-ROI "Minimum allowable ROI after two years.")
+  (minimum-three-year-ROI "Minimum allowable ROI after three years.")
+  (profit "… Profit."))
 
 (defparameter *filecoin-requirements*
-  (tuple (must-have-filecoin t)))
+  (tuple (must-have-filecoin t)
+	 (maximum-allowable-space-gap 0.02)
+	 (minimum-one-year-ROI -2)
+	 (minimum-two-year-ROI .25)
+	 (minimum-three-year-ROI 1.0)
+
+	 ))
 
 (defconstraint-system filecoin-requirements-constraint-system
-    ((space-gap-satisfied (< zigzag-space-gap 0.02))
-     (filecoin-requirements-satisfied (and must-have-filecoin space-gap-satisfied))
-     ))
+    ((space-gap-satisfied (<= zigzag-space-gap maximum-allowable-space-gap))
+     (one-year-ROI-satisfied (>= one-year-ROI minimum-one-year-ROI))
+     (two-year-ROI-satisfied (>= two-year-ROI minimum-two-year-ROI))
+     (three-year-ROI-satisfied (>= three-year-ROI minimum-three-year-ROI))
+     (filecoin-ROI-requirement-1 (and one-year-ROI-satisfied two-year-ROI-satisfied))
+     (filecoin-ROI-requirement (and filecoin-ROI-requirement-1 three-year-ROI-satisfied))
+     (filecoin-requirements-satisfied (and filecoin-ROI-requirement space-gap-satisfied))
+     (profit (and must-have-filecoin filecoin-requirements-satisfied))))
 
 (defun filecoin-requirements-system ()
   (make-instance 'system

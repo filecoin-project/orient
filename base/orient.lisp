@@ -646,25 +646,26 @@
 	       append (loop for target in (signature-output signature)
 			 collect (list dependency target)))))
 
-(defun write-dot-format (directed-graph stream)
-  (flet ((make-label (symbol &key url)
-	   (let ((cleaned (substitute #\_ #\- (symbol-name symbol))))
+(defun write-dot-format (directed-graph stream &key base-url)
+  (flet ((make-label (symbol &key url target)
+	   (let* ((symbol-name (symbol-name symbol))
+		  (cleaned (substitute #\_ #\- symbol-name)))
 	     (if url
-		 (format nil "~A~%~A [URL = \"~A\"] " cleaned cleaned cleaned)
+		 (format nil "~A~%~A [LABEL = \"asdf\"; URL = \"~A#~A\"; TARGET = \"~A\" ] " cleaned cleaned base-url symbol-name target)
 		 cleaned
 		 ))))
     (format stream "digraph {~%")
-    (loop for (dependency target) in directed-graph
-       do (format stream "~A -> ~A ~%" (make-label dependency) (make-label target :url "xxx")))
+    (loop for (dependency node) in directed-graph
+       do (format stream "~A -> ~A ~%" (make-label dependency) (make-label node :url "xxx" :target "yyy")))
     (format stream "}~%")))
 
-(defun dot-format (directed-graph stream)
+(defun dot-format (directed-graph stream &key base-url)
   (with-output-to-string (stream)
-    (write-dot-format directed-graph stream)))
+    (write-dot-format directed-graph stream :base-url base-url)))
 
 (defun dot (dot-format &key format output-file (layout "dot"))
   (with-input-from-string (in dot-format)
-    (uiop:run-program  (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
+    (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraints
@@ -679,6 +680,7 @@
 (deftype addition-constraint-form () '(cons (eql +)))
 (deftype subtraction-constraint-form () '(cons (eql -)))
 (deftype log-constraint-form () '(cons (eql log)))
+(deftype expt-constraint-form () '(cons (eql expt)))
 (deftype integer-constraint-form () '(cons (eql integer)))
 (deftype equality-constraint-form () '(cons (eql ==)))
 (deftype disequality-constraint-form () '(cons (eql =/=)))
@@ -690,7 +692,7 @@
 (deftype and-constraint-form () '(cons (eql and)))
 
 (deftype constraint-form () '(or multiplication-constraint-form division-constraint-form addition-constraint-form subtraction-constraint-form
-			      log-constraint-form integer equality-constraint-form disequality-constraint-form and-constraint-form
+			      log-constraint-form expt-constraint-form integer equality-constraint-form disequality-constraint-form and-constraint-form
 			      less-than-constraint-form greater-than-constraint-form
 			      less-than-or-equal-constraint-form
 			      greater-than-or-equal-constraint-form))
@@ -708,10 +710,13 @@
      (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
     (log-constraint-form
      (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+    (expt-constraint-form
+     (expand-expt-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
     (integer-constraint-form
      (expand-integer-constraint name (first (cdr constraint-form))))
     (equality-constraint-form
      (expand-equality-constraint name (first (cdr constraint-form))))
+    #+(or)
     (disequality-constraint-form
      (expand-disequality-constraint name (first (cdr constraint-form))))
     (and-constraint-form
@@ -827,7 +832,7 @@
 	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
 
 (defun expand-log-constraint (log n base)
-  "LOG = (log n base)"
+  "LOG = (LOG N BASE)"
   `(component ((transformation ((,n ,base) -> (,log)) == (log ,n ,base))
 	       ;; TODO:
 	       ;(transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
@@ -850,6 +855,13 @@
     (is (null (solve-for system '() (tuple (base 3) (n 8.0) (l 5.0)))))
     ))
 
+(defun expand-expt-constraint (pow base ex)
+  "POW = (EXPT BASE EX)"
+  `(component ((transformation ((,base ,ex) -> (,pow)) == (expt ,base ,ex))
+	       ;(transformation ((,ex ,pow) -> (,base)) == ;; need ex-th root of pow)
+	       (transformation ((,base ,pow) -> (,ex)) == (log ,pow ,base)))))
+
+
 (defun must-integer (n)
   "Returns N if it is equivalent to an integer, otherwise NIL."
   (multiple-value-bind (div rem)
@@ -868,7 +880,8 @@
     (let ((source (transformation-source transformation)))
       (typecase source
 	((or constraint-form (and symbol (not null))) (format nil "~A" source))
-	(t nil)))))
+	(null "<?>")
+	(t nil (format nil "~A" source))))))
 
 (test integer-constraint
   "Test CONSTRAINT-SYSTEM with an integer constraint."

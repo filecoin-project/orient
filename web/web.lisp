@@ -63,19 +63,22 @@
 	    collect step
 	    collect '(:hr))))))
 
+(defun format-value (value)
+  `(:html-escape ,(or value "FALSE")))
+
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple tuple) (transformation transformation) (system system) &key n)
   (declare (ignore n))
   (loop for (key value) in (tuple-pairs tuple)
      when (member key (signature-output (transformation-signature transformation)))
      ;; TODO: Handle N.
      ;; TODO: Extend DESCRIBE-TRANSFORMATION-CALCULATION to generate links to parameters.
-     collect `(:div
+     collect `(:html-escape
 	       ((:a :name ,(symbol-name key)) (:b ,(symbol-name key)))
-	       " "
-	       ,(awhen (describe-transformation-calculation transformation)
-		     `((:font :color "red") ,it))
+	       ": "
+		,(awhen (describe-transformation-calculation transformation)
+		   `((:font :color "red") ,it))
 	       " = "
-	       ((:font :color "blue") (:html-escape ,value))
+	       ((:font :color "blue") ,(format-value value))
 	       ,(let ((desc (and system (lookup-description key system))))
 	       	   (aif (and desc (not (equal desc "")))
 			`(:div "     " ((:font :color "green") (:i ,desc)))
@@ -105,20 +108,21 @@
        
        (hunchentoot:define-easy-handler (,graph-name :uri ,graph-uri) ()
 	 (serve-graph (plan-for ,system ',vars ,initial-data)
-		      ,graph-namestring)))))
+		      ,graph-namestring
+		      :base-url ,uri)))))
 
 (defun make-override-data (parameters)
   ;; Don't support explicit nulls -- remove.
   (let ((pairs (remove nil parameters :key #'cadr))) 
     (when pairs (make-tuple pairs))))
  
-(defun serve-graph (plan tmp-name &key (layout "dot") (format "svg"))
+(defun serve-graph (plan tmp-name &key (layout "dot") (format "svg") base-url)
   ;; FIXME: There must be a better way.
   ;; Or maybe this is good, and we should cache (based on content).
   (let ((image-file (make-pathname :directory "tmp" :name tmp-name :type format)))
     (orient::dot
      (orient::dot-format
-      (generate-directed-graph plan) nil)
+      (generate-directed-graph plan) nil :base-url base-url)
      :layout layout
      :format format
      :output-file image-file)

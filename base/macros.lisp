@@ -106,7 +106,7 @@
 
 (deftype transformation-arrow () '(or tlambda-arrow xlambda-arrow literal-arrow))
 
-(defmacro transformation (((&rest input-lambda-list) arrow (&rest output)) eqmark implementation)
+(defmacro transformation (((&rest input-lambda-list) arrow (&rest output) &key source) eqmark implementation)
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
   (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
@@ -118,7 +118,9 @@
 	     (make-instance 'transformation
 			    :signature sig
 			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
-			    :source ',implementation)))
+			    :source ,(if source
+					 `(quote ,source)
+					 `(quote ,implementation)))))
       ;; => xlambda
       (xlambda-arrow `(let ((sig (make-signature ',input ',output)))
 			(make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
@@ -133,7 +135,8 @@
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (check-type arrow transformation-arrow)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
-     (progn (deftoplevel ,name (:transformation) (transformation ((,@input) ,arrow (,@output)) == (progn ,@implementation))))))
+     (progn (deftoplevel ,name (:transformation) (transformation ((,@input) ,arrow (,@output) :source (,name ,@input))
+								 == (progn ,@implementation))))))
 
 (defmacro component (transformations)
   `(make-instance 'component :transformations (list ,@transformations)))
