@@ -157,10 +157,10 @@
 				   `(list ',attribute ,value)))
 			       parameters))))
 
-;; Make a relation. Shorthand for RELATION
-;; Example: (rel (a b c) (1 2 3) (4 5 6))
-(defmacro rel ((&rest attributes) &rest tuple-values)
-  `(relation (,@attributes) ,@tuple-values))
+;; Make a relation from tuples.
+;; Example: (rel (tuple (a 1) (b 2)) (tuple (a 3) (b 4)))
+(defmacro rel (&rest tuple-forms)
+  `(make-relation (list ,@tuple-forms)))
 
 ;; Make a tuple.
 ;; Example: (tpl (a b c) 1 2 3)
@@ -279,13 +279,13 @@
   `(restrict (tfn (,@tuple-lambda-list) ,@body) ,relation-form))
 
 (test where "Test WHERE macro."
-      (is (same (rel (a b c)
-		     (4 5 6))
+      (is (same (relation (a b c)
+			  (4 5 6))
 		(where ((b) (= b 5))
-		       (rel (a b c)
-			    (1 2 3)
-			    (4 5 6)
-			    (7 8 9))))))
+		       (relation (a b c)
+				 (1 2 3)
+				 (4 5 6)
+				 (7 8 9))))))
 
 (defmacro rename ((&rest pairs) attributed)
   `(rename-attributes ',pairs ,attributed))

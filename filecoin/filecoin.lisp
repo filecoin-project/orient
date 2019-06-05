@@ -4,8 +4,8 @@
   (:export
    :GiB-seal-cycles
    :roi-months
-   :seal-cost :seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers :total-challenges
-   :total-zigzag-challenges
+   :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers
+   :total-challenges :total-zigzag-challenges
    :zigzag-layers :zigzag-layer-challenges
    :zigzag-soundness
    :filecoin-system :performance-system :zigzag-system :zigzag-security-system
@@ -51,7 +51,7 @@
 				 (base-degree 5)
 				 (expansion-degree 8)
 
-				 (total-challenges 8000)
+;				 (total-challenges 8000)
 
 				 ;; TODO: account for other constraint sources.
 				 (total-zigzag-other-constraints 0) 
@@ -461,8 +461,7 @@ Which is
   (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
   (zigzag-soundness "ZigZag soundness: Unit fraction")
-  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
-  )
+  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction"))
 
 (defconstraint-system zigzag-security-constraint-system
     ((zigzag-lambda (log zigzag-soundness (/ 1 2)))
@@ -479,7 +478,7 @@ Which is
 	  2)
      4))
 
-(deftransformation compute-zigzag-tapered-layers ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper zigzag-taper-layers)
+(deftransformation compute-zigzag-tapered-layers ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
 						  -> (zigzag-layer-challenges total-zigzag-challenges))
   (let* ((reduction (- 1 zigzag-taper))
 	 (layer-challenges (loop for i from 0 below layers
@@ -490,7 +489,6 @@ Which is
   (tuple
    (zigzag-lambda 8)
    (zigzag-taper (/ 1 3))
-   (zigzag-taper-layers 7)
    (zigzag-epsilon 0.007)
    (zigzag-delta 0.003)))
 
@@ -514,25 +512,45 @@ Which is
 				   (component ((find-transformation 'select-kdf-hash-function)))
 				   (component ((find-transformation 'extract-kdf-hash-function-components))))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
-				   (find-system 'merkle-tree-constraint-system))
+				   (find-system 'merkle-tree-constraint-system)
+				   (zigzag-security-system)
+				   )
 		 :data (list *defaults*
 			     *zigzag-defaults*
 			     (tuple (hash-functions *hash-functions*)))))
 
+(defschema filecoin-requirements-schema
+    "Filecoin Requirements -- sine qua non (without which not)"
+  (must-have-filecoin "WE MUST HAVE FILECOIN -- SWEET, SWEET FILECOIN."))
+
+(defparameter *filecoin-requirements*
+  (tuple (must-have-filecoin t)))
+
+(defconstraint-system filecoin-requirements-constraint-system
+    ((space-gap-satisfied (< zigzag-space-gap 0.02))
+     (filecoin-requirements-satisfied (and must-have-filecoin space-gap-satisfied))
+     ))
+
+(defun filecoin-requirements-system ()
+  (make-instance 'system
+		 :subsystems (list (find-system 'filecoin-requirements-constraint-system))
+		 :schema 'filecoin-requirements-schema
+		 :data (list *filecoin-requirements*)))
+
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (54675.355))
+    (is (same (relation (seal-time) (54580.69))
 	      result))))
 
 (defun filecoin-system ()
-  (make-instance 'system :subsystems (list (performance-system) (zigzag-system))))
+  (make-instance 'system :subsystems (list (performance-system) (zigzag-system) (filecoin-requirements-system))))
 
 (test filecoin-defaults
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (212.95776 54675.355))))
+	  (relation (SEAL-COST SEAL-TIME) (212.81122 54580.69))))
     (is (same expected result))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -134,7 +134,7 @@
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				   :title "ZigZag Proof of Replication"
-				   :vars (seal-time)
+				   :vars (seal-time GiB-seal-time)
 				   :system (zigzag-system)
 				   :override-parameters (sector-size))
     ((sector-size :parameter-type 'integer))
@@ -142,7 +142,8 @@
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
-				    :vars (seal-cost seal-time roi-months total-up-front-cost)
+				    :vars (seal-cost seal-time roi-months total-up-front-cost fc::filecoin-requirements-satisfied
+						     )
 				    :override-parameters (annual-income layers total-challenges sector-size)
 				    :system (filecoin-system))
     ((annual-income :parameter-type 'integer)
