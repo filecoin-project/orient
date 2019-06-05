@@ -42,13 +42,6 @@
 
 (defclass relation () ())
 
-(defclass simple-relation (relation)
-  ((attributes :initarg :attributes :accessor attributes)
-   (tuples :initarg :tuples :initform nil :accessor tuples)))
-
-(defmethod print-object ((relation relation) (stream t))
-  (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
-
 (defgeneric attributes (tuple)
   (:method ((d tuple))
     (loop for attribute being the hash-keys of (tuple-hash-table d)
@@ -56,6 +49,13 @@
   (:method ((r relation))
     (and (first (tuples r))
 	 (attributes (first (tuples r))))))
+
+(defclass simple-relation (relation)
+  ((attributes :initarg :attributes :accessor attributes)
+   (tuples :initarg :tuples :initform nil :accessor tuples)))
+
+(defmethod print-object ((relation relation) (stream t))
+  (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
 (defgeneric ensure-tuples (attributed)
   (:method ((tuple tuple))
@@ -611,13 +611,14 @@
 		  solution)
 	      plan report))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan)
   (multiple-value-bind (solution plan report) (solve-for system output initial-data
 							 :report format
 							 :override-data override-data
 							 :project-solution project-solution)
-    (declare (ignore plan))
-    (values (if solution report "NO SOLUTION")  solution)))
+    (if return-plan
+	(values (if solution report "NO SOLUTION")  solution plan)
+	(values (if solution report "NO SOLUTION")  solution))))
 
 (defun ask (system output &optional initial-data &key override-data)
   "Like solve-for but only returns the requested attributes in response tuple."

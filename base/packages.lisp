@@ -8,7 +8,7 @@
 	   :forget :generate-directed-graph :it
 	   :tref :join :lookup-description :make-relation
 	   :make-signature :make-tuple
-	   :orient-tests :plan :plan-for :rel :relation :remove-attributes :remv :rename :report-data :report-solution-for :same
+	   :orient-tests :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :remv :rename :report-data :report-solution-for :same
 	   :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
 	   :synthesize-report-steps :symbolconc :sys :system :system-components
 	   :system-data :system-schema

@@ -39,13 +39,17 @@
      (:div ,@body)
      (:p "Solving for " ',(comma-list vars) ".")
      (:pre
-      (multiple-value-bind (report solution)
-	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data :project-solution t)
-	`(:div (:html-escape ,(princ-to-string  solution)
+      (multiple-value-bind (report solution plan)
+	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data :project-solution t
+			       :return-plan t)
+	(let* ((signature (pipeline-signature plan))
+	       (parameters (union (signature-input signature) (signature-output signature))))
+	  (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
+	  `(:div (:html-escape ,(princ-to-string solution))
 	       ,@(when ,override-data
-		   (list :p (format nil "Supplied: ~s" ,override-data))))
+		   (list :p (format nil "Supplied: ~s" ,override-data)))
 	       (:hr)
-	       (:p ,report))))))
+	       (:p ,report)))))))
 
 (defun serve-report-page (title &key vars system initial-data override-data body-html)
   (with-page (title)
