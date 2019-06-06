@@ -533,7 +533,7 @@ Which is
 			     (tuple (hash-functions *hash-functions*)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; PoSt
+;; PoSt -- WIP
 (defschema post-schema
     "PoSt Schema"
   (replication-attacker-discount "The fraction of the calculated replication cost which an attacker can realize.")
@@ -553,30 +553,22 @@ Which is
   ;;; S - C 
   )
 
-#|
-Attack:
-
-Delete N%. Calculate with C<-S.
-
-
-|#
-
 (defparameter *post-defaults*
   (tuple
-   (post-proving-period (* 60 60 24 * 2)) ;; TODO: derive this.
+   (post-proving-period (* 60 60 24 2)) ;; TODO: derive this.
    (replication-time 2000)))
 
-(defconstraint-system post-constraint-system
-    (post-polling-time (xxx replication-time replication-amax))
-  (attacker-replication-cost (xxx replication-attacker-discount replication-cost))
+;; (defconstraint-system post-constraint-system
+;;     (post-polling-time (xxx replication-time replication-amax))
+;;   (attacker-replication-cost (xxx replication-attacker-discount replication-cost))
   
   
-  )
+;;   )
 
-(defun post-system (&key isolated)
-  (make-instance 'system
-		 :subsystems (list (find-system 'post-constraint-system))
-		 :data (list *post-defaults*)))
+;; (defun post-system (&key isolated)
+;;   (make-instance 'system
+;; 		 :subsystems (list (find-system 'post-constraint-system))
+;; 		 :data (list *post-defaults*)))
 
 ;; End PoSt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
