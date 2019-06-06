@@ -177,7 +177,7 @@
      (make-instance 'schema
 		    :description ,description
 		    :parameters (list ,@(mapcar (lambda (parameter-spec)
-						  (destructuring-bind (name description &optional type) parameter-spec
+						  (destructuring-bind (name &optional description  type) parameter-spec
 						    `(make-instance 'parameter :name ',name :description ,description :type ,(or type ""))))
 						parameters)))))
 

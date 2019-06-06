@@ -240,24 +240,6 @@
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
-(deftransformation select-merkle-hash-function
-    ((merkle-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
-     => (merkle-hash-function-constraints merkle-hash-function-time merkle-hash-function-size))
-  (when (eql hash-function-name merkle-hash-function-name)
-    `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
-
-(deftransformation select-beta-merkle-hash-function
-    ((beta-merkle-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
-     => (beta-merkle-hash-function-constraints beta-merkle-hash-function-time beta-merkle-hash-function-size))
-  (when (eql hash-function-name beta-merkle-hash-function-name)
-    `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
-
-(deftransformation select-kdf-hash-function
-    ((kdf-hash-function-name hash-function-name hash-function-time hash-function-size hash-function-constraints)
-     => (kdf-hash-function-constraints kdf-hash-function-time kdf-hash-function-size))
-  (when (eql hash-function-name kdf-hash-function-name)
-    `((,hash-function-constraints ,hash-function-time ,hash-function-size))))
-
 (defmacro define-hash-function-selector (prefix)
   (let ((selector-name (symbolconc 'select- prefix '-hash-function))
 	(extractor-name (symbolconc 'extract- prefix '-hash-function-components))
@@ -265,38 +247,47 @@
 	(-hash-function (symbolconc prefix '-hash-function))
 	(-hash-function-constraints (symbolconc prefix '-hash-function-constraints))
 	(-hash-function-time (symbolconc prefix '-hash-function-time))
-	(-hash-function-size (symbolconc prefix '-hash-function-size)))
+	(-hash-function-size (symbolconc prefix '-hash-function-size))
+	(-hash-function-system (symbolconc prefix '-hash-function-system)))
     `(progn
        (deftransformation ,selector-name ((hash-functions ,-hash-function-name)
 					  -> (,-hash-function))
 	 (extract (join (tuple (hash-function-name ,-hash-function-name)) hash-functions)))
        (deftransformation ,extractor-name ((,-hash-function) -> (,-hash-function-constraints ,-hash-function-time ,-hash-function-size))
 	 (values (tref 'hash-function-constraints ,-hash-function)
-	       (tref 'hash-function-time ,-hash-function)
-	       (tref 'hash-function-size ,-hash-function))))))
+		 (tref 'hash-function-time ,-hash-function)
+		 (tref 'hash-function-size ,-hash-function)))
+       (defun ,-hash-function-system ()
+	 (make-instance 'system
+			:components (list
+				     (component ((find-transformation ',selector-name)))
+				     (component ((find-transformation ',extractor-name)))))))))
 
 (define-hash-function-selector merkle)
+(define-hash-function-selector beta-merkle)
 (define-hash-function-selector kdf)
 
 (test select-merkle-hash-function
   (let* ((data (join (tuple (merkle-hash-function-name :pedersen))
 		     (tuple (hash-functions *hash-functions*))))
-	 (result (apply-transformation 'select-merkle-hash-function data))
-	 (result (apply-transformation 'extract-merkle-hash-function-components result)))
+	 (result (solve-for (merkle-hash-function-system)
+			    '(merkle-hash-function-constraints merkle-hash-function-size merkle-hash-function-time merkle-hash-function)
+			    data)))
     (is (same (tuple (HASH-FUNCTIONS *hash-functions*)
 		     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-		      (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-		      (MERKLE-HASH-FUNCTION-SIZE 32)
-		      (MERKLE-HASH-FUNCTION-TIME 1.7993e-5)
-		      (MERKLE-HASH-FUNCTION (TPL (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS HASH-FUNCTION-SIZE)
+		     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
+		     (MERKLE-HASH-FUNCTION-SIZE 32)
+		     (MERKLE-HASH-FUNCTION-TIME 1.7993e-5)
+		     (MERKLE-HASH-FUNCTION (TPL (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS HASH-FUNCTION-SIZE)
 						(:PEDERSEN 0.000017993 1152 32))))
 	      result))))
 
 (test select-kdf-hash-function
   (let* ((data (join (tuple (kdf-hash-function-name :blake2s))
 		     (tuple (hash-functions *hash-functions*))))
-	 (result (apply-transformation 'select-kdf-hash-function data))
-	 (result (apply-transformation 'extract-kdf-hash-function-components result)))
+	 (result (solve-for (kdf-hash-function-system)
+			    '(kdf-hash-function-constraints kdf-hash-function-size kdf-hash-function-time kdf-hash-function)
+			    data)))
     (is (same (tuple (HASH-FUNCTIONS *hash-functions*)
 		     (KDF-HASH-FUNCTION-NAME :blake2s)
 		     (KDF-HASH-FUNCTION-CONSTRAINTS 10324)
@@ -310,11 +301,9 @@
   (let* ((data (join (tuple (kdf-hash-function-name :blake2s)
 			    (merkle-hash-function-name :pedersen))
 		     (tuple (hash-functions *hash-functions*))))
-	 (result (apply-transformation '(select-merkle-hash-function
-					 select-kdf-hash-function
-					 extract-merkle-hash-function-components
-					 extract-kdf-hash-function-components)
-				       data)))
+	 (result (solve-for (make-instance 'system :subsystems (list (merkle-hash-function-system) (kdf-hash-function-system)))
+			    '()
+			    data)))
     (is (same 
 	 (tuple (HASH-FUNCTIONS *hash-functions*)
 		(KDF-HASH-FUNCTION-NAME :BLAKE2S)
@@ -542,6 +531,56 @@ Which is
 		 :data (list *defaults*
 			     *zigzag-defaults*
 			     (tuple (hash-functions *hash-functions*)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; PoSt
+(defschema post-schema
+    "PoSt Schema"
+  (replication-attacker-discount "The fraction of the calculated replication cost which an attacker can realize.")
+
+  (post-polling-time)
+  (post-proving-period)
+  (post-epochs)
+  (post-hash-function)
+
+  (attacker-replication-cost "Cost to replicate one sector. Unit: dollars")
+  (minimum-replication-time)
+  (expected-value-of-space-reuse "")
+
+  (cost-of-retaining-data "How much does it cost to retain unsealed data.")
+  (post-attack-rationality)
+  (cost-to-delete-all-data-and-pass "Cost to delete all data and pass PoSt.")
+  ;;; S - C 
+  )
+
+#|
+Attack:
+
+Delete N%. Calculate with C<-S.
+
+
+|#
+
+(defparameter *post-defaults*
+  (tuple
+   (post-proving-period (* 60 60 24 * 2)) ;; TODO: derive this.
+   (replication-time 2000)))
+
+(defconstraint-system post-constraint-system
+    (post-polling-time (xxx replication-time replication-amax))
+  (attacker-replication-cost (xxx replication-attacker-discount replication-cost))
+  
+  
+  )
+
+(defun post-system (&key isolated)
+  (make-instance 'system
+		 :subsystems (list (find-system 'post-constraint-system))
+		 :data (list *post-defaults*)))
+
+;; End PoSt
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (defschema filecoin-requirements-schema
     "Filecoin Requirements -- sine qua non (without which not)"
