@@ -134,15 +134,17 @@
 
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
-						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost)
-						:override-parameters (gib-seal-cycles)
+						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost
+								 one-year-roi two-year-roi three-year-roi)
+						:override-parameters	(GiB-seal-cycles)
 						:system (performance-system :isolated t))
     ((gib-seal-cycles :parameter-type 'integer))
-  (format nil "The economic component of Filecoin performance requirements. GiB-seal-cycles: ~A" gib-seal-cycles))
+  (format nil "The economic component of Filecoin performance requirements." ))
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				   :title "ZigZag Proof of Replication"
-				   :vars (seal-time GiB-seal-time)
+				   :vars (seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
+						    )
 				   :system (zigzag-system)
 				   :override-parameters (sector-size))
     ((sector-size :parameter-type 'integer))
@@ -151,6 +153,8 @@
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
 				    :vars (seal-cost seal-time roi-months total-up-front-cost fc::filecoin-requirements-satisfied
+						     one-year-roi two-year-roi three-year-roi
+						     ;storage-to-proof-size-float
 						     )
 				    :override-parameters (annual-income layers total-challenges sector-size)
 				    :system (filecoin-system))

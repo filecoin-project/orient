@@ -5,8 +5,8 @@
    :GiB-seal-cycles
    :roi-months
    :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers
-   :total-challenges :total-zigzag-challenges
-   :zigzag-layers :zigzag-layer-challenges
+   :total-challenges :total-zigzag-challenges :storage-to-proof-size-ratio :storage-to-proof-size-float
+   :zigzag-layers :zigzag-layer-challenges :one-year-roi :two-year-roi :three-year-roi
    :zigzag-soundness
    :filecoin-system :performance-system :zigzag-system :zigzag-security-system
    :*performance-defaults*))
@@ -36,16 +36,18 @@
    )
   )
 
-(defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles 2.3510403e8)))
-(defparameter *integrated-performance-defaults* (tuple (seal-GHz 4300)))
+(defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles (* 4.3e9 9042.883))))
+(defparameter *integrated-performance-defaults* (tuple (seal-GHz 4.3)))
 
 (defparameter *zigzag-defaults* (tuple
 				 (alpha-merkle-hash-function-name :pedersen)
 				 (merkle-hash-function-name :pedersen)
 				 (beta-hash-function-name :blake2s)
 				 (kdf-hash-function-name :blake2s)
-				 (partition-challenges 400)
-				 (single-circuit-proof-size 192) ;; Groth16 -- eventually should allow selection of proving systems.
+				 ;;(partition-challenges 400)
+				 (partitions 1)
+				 (single-circuit-proof-size 192) ;; Groth16, BLS12-381 -- eventually should allow selection of proving systems/curves.
+				 ;(single-circuit-proof-size 520) ;; Groth16, SW6 -- eventually should allow selection of proving systems/curves.
 				 (sloth-iter 0)
 				 (layers 10)
 				 (base-degree 5)
@@ -68,7 +70,7 @@
 (defparameter *defaults*
   (tuple
    (node-bytes 32)
-   (sector-size (* 1 GiB))))
+   (sector-size (* 32 GiB))))
 
 (defschema filecoin-price-performance
     "Filecoin price performance."  
@@ -92,7 +94,7 @@
   (seal-cycles-per-hour "CPU required to seal at required rate for one hour. Unit: cycles")
   (seal-cycles-per-minute "CPU required to seal at required rate for one minute. Unit: cycles")
   (seal-cycles-per-second "CPU required to seal at required rate for one second. Unit: cycles")
-  (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB.")
+  (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB. Unit: Giga-cycles")
   (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
 
   (up-front-drive-cost "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars.")
@@ -117,12 +119,14 @@
   
   (three-year-profit-months "Months from ROI to three years of profit. Unit: months")
   (three-year-profit "Profit after three years of operation: Unit: dollars")
-  (three-year-roi "ROI after two years of operation: Unit: fraction")
-  
+  (three-year-roi "ROI after three years of operation: Unit: fraction")
+  (seal-Hz "Cycles per second at which the sealing machine operates. Unit: Hz")
+  (sealGHz "Cycles per second at which the sealing machine operates. Unit: GHz")
   )
 
 (defconstraint-system performance-constraint-system    
-    ((GiB-seal-cycles (* GiB-seal-time seal-GHz))
+    ((seal-Hz (* seal-GHz 1e9))
+     (GiB-seal-cycles (* GiB-seal-time seal-Hz))
      (monthly-income (/ annual-income 12))
      (monthly-income (* comparable-monthly-cost commodity-storage-discount)) 
      (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
@@ -133,12 +137,14 @@
      (hourly-GiB (* hourly-TiB 1024)) 
      (up-front-drive-cost (* TiB-drive-cost TiB-capacity))
      (seal-cycles-per-hour (* hourly-GiB GiB-seal-cycles))
-     (seal-cycles-per-minute (* seal-cycles-per-hour 60))
-     (seal-cycles-per-second (* seal-cycles-per-minute 60))
-     (needed-ghz (/ seal-cycles-per-second 1e9))
+     (seal-cycles-per-minute (/ seal-cycles-per-hour 60))
+     (seal-cycles-per-second (/ seal-cycles-per-minute 60))
+     ;(needed-ghz (== seal-cycles-per-second));(/ seal-cycles-per-second 1e9)
+
+     (needed-GHz (/ seal-cycles-per-second 1e9))
      (up-front-sealing-cost (+ up-front-compute-cost up-front-memory-cost))
      (total-up-front-cost (+ up-front-sealing-cost up-front-drive-cost))
-     (up-front-compute-cost (/ needed-ghz cpu-ghz-cost))
+     (up-front-compute-cost (* needed-ghz cpu-ghz-cost))
      (seal-cost (/ total-up-front-cost hourly-GiB))
      (average-monthly-income-during-ramp-up (/ monthly-income 2))
      (income-during-ramp-up (* average-monthly-income-during-ramp-up miner-months-to-capacity))
@@ -168,7 +174,7 @@
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 212.95776))
+  (is (same (tuple (seal-cost 236.33252))
 	    (ask (performance-system :isolated t) '(seal-cost)))))
 
 ;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
@@ -393,6 +399,9 @@ Which is
   (total-zigzag-constraints "Total number of constraints which must be verified in a ZigZag circuit.")
   (layer-replication-time "Time to replicate one layer. Unit: seconds")
 
+  (storage-to-proof-size-ratio "Ratio of sealed sector size to on-chain PoRep size.")
+  (storage-to-proof-size-float "Ratio of sealed sector size to on-chain PoRep size -- expressed as a float.")
+
   (replication-cycles "")
   (sealing-cycles "")
   (zigzag-vanilla-proving-cycles "")
@@ -464,7 +473,9 @@ Which is
      (circuit-proving-time (* total-zigzag-constraints circuit-proving-time-per-constraint))
      (seal-time (+ non-circuit-proving-time circuit-proving-time))
      (sector-GiB (/ sector-size #.GiB))
-     (GiB-seal-time (/ seal-time sector-GiB)))
+     (GiB-seal-time (/ seal-time sector-GiB))
+     (storage-to-proof-size-ratio (/ sector-size on-chain-porep-size))
+     (storage-to-proof-size-float (* 1.0 storage-to-proof-size-ratio)))
   :schema 'zigzag-schema)
 
 (defschema zigzag-security-schema
@@ -540,6 +551,7 @@ Which is
   (minimum-one-year-ROI "Minimum allowable ROI after one year.")
   (minimum-two-year-ROI "Minimum allowable ROI after two years.")
   (minimum-three-year-ROI "Minimum allowable ROI after three years.")
+  (minimum-storage-to-proof-size-ratio "Minimum necessary storage to on-chain proof ratio.")
   (profit "… Profit."))
 
 (defparameter *filecoin-requirements*
@@ -548,7 +560,8 @@ Which is
 	 (minimum-one-year-ROI -2)
 	 (minimum-two-year-ROI .25)
 	 (minimum-three-year-ROI 1.0)
-
+	 ;; TODO: Justify this legacy requirement with grounded calculations.
+	 (minimum-storage-to-proof-size-ratio (/ (* 1024 1024 1024 1024)  25600))
 	 ))
 
 (defconstraint-system filecoin-requirements-constraint-system
@@ -558,7 +571,10 @@ Which is
      (three-year-ROI-satisfied (>= three-year-ROI minimum-three-year-ROI))
      (filecoin-ROI-requirement-1 (and one-year-ROI-satisfied two-year-ROI-satisfied))
      (filecoin-ROI-requirement (and filecoin-ROI-requirement-1 three-year-ROI-satisfied))
-     (filecoin-requirements-satisfied (and filecoin-ROI-requirement space-gap-satisfied))
+     (filecoin-storage-ratio-satisfied (>= storage-to-proof-size-ratio minimum-storage-to-proof-size-ratio))
+     (filecoin-porep-security-requirements-satisfied (== space-gap-satisfied))
+     (filecoin-porep-requirements-satisfied (and filecoin-porep-security-requirements-satisfied filecoin-storage-ratio-satisfied))
+     (filecoin-requirements-satisfied (and filecoin-ROI-requirement filecoin-porep-requirements-satisfied))
      (profit (and must-have-filecoin filecoin-requirements-satisfied))))
 
 (defun filecoin-requirements-system ()
@@ -570,7 +586,7 @@ Which is
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (54580.69))
+    (is (same (relation (seal-time) (289372.25))
 	      result))))
 
 (defun filecoin-system ()
@@ -580,7 +596,7 @@ Which is
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (212.81122 54580.69))))
+	  (relation (SEAL-COST SEAL-TIME) (236.33252 289372.25))))
     (is (same expected result))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
