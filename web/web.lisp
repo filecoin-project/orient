@@ -35,29 +35,31 @@
 	 (:body ,@body))))))
 
 (defmacro with-report-page ((title &key vars system initial-data override-data) &body body)
-  `(with-page (,title)
-     (:div ,@body)
-     (:p "Solving for " ',(comma-list vars) ".")
-     (:pre
-      (multiple-value-bind (report solution plan)
-	  (report-solution-for '(,@vars) :system ,system :initial-data ,initial-data :format :html :override-data ,override-data :project-solution t
-			       :return-plan t)
-	(let* ((signature (pipeline-signature plan))
-	       (parameters (union (signature-input signature) (signature-output signature))))
-	  (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
-	  `(:div (:html-escape ,(princ-to-string solution))
-	       ,@(when ,override-data
-		   (list :p (format nil "Supplied: ~s" ,override-data)))
-	       (:hr)
-	       (:p ,report)))))))
+  `(serve-report-page ,title :vars ',vars :system ,system :initial-data ,initial-data :override-data ,override-data))
+
+(defun report-page (&key vars system initial-data override-data)
+  (multiple-value-bind (report solution defaulted-data plan)
+      (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data :project-solution t
+			   :return-plan t)
+    (let* ((signature (pipeline-signature plan))
+	   (parameters (union (signature-input signature) (signature-output signature))))
+      (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
+      `(:div (:html-escape ,(princ-to-string solution))
+	     ,@(when override-data
+		 (list :p (format nil "Supplied: ~s" override-data)))
+	     (:hr)
+	     (:p (:b "Initial data: " (:html-escape ,(princ-to-string defaulted-data))))
+	     (:p ,report)))))
 
 (defun serve-report-page (title &key vars system initial-data override-data body-html)
   (with-page (title)
-     (:div body-html)
-     (:p "Solving for " (comma-list vars) ".")
-     (:hr)
-     (:pre
-      (nth-value 0 (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data)))))
+    (:div body-html)
+    (:p "Solving for " (comma-list vars) ".")
+    (:hr)
+    (:pre
+     (report-page :vars vars :system system :initial-data initial-data :override-data override-data))))
+
+
 
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
@@ -103,9 +105,7 @@
 			    :system ,system
 			    :initial-data ,initial-data
 			    :override-data (make-override-data (list ,@(loop for parameter in override-parameters
-									  collect `(list ',parameter  ,parameter)
-									    )))
-			    )
+									  collect `(list ',parameter  ,parameter)))))
 	   (:div
 	    (:p ,@body)
 	    (:p ((:a :href ,graph-uri) "See a Graph")))))

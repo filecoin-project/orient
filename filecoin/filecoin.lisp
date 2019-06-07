@@ -172,7 +172,7 @@
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 236.33252))
+  (is (same (tuple (seal-cost 108.01221))
 	    (ask (performance-system :isolated t) '(seal-cost)))))
 
 ;;; TODO: Add a function to check data against schema -- which will make more sense once schema is typed.
@@ -625,7 +625,7 @@ Which is
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (236.33252 289372.25))))
+	  (relation (SEAL-COST SEAL-TIME) (108.01221 289372.25))))
     (is (same expected result))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

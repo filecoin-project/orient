@@ -550,7 +550,7 @@
 				     transformed))
 				   plan
 				   :initial-value initial-value)))
-		 (values result plan (synthesize-report-steps report report-results)))))))
+		 (values result plan (synthesize-report-steps report report-results) initial-value))))))
 
 (defun report-step (step transformation system &key format)
   (let* ((tuples (ensure-tuples step))
@@ -604,21 +604,22 @@
   (let* ((system (find-system system))
 	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (attributes defaulted) output)))
-    (multiple-value-bind (solution plan report)
+    (multiple-value-bind (solution plan report defaulted-data)
 	(solve system sig defaulted :report report :override-data override-data)
       (values (if project-solution
 		  (project output solution)
 		  solution)
-	      plan report))))
+	      plan report defaulted-data))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan)
-  (multiple-value-bind (solution plan report) (solve-for system output initial-data
-							 :report format
-							 :override-data override-data
-							 :project-solution project-solution)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan
+				     return-defaulted-data)
+  (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
+									:report format
+									:override-data override-data
+									:project-solution project-solution)
     (if return-plan
-	(values (if solution report "NO SOLUTION")  solution plan)
-	(values (if solution report "NO SOLUTION")  solution))))
+	(values (if solution report "NO SOLUTION") solution defaulted-data plan)
+	(values (if solution report "NO SOLUTION") solution defaulted-data))))
 
 (defun ask (system output &optional initial-data &key override-data)
   "Like solve-for but only returns the requested attributes in response tuple."
