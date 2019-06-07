@@ -35,7 +35,12 @@
 	 (:body ,@body))))))
 
 (defmacro with-report-page ((title &key vars system initial-data override-data) &body body)
-  `(serve-report-page ,title :vars ',vars :system ,system :initial-data ,initial-data :override-data ,override-data))
+  `(serve-report-page :title ,title
+		      :vars ',vars
+		      :system ,system
+		      :initial-data ,initial-data
+		      :override-data ,override-data
+		      :body ',body))
 
 (defun report-page (&key vars system initial-data override-data)
   (multiple-value-bind (report solution defaulted-data plan)
@@ -51,15 +56,13 @@
 	     (:p (:b "Initial data: " (:html-escape ,(princ-to-string defaulted-data))))
 	     (:p ,report)))))
 
-(defun serve-report-page (title &key vars system initial-data override-data body-html)
+(defun serve-report-page (&key title vars system initial-data override-data body)
   (with-page (title)
-    (:div body-html)
+    `(:div ,@body)
     (:p "Solving for " (comma-list vars) ".")
     (:hr)
     (:pre
      (report-page :vars vars :system system :initial-data initial-data :override-data override-data))))
-
-
 
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
@@ -108,7 +111,8 @@
 									  collect `(list ',parameter  ,parameter)))))
 	   (:div
 	    (:p ,@body)
-	    (:p ((:a :href ,graph-uri) "See a Graph")))))
+	    (:p ((:a :href ,graph-uri) "See a Graph"))
+	    )))
        
        (hunchentoot:define-easy-handler (,graph-name :uri ,graph-uri) ()
 	 (serve-graph (plan-for ,system ',vars ,initial-data)
