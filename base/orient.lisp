@@ -10,10 +10,12 @@
 (defmethod print-object ((d tuple) (stream t))
   (format stream "<TUPLE ~S>" (sort (tuple-pairs d) #'string< :key #'car)))
 
-(defun make-tuple (&optional pairs)
+(defun make-tuple (&optional pairs dotted)
   (let* ((tuple (make-instance 'tuple))
 	 (h (tuple-hash-table tuple)))
-    (loop for (k v) in pairs do (setf (gethash k h) v))
+    (if dotted
+	(loop for (k . v) in pairs do (setf (gethash k h) v))
+	(loop for (k v) in pairs do (setf (gethash k h) v)))
     tuple))
 
 (defmethod tuple-pairs ((tuple tuple) &key dotted)

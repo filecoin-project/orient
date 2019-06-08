@@ -1,6 +1,6 @@
 (defpackage interface
   (:use "COMMON-LISP" "ORIENT" "CL-JSON")
-  (:export :load-pipeline :load-transformation))
+  (:export :load-pipeline :load-transformation :load-tuple))
 
 (in-package "INTERFACE")
 
@@ -15,7 +15,7 @@
 
 (defun load-tuple (json-pathspec)
   (let ((json (decode-json-from-source (pathname json-pathspec))))
-    json
+    (make-tuple json t)
     ;; FIXME: implement
     ))
 

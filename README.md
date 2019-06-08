@@ -22,6 +22,49 @@ Then navigate to `http://localhost:8888`.
 
 To generate and view graphs, `graphviz` must be installed locally, and `dot` must be in the path.
 
+
+## CLI
+
+There are severals ways to run the CLI.
+
+### Development Mode
+
+- Install [cl-launch](https://www.cliki.net/cl-launch), and arrange for `cl` to be on your path.
+
+Now you can run the CLI and source changes will be immediately reflected, but startup is a bit slow.
+```bash
+> ./bin/orient ... <args>
+```
+
+### Executable Image
+
+If you just want to *use* the CLI, first dump an image:
+
+```bash
+> make ubercacl
+```
+
+Now startup should be very fast:
+
+```bash
+> ./bin/ucalc ... <args>
+```
+
+### Docker
+
+If you're having a hard time setting up a development environment, Docker might be easiest, but startup is a bit slow.
+
+```docker
+> make docker
+> ./bin/dcalc ... <args>
+```
+
+### Tests from shell
+
+```bash
+> make test
+```
+
 ## License
 
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)

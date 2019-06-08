@@ -3,7 +3,7 @@
   :version "0.0.1"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options")
   :components ((:module "base"
 			:serial t
 			:components			
@@ -19,13 +19,18 @@
 			:depends-on ("base")
 			:components
 			((:file "filecoin")))
-
 	       (:module "web"
 			:depends-on ("base" "filecoin")
 			:serial t
 			:components
 			((:file "html")
-			 (:file "web"))))
+			 (:file "web")))
+	       (:module "cli"
+			:depends-on ("base" "filecoin")
+			:serial t
+			:components
+			((:file "cli")))
+	       )
   :in-order-to ((test-op (load-op "orient")))
   :perform (test-op (o c)
 		    (let ((orient (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT")))
