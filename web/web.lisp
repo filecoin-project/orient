@@ -1,7 +1,7 @@
 (defpackage orient.web
   (:use :common-lisp :orient :filecoin :orient.web.html :orient.base.util)
   (:nicknames :web)
-  (:export :start-web))
+  (:export :start-web :stop-web))
 
 (in-package :orient.web)
 
@@ -22,6 +22,9 @@
   (let ((acceptor (make-instance 'hunchentoot:easy-acceptor :port port)))
     (prog1 (hunchentoot:start acceptor)
       (setq *acceptor* acceptor))))
+
+(defun stop-web ()
+  (hunchentoot:stop *acceptor*))
 
 (defmacro with-page ((title) &body body)
   `(let ((*package* (find-package :filecoin)))
