@@ -1,9 +1,11 @@
 (defpackage orient.web
-  (:use :common-lisp :orient :filecoin :orient.web.html :orient.base.util)
+  (:use :common-lisp :orient :filecoin :orient.web.html :orient.base.util :it.bese.FiveAm)
   (:nicknames :web)
   (:export :start-web :stop-web))
 
 (in-package :orient.web)
+(def-suite web-suite)
+(in-suite web-suite)
 
 (defparameter *orient-web-port* 8888)
 
@@ -101,6 +103,7 @@
 				    &body body)
   (let* ((graph-uri (format nil "~A-graph" uri))
 	 (graph-name (symbolconc base-name '-graph))
+	 (test-name (symbolconc 'test- base-name))
 	 (graph-namestring (symbol-name graph-name)))
     (register-calc-page base-name  title uri)
     `(eval-when
@@ -120,7 +123,13 @@
        (hunchentoot:define-easy-handler (,graph-name :uri ,graph-uri) ()
 	 (serve-graph (plan-for ,system ',vars ,initial-data)
 		      ,graph-namestring
-		      :base-url ,uri)))))
+		      :base-url ,uri))
+
+       (test ,test-name
+	 (finishes
+	   (report-solution-for ',vars :system ,system :initial-data ,initial-data :format :html :project-solution t
+				:return-plan t)
+	   )))))
 
 (defun make-override-data (parameters)
   ;; Don't support explicit nulls -- remove.
@@ -146,7 +155,7 @@
 						:override-parameters	(GiB-seal-cycles)
 						:system (performance-system :isolated t))
     ((gib-seal-cycles :parameter-type 'integer))
-  (format nil "The economic component of Filecoin performance requirements." ))
+  (format nil "The economic component of Filecoin performance requirements."))
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				   :title "ZigZag Proof of Replication"
