@@ -45,7 +45,8 @@
 		      :system ,system
 		      :initial-data ,initial-data
 		      :override-data ,override-data
-		      :body ',body))
+		      :body-html (with-output-to-string (*html-output-stream*)
+				   (html ,@body))))
 
 (defun report-page (&key vars system initial-data override-data)
   (multiple-value-bind (report solution defaulted-data plan)
@@ -61,9 +62,9 @@
 	     (:p (:b "Initial data: " (:html-escape ,(princ-to-string defaulted-data))))
 	     (:p ,report)))))
 
-(defun serve-report-page (&key title vars system initial-data override-data body)
+(defun serve-report-page (&key title vars system initial-data override-data body-html)
   (with-page (title)
-    `(:div ,@body)
+    body-html
     (:p "Solving for " (comma-list vars) ".")
     (:hr)
     (:pre
@@ -152,7 +153,7 @@
 						:title "Filecoin Economic Performance Requirements"
 						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost
 								 one-year-roi two-year-roi three-year-roi)
-						:override-parameters	(GiB-seal-cycles)
+						:override-parameters (GiB-seal-cycles)
 						:system (performance-system :isolated t))
     ((gib-seal-cycles :parameter-type 'integer))
   (format nil "The economic component of Filecoin performance requirements."))
@@ -164,7 +165,7 @@
 				   :system (zigzag-system)
 				   :override-parameters (sector-size))
     ((sector-size :parameter-type 'integer))
-  (format nil "ZigZag is how Filecoin replicates. sector-size: ~W" sector-size))
+  (format nil "ZigZag is how Filecoin replicates. ~@[sector-size: ~W~]" sector-size))
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
