@@ -1,23 +1,32 @@
 (defpackage interface
   (:use "COMMON-LISP" "ORIENT" "CL-JSON")
-  (:export :load-pipeline :load-transformation :load-tuple))
+  (:export :load-pipeline :load-transformation :load-tuple :load-json :<-json))
 
 (in-package "INTERFACE")
 
+(defgeneric load-json (type-spec json-pathspec)
+  (:method ((type t) (json-pathspec t))
+    (load-json type (pathname json-pathspec)))
+  (:method ((type t)(json-pathname pathname))    
+    (let ((json (decode-json-from-source (pathname json-pathname))))
+      (<-json type json))))
+
+(defgeneric <-json (type json)
+  (:method ((type (eql :pipeline)) (json list))
+    (mapcar #'transformation<-parsed-json json))
+  (:method ((type (eql :transformation)) (json t))
+    (transformation<-parsed-json json))
+  (:method ((type (eql :tuple)) (json list))
+    (make-tuple json t)))
+
 (defun load-pipeline (json-pathspec)
-  (let* ((json (decode-json-from-source (pathname json-pathspec)))
-	 (transformations (mapcar #'transformation<-parsed-json json)))
-    transformations))
+  (load-json :pipeline json-pathspec))
 
 (defun load-transformation (json-pathspec)
-  (let* ((json (decode-json-from-source (pathname json-pathspec))))
-    (transformation<-parsed-json json)))
+  (load-json :transformation json-pathspec))
 
 (defun load-tuple (json-pathspec)
-  (let ((json (decode-json-from-source (pathname json-pathspec))))
-    (make-tuple json t)
-    ;; FIXME: implement
-    ))
+  (load-json :tuple json-pathspec))
 
 (defmethod encode-json ((tuple tuple) &optional stream)
  (encode-json-alist (tuple-pairs tuple :dotted t) stream))
@@ -27,6 +36,7 @@
    `(:input ,(signature-input signature) :output ,(signature-output signature)) stream))
 
 ;; TODO: roundtrip tests
+;; TODO: there must be a cleaner/clearer way to do this.
 (defun transformation<-parsed-json (transformation-spec)
   (let* ((transformation-alist (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
 	 (implementation-spec (cdr (assoc :implementation transformation-alist)))
