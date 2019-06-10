@@ -106,9 +106,10 @@
 	 (graph-name (symbolconc base-name '-graph))
 	 (test-name (symbolconc 'test- base-name))
 	 (graph-namestring (symbol-name graph-name)))
-    (register-calc-page base-name  title uri)
     `(eval-when
 	 (:compile-toplevel :load-toplevel :execute)
+       (register-calc-page ',base-name  ,title ,uri)
+       
        (hunchentoot:define-easy-handler (,base-name :uri ,uri) ,parameters
 	 (with-report-page (,title
 			    :vars ,vars
@@ -160,12 +161,21 @@
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				   :title "ZigZag Proof of Replication"
-				   :vars (seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
-						    )
+				   :vars (sector-GiB seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
+						     )
 				   :system (zigzag-system)
-				   :override-parameters (sector-size))
-    ((sector-size :parameter-type 'integer))
-  (format nil "ZigZag is how Filecoin replicates. ~@[sector-size: ~W~]" sector-size))
+				   :override-parameters (sector-GiB))
+    ((sector-GiB :parameter-type 'integer))
+  (format nil "ZigZag is how Filecoin replicates. ~@[sector-GiB: ~W~]" sector-GiB))
+
+(define-calculation-pages (filecoin-security :uri "/filecoin/zigzag-security"
+				    :title "ZigZag Security"
+				    :system (zigzag-security-system :isolated t)
+				    :vars (total-zigzag-challenges
+					   zigzag-layers
+					   zigzag-layer-challenges))
+    ()
+  "ZigZag security")
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
@@ -180,15 +190,6 @@
      (total-challenges :parameter-type 'integer)
      (sector-size :parameter-type 'integer))
   "Filecoin is " ((:a :href "filecoin") "Filecoin") ".")
-
-(define-calculation-pages (filecoin-security :uri "/filecoin/zigzag-security"
-				    :title "ZigZag Security"
-				    :system (zigzag-security-system :isolated t)
-				    :vars (total-zigzag-challenges
-					   zigzag-layers
-					   zigzag-layer-challenges))
-    ()
-  "ZigZag security")
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (with-page ("Orient to Filecoin")    

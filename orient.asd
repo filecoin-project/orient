@@ -18,7 +18,11 @@
 	       (:module "filecoin"
 			:depends-on ("base")
 			:components
-			((:file "filecoin")))
+			((:file "base")
+			 (:file "performance")
+			 (:file "zigzag")
+			 (:file "post")
+			 (:file "filecoin")))
 	       (:module "web"
 			:depends-on ("base" "filecoin")
 			:serial t
