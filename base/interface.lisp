@@ -6,8 +6,20 @@
   (:nicknames :interface))
 
 (in-package "INTERFACE")
-(def-suite interface)
-(in-suite interface)
+(def-suite interface-suite)
+(in-suite interface-suite)
+
+(defvar *schema-package*)
+
+(defun effective-schema-package-name ()
+  (or (and (boundp '*schema-package*)
+	   *schema-package*
+	   (package-name *schema-package*))
+      (package-name *package*)))
+
+(defun schema-intern (name &key (upcase t))
+  (let ((name (if upcase (string-upcase name) name)))
+    (intern name (effective-schema-package-name))))
 
 (defgeneric load-json (type-spec json-pathspec)
   (:method ((type t) (json-pathspec t))
@@ -20,9 +32,15 @@
   (:method ((type (eql :pipeline)) (json list))
     (mapcar #'transformation<-parsed-json json))
   (:method ((type (eql :transformation)) (json t))
-    (transformation<-parsed-json json))
+    (transformation<-json json))
   (:method ((type (eql :tuple)) (json list))
-    (make-tuple json t)))
+    (make-tuple json t))
+  (:method ((type (eql :signature)) (json list))
+    (let* ((string-inputs  (cdr (assoc :input json)))
+	   (string-outputs (cdr (assoc :output json)))
+	   (input (mapcar #'schema-intern string-inputs))
+	   (output (mapcar #'schema-intern string-outputs)))
+      (make-signature input output))))
 
 (defun load-pipeline (json-pathspec)
   (load-json :pipeline json-pathspec))
@@ -51,40 +69,32 @@
       (encode-json-plist
        ;; TODO: It would be better to package signatures as first-class items rather than unwrapping into the transformation. Try to have that changed.
        `(,@(signature-plist (transformation-signature transformation))
-	   :implementationdecod
+	   :implementation
 	   ,(transformation-implementation transformation))
        stream))))
 
 ;; TODO: roundtrip tests
 ;; TODO: there must be a cleaner/clearer way to do this.
-(defun transformation<-parsed-json (transformation-spec)
-  (let* ((transformation-alist (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
-	 (implementation-spec (cdr (assoc :implementation transformation-alist)))
-	 (package-string (cdr (assoc :module implementation-spec)))
-	 (package-name (if package-string
-			   (string-upcase package-string)
-			   (package-name *package*)))
-	 (symbol-name (cdr (assoc :name implementation-spec)))
-	 (symbol (find-symbol (simplified-camel-case-to-lisp symbol-name) package-name))
-	 (implementation (make-instance 'implementation :name symbol-name :module package-name))
-	 (string-inputs  (cdr (assoc :input transformation-alist)))
-	 (string-outputs (cdr (assoc :output transformation-alist)))
-	 (input (if package-name
-		    (mapcar (lambda (name)
-			      (intern (string-upcase name) package-name))
-			    string-inputs)
-		    string-inputs))
-	 (output (if package-name
-		     (mapcar (lambda (name) (intern (string-upcase name) package-name)) string-outputs)
-		     string-outputs))
-
-	 (signature (make-signature input output)))
+(defun transformation<-json (transformation-spec)
+  (let* ((transformation-json (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
+	 (implementation-spec (cdr (assoc :implementation transformation-json)))
+	 (module-name (cdr (assoc :module implementation-spec)))
+	 (package-name (cond (module-name (string-upcase module-name))
+			     (*schema-package* (package-name *schema-package*))
+			     (t (package-name *package*))))
+	 (implementation-symbol-name (cdr (assoc :name implementation-spec)))
+	 (implementation (make-instance 'implementation :name implementation-symbol-name :module package-name))
+	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
 
-(test transformation
-  (let* ((transformation (transformation ((a b c) ~> (d e f)) == implementation))
-	 (json-string (encode-json-to-string transformation))
+(defun test-roundtrip (type-spec thing)
+  (let* ((json-string (encode-json-to-string thing))
 	 (json (decode-json-from-string json-string))
-	 (returned-transformation (<-json :transformation json)))
-    (is (same returned-transformation transformation))	 
-  ))
+	 (returned (<-json type-spec json)))
+    (is (same thing returned))))
+
+(test transformation
+  (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
+
+(test signature
+  (test-roundtrip :signature (sig (q r s) -> (t u v))))
