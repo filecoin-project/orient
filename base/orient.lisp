@@ -237,11 +237,14 @@
     (sig-equal a b))
   (:method ((a transformation) (b transformation))
     (and (same (transformation-signature a) (transformation-signature b))
-	 (equal (transformation-implementation a) (transformation-implementation b))))
+	 (same (transformation-implementation a) (transformation-implementation b))))
   (:method ((a component) (b component))
     ;; FIXME: use FSET.
     (and (subsetp (component-transformations a) (component-transformations b) :test #'same)
 	 (subsetp (component-transformations b) (component-transformations a) :test #'same)))
+  (:method ((a implementation) (b implementation))
+    (and (same (implementation-module a) (implementation-module b))
+	 (same (implementation-name a) (implementation-name b))))
   (:method ((a relation) (b relation))
     (equal? (tuples a) (tuples b))))
 

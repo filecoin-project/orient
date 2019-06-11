@@ -31,6 +31,10 @@
 (defclass component ()
   ((transformations :initarg :transformations :initform '() :accessor component-transformations)))
 
+(defclass implementation ()
+  ((module :initarg :module :initform *package* :accessor implementation-module)
+   (name :initarg :name :accessor implementation-name)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; TODO: remove boilerplate with macros
 

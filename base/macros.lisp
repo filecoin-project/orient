@@ -114,7 +114,10 @@
 			(make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
       ;; ~> literal implementation
       (literal-arrow `(let ((sig (make-signature ',input ',output)))
-			(make-instance 'transformation :signature sig :implementation ,implementation))))))
+			(make-instance 'transformation :signature sig :implementation ,(make-instance 'implementation
+												      :module (package-name
+													       (symbol-package implementation))
+												      :name (symbol-name implementation))))))))
 
 (defmacro deftoplevel (name (type) &body body)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
