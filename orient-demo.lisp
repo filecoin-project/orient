@@ -1,13 +1,7 @@
-#!/usr/local/bin/sbcl --script
-(require "asdf")
-(load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
-(asdf:load-system "orient")
-
-(in-package "DEMO")
-
+#!/usr/local/bin/cl -Q -s orient -p demo -E main
 (deftransformation my-transf ((height width depth) -> (volume)) (values (* height width depth)))
 
-(defun main() 
+(defun main(&rest argv) 
   (let* ((transformation (load-transformation "json/volumeOfBox.json"))
 	 (tuple (tuple (height 1) (width 2) (depth 10.25) (density 0.9995)))
 	 (pipeline (load-pipeline "json/boxMassPipeline.json"))
@@ -25,5 +19,3 @@
     (format t "~&~%Solve for box mass. Problem signature: ~S~%"  problem)
     (format t "~&~%Did this recreate our pipeline? ~A~%" (if (same pipeline plan) "YES" "NO"))
     (encode-json (solve system problem tuple))))
-
-(main)

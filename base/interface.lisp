@@ -1,16 +1,18 @@
 (defpackage orient.interface
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm)
-  (:import-from :fset :wb-map :convert :set)
+  (:import-from :fset :wb-map :convert)
+  (:shadowing-import-from :fset :set)
   (:export :load-pipeline :load-transformation :load-tuple :load-json :<-json)
   (:nicknames :interface))
 
 (in-package "INTERFACE")
-(def-suite interface
+(def-suite interface)
+(in-suite interface)
 
 (defgeneric load-json (type-spec json-pathspec)
   (:method ((type t) (json-pathspec t))
     (load-json type (pathname json-pathspec)))
-  (:method ((type t)(json-pathname pathname))    
+  (:method ((type t) (json-pathname pathname))    
     (let ((json (decode-json-from-source (pathname json-pathname))))
       (<-json type json))))
 
@@ -49,7 +51,7 @@
       (encode-json-plist
        ;; TODO: It would be better to package signatures as first-class items rather than unwrapping into the transformation. Try to have that changed.
        `(,@(signature-plist (transformation-signature transformation))
-	   :implementation
+	   :implementationdecod
 	   ,(transformation-implementation transformation))
        stream))))
 
@@ -84,6 +86,5 @@
 	 (json-string (encode-json-to-string transformation))
 	 (json (decode-json-from-string json-string))
 	 (returned-transformation (<-json :transformation json)))
-    (is (same returned-transformation transformation))
-	 
+    (is (same returned-transformation transformation))	 
   ))

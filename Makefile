@@ -6,4 +6,3 @@ docker:
 
 ubercalc:
 	cl -Q -sp orient --dump bin/ubercalc
-

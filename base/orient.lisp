@@ -225,6 +225,11 @@
   (let ((parameter (lookup- attribute schemable)))
     (and parameter (parameter-description parameter))))
 
+(defgeneric implementation-function (implementation)
+  (:method ((impl implementation))
+    (awhen (find-symbol (implementation-name impl) (implementation-module impl))
+      (symbol-function it))))
+
 (defclass engine () ())
 
 (defgeneric same (a b)
@@ -300,6 +305,13 @@
 
 ;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation tuple)
+  (:method ((f function) (tuple wb-map))
+    ;; All transformation applications need to go through here.
+    (let* ((result (funcall f tuple)))
+      (join tuple result)))
+  (:method ((impl implementation) (tuple t))
+    (awhen (implementation-function impl)
+      (apply-transformation it tuple)))
   (:method ((transformation-name symbol) (tuple t))
     (awhen (find-transformation transformation-name) (apply-transformation it tuple)))
   (:method ((transformation t) (null null))
@@ -321,10 +333,7 @@
 	      (apply-transformation transformation tuple))
 	    list
 	    :initial-value tuple))
-  (:method ((f function) (tuple wb-map))
-    ;; All transformation applications need to go through here.
-    (let* ((result (funcall f tuple)))
-      (join tuple result))))
+  )
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.

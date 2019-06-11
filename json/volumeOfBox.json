@@ -2,7 +2,7 @@
   "transformation": {
     "implementation": {
       "module": "demo",
-      "funcName": "volumeOfBox"
+      "name": "volumeOfBox"
     },
     "input": [
       "height",
