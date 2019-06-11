@@ -1,5 +1,6 @@
 (defpackage interface
   (:use "COMMON-LISP" "ORIENT" "CL-JSON")
+  (:import-from "FSET" :wb-map :convert)
   (:export :load-pipeline :load-transformation :load-tuple :load-json :<-json))
 
 (in-package "INTERFACE")
@@ -28,8 +29,8 @@
 (defun load-tuple (json-pathspec)
   (load-json :tuple json-pathspec))
 
-(defmethod encode-json ((tuple tuple) &optional stream)
- (encode-json-alist (tuple-pairs tuple :dotted t) stream))
+(defmethod encode-json ((tuple wb-map) &optional stream)
+ (encode-json-alist (convert 'list tuple) stream))
 
 (defmethod encode-json ((signature signature) &optional stream)
   (encode-json-plist

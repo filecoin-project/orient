@@ -2,169 +2,102 @@
 (def-suite orient-suite :description "Test the orient package.")
 (in-suite orient-suite)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
-(defclass tuple ()
-  ((hash-table :initform (make-hash-table) :accessor tuple-hash-table)))
-
-(defmethod print-object ((d tuple) (stream t))
-  (format stream "<TUPLE ~S>" (sort (tuple-pairs d) #'string< :key #'car)))
+(deftype tuple () 'fset:wb-map)
 
 (defun make-tuple (&optional pairs dotted)
-  (let* ((tuple (make-instance 'tuple))
-	 (h (tuple-hash-table tuple)))
-    (if dotted
-	(loop for (k . v) in pairs do (setf (gethash k h) v))
-	(loop for (k v) in pairs do (setf (gethash k h) v)))
-    tuple))
+  (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
-(defmethod tuple-pairs ((tuple tuple) &key dotted)
-  (loop
-     for attribute being the hash-keys of (tuple-hash-table tuple)
-     for val being the hash-values of (tuple-hash-table tuple)
-     collect (if dotted
-		 (cons attribute val)
-		 (list attribute val))))
-
-(defmethod tref ((attribute t) (tuple tuple))
+(defmethod tref ((attribute t) (tuple wb-map))
   "Get value of ATTRIBUTE in TUPLE."
-  (gethash attribute (tuple-hash-table tuple)))
-
-(defmethod set-tref ((attribute t) (tuple tuple) (value t))
-  "Set value of ATTRIBUTE to VALUE in TUPLE."
-  (setf (gethash attribute (tuple-hash-table tuple)) value))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defsetf tref set-tref))
-
-(defmethod trem ((attribute t) (tuple tuple))
-  "Remove ATTRIBUTE from TUPLE"
-  (remhash attribute (tuple-hash-table tuple))
-  tuple)
+  (@ tuple attribute))
 
 (defclass relation () ())
 
 (defgeneric attributes (tuple)
-  (:method ((d tuple))
-    (loop for attribute being the hash-keys of (tuple-hash-table d)
-       collect attribute))
+  (:method ((d wb-map)) (domain d))
   (:method ((r relation))
-    (and (first (tuples r))
-	 (attributes (first (tuples r))))))
+    (awhen (arb (tuples r))
+	 (attributes it))))
 
 (defclass simple-relation (relation)
-  ((attributes :initarg :attributes :accessor attributes)
-   (tuples :initarg :tuples :initform nil :accessor tuples)))
+  ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
 
 (defmethod print-object ((relation relation) (stream t))
   (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
 (defgeneric ensure-tuples (attributed)
-  (:method ((tuple tuple))
-    (list tuple))
+  (:method ((tuple wb-map))
+    (set tuple))
   (:method ((relation relation))
     (tuples relation))
   (:method ((null null)) nil))
-
-(defun set-equal (a b &key (test #'eql)) (and (subsetp  a b :test test) (subsetp b a :test test)))
 
 (defgeneric make-relation (tuples)
   (:documentation
    "Create relation from tuples, removing duplicates. Returns NIL if tuples don't have all have same attributes.")
   ;; Rather than return NIL, should mismatch be an error?
-  (:method ((tuples list))
-    (let* ((first (first tuples))
-	   (attributes (and first (attributes first))))
-      (and (every (lambda (x) (set-equal (attributes x) attributes))
-		  (cdr tuples))
-	   ;; TODO: implement and respect at least primary keys.
-	   (make-instance 'simple-relation :tuples (remove-duplicates tuples :test #'same) :attributes attributes)))))
+  (:method ((tuples list)) (make-relation (convert 'set tuples)))
+  (:method ((tuples set))
+    (let ((attributes (awhen (arb tuples) (attributes it))))
+      (and (every (lambda (tuple) (equal? (attributes tuple) attributes)) tuples)
+	   (make-instance 'simple-relation :tuples tuples)))))
 
 (defgeneric cardinality (relation)
   (:method ((r relation))
-    (length (tuples r))))
+    (size (tuples r))))
 
 (defgeneric degree (attributed)
-  (:method ((tuple tuple))
-    (hash-table-count (tuple-hash-table tuple)))
+  (:method ((tuple wb-map))
+    (size tuple))
   (:method ((r relation))
-    (length (attributes r))))
+    (size (attributes r))))
 
-;; TODO: Pitiher name, but can't use REMOVE, since it's taken by CL.
-;; NOTE: This is destructive!
-;; TODO: We should really have a non-destructive/pure-functional version.
-(defgeneric remove-attributes (atributes attributed)
-  (:method ((attributes list) (tuple tuple))
-    (let ((new-tuple (duplicate tuple)))
-      (loop for attr in attributes do (trem attr new-tuple))
-      new-tuple))
-  (:method ((attributes list) (r relation))
-    (make-relation (mapcar (lambda (x) (remove-attributes attributes x)) (tuples r)))))
-
-(defun classify-set-elements (a b)
-  ;; TODO: This can be optimized to make only a single pass over each set.
-  (let* ((shared (intersection a b))
-	 (a-only (set-difference a shared))
-	 (b-only (set-difference b shared))
-	 (all (union a b)))
-    (values a-only b-only shared all)))
-
-;; Helper function so JOIN can avoid expensive creation of relations which will be immediately stripped for their contained tuples.
 (defgeneric %join (relation-a relation-b)
-  (:method ((a tuple) (b tuple))
+  (:documentation "Helper function so JOIN can avoid expensive creation of relations which will be immediately stripped for their contained tuples.")
+  (:method ((a wb-map) (b wb-map))
     (let* ((a-attributes (attributes a))
-	   (b-attributes (attributes b)))
-      (let ((shared (intersection a-attributes b-attributes)))
-	(let ((matchp (every (lambda (attr)
-			       (same (tref attr a) (tref attr b)))
-			     shared)))
-	  (when matchp
-	    (make-tuple (union (tuple-pairs a) (tuple-pairs b) :test (lambda (a b) (eql (car a) (car b))))))))))
-  (:method ((a tuple) (b relation))
-    (loop for tuple in (tuples b)
-       for maybe-tuple = (join a tuple)
-       when maybe-tuple
-       collect maybe-tuple))
-  (:method ((a relation) (b tuple))
+	   (b-attributes (attributes b))
+	   (shared (intersection a-attributes b-attributes))
+	   (all-matchp (every (lambda (attr)
+				(same (tref attr a) (tref attr b)))
+			      shared)))
+      (when all-matchp (map-union a b))))
+  (:method ((a wb-map) (b relation))
+    (less (gmap:gmap :set
+		     (lambda (x) (%join x a))
+		     (:set (tuples b)))
+	  nil))
+  (:method ((a relation) (b wb-map))
     (%join b a))
   (:method ((a relation) (b relation))
     (reduce (lambda (acc tuple)
-	      (nconc acc (%join tuple b)))
+	      (union acc (%join tuple b)))
 	    (tuples a)
-	    :initial-value '())))
+	    :initial-value (empty-set))))
 
 (defgeneric join- (a b)
-  (:method ((a tuple) (b tuple))
+  (:documentation "Binary JOIN. Returns a relation, a single tuple, or NIL.")
+  (:method ((a wb-map) (b wb-map))
     (%join a b))
-  (:method ((a tuple) (b relation))
+  (:method ((a wb-map) (b relation))
     (make-relation (%join a b)))
-  (:method ((a relation) (b tuple))
+  (:method ((a relation) (b wb-map))
     (join- b a))
   (:method ((a relation) (b relation))
     (make-relation (%join a b))))
 
 (defun join (&rest things) (reduce #'join- things))
 
-(defgeneric duplicate (thing)
-  (:method ((null null)) '())
-  (:method ((d tuple))
-    (make-tuple (tuple-pairs d)))
-  (:method ((r relation))
-    (make-relation (mapcar #'duplicate (tuples r)))))
-
 (defgeneric rename-attributes (old-new-pairs attributed)
   (:method ((pairs list) (r relation))
-    (make-relation (mapcar (lambda (tuple) (rename-attributes pairs tuple))
-			   (tuples r))))
-  (:method ((pairs list) (tuple tuple))
-    (let ((new-tuple (make-tuple)))
-      (loop for attr in (attributes tuple)
-	 do (let ((pair (assoc attr pairs)))
-	      (cond (pair
-		     (setf (tref (cadr pair) new-tuple)
-			   (tref (car pair) tuple)))
-		    (t (setf (tref attr new-tuple) (tref attr tuple))))))
-      new-tuple)))
+    (make-relation (image (lambda (tuple) (rename-attributes pairs tuple))
+			  (tuples r))))
+  (:method ((pairs list) (tuple wb-map))
+    (reduce (lambda (acc pair)
+	      (destructuring-bind (old new) pair
+		(with (less acc old) new (@ acc old))))
+	    pairs
+	    :initial-value tuple)))
 
 (test rename-attributes "Test RENAME-ATTRIBUTES."
       (is (same (tuple (d 1) (e 2) (c 3))
@@ -179,7 +112,7 @@
 ;; (restrict (tfn (b) (= b 5)) asdf)
 (defgeneric restrict (tuple-predicate relation)
   (:method ((tpred function) (relation relation))
-    (make-relation (remove-if-not tpred (tuples relation)))))
+    (make-relation (filter tpred (tuples relation)))))
 
 (test restrict "Test RESTRICT."
       (is (same (relation (a b c) (4 5 6))
@@ -187,12 +120,16 @@
 			  (relation (a b c) (1 2 3) (4 5 6) (7 8 9))))))
 
 (defgeneric project (attributes attributed)
-  (:method ((attributes list) (null null))
+  (:method ((attributes list) (attributed t))
+    (project (convert 'set attributes) attributed))
+  (:method ((attributes set) (null null))
     nil)
-  (:method ((attributes list) (tuple tuple))
-    (make-tuple (remove-if-not (lambda (attribute) (member attribute attributes)) (tuple-pairs tuple) :key #'car)))
-  (:method ((attributes list) (relation relation))
-    (make-relation (mapcar (lambda (tuple) (project attributes tuple)) (tuples relation)))))
+  (:method ((attributes set) (tuple wb-map))
+    (fset:restrict tuple attributes))
+  (:method ((attributes set) (relation relation))
+    (make-relation
+     (image (lambda (tuple) (project attributes tuple))
+	    (tuples relation)))))
 
 (test project-tuple "Test PROJECT on tuple."
       (is (same (tuple (b 2) (c 3))
@@ -207,7 +144,7 @@
 (defgeneric extract (relation)
   (:method ((relation relation))
     (and (= (cardinality relation) 1)
-	 (first (tuples relation)))))
+	 (arb (tuples relation)))))
 
 (defclass parameter ()
   ((name :initarg :name :initform (error "name missing") :accessor parameter-name)
@@ -215,11 +152,11 @@
    (type :initarg :type :initform nil :accessor parameter-type)))
 
 (defclass signature ()
-  ((input :initarg :input :initform '() :accessor signature-input)
-   (output :initarg :output :initform '() :accessor signature-output)))
+  ((input :initarg :input :initform (empty-set) :accessor signature-input :type set)
+   (output :initarg :output :initform (empty-set) :accessor signature-output :type set)))
 
 (defun make-signature (input output)
-  (make-instance 'signature :input input :output output))
+  (make-instance 'signature :input (convert 'set input) :output (convert 'set output)))
 
 (defun pruned-signature (sig)
   "Return a new signature, with output which is also input pruned, since this will be trivially provided."
@@ -234,18 +171,18 @@
 
 (defmethod sig-subset-p ((s signature) (other signature))
   "Returns true if s is a subset of other."
-  (and (subsetp (signature-input s) (signature-input other))
-       (subsetp (signature-output s) (signature-output other))))
+  (and (subset? (signature-input s) (signature-input other))
+       (subset? (signature-output s) (signature-output other))))
 
 (defun sig-equal (a b) (and (sig-subset-p a b) (sig-subset-p b a)))
 
 (defmethod provides-p ((s signature) (name symbol))
   "Returns true if name is an output of signature."
-  (member name (signature-output s)))
+  (contains? (signature-output s) name))
 
-(defmethod provides ((output list) (s signature))
+(defmethod provides ((output set) (s signature))
   "Returns the names in OUTPUT which are provided as output of signature, S."
-  (intersection (signature-output s) output))
+  (set-intersection (signature-output s) output))
 
 
 (defmethod print-object ((trans transformation) (stream t))
@@ -275,17 +212,17 @@
 (defmethod print-object ((sys system) (stream t))
   (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
 
-(defgeneric lookup (attribute schemable)
+(defgeneric lookup- (attribute schemable)
   (:method ((attribute symbol) (schema schema))
     (find attribute (schema-parameters schema) :key #'parameter-name))
   (:method ((attribute symbol) (system system))
     (or (awhen (find-schema (system-schema system))
-	  (lookup attribute it))
-	(some (lambda (system) (lookup attribute system))
+	  (lookup- attribute it))
+	(some (lambda (system) (lookup- attribute system))
 	      (system-subsystems system)))))
 
 (defun lookup-description (attribute schemable)
-  (let ((parameter (lookup attribute schemable)))
+  (let ((parameter (lookup- attribute schemable)))
     (and parameter (parameter-description parameter))))
 
 (defclass engine () ())
@@ -295,68 +232,65 @@
       ;; Things of different type are never the same.
       ;; Things of types without specialization are the same if they are equal.
       ((a t) (b t))
-    (and (equal (type-of a) (type-of b))
-	 (equal a b)))
-  ;; Numbers are same if they are =.
-  (:method ((a number) (b number))
-    (= a b))
-
-  ;; TODO: Implement for other lists and other compound types.
-  (:method ((a tuple) (b tuple))
-    (and (set-equal (attributes a) (attributes b))
-	 (every (lambda (attr) (same (tref attr a) (tref attr b))) (attributes a))))
+    (equal? a b))
   (:method ((a signature) (b signature))
     (sig-equal a b))
   (:method ((a transformation) (b transformation))
     (and (same (transformation-signature a) (transformation-signature b))
 	 (equal (transformation-implementation a) (transformation-implementation b))))
   (:method ((a component) (b component))
-    ;; FIXME: use set-equal
+    ;; FIXME: use FSET.
     (and (subsetp (component-transformations a) (component-transformations b) :test #'same)
 	 (subsetp (component-transformations b) (component-transformations a) :test #'same)))
   (:method ((a relation) (b relation))
-    (set-equal (tuples a) (tuples b) :test #'same))
-  (:method ((a list) (b list))
-    (and (eql (length a) (length b))
-	 (every #'same a b))))
+    (equal? (tuples a) (tuples b))))
 
 (defgeneric satisfies-input-p (attributed b)
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")
   ;; FIXME: Make type of A ensure ATTRIBUTES.
   (:method ((a t) (b t)) nil)
   (:method ((a t) (b transformation)) (satisfies-input-p a (transformation-signature b)))
-  (:method ((a t) (b signature)) (subsetp (signature-input b) (attributes a))) ;; FIXME: new superclass of types with attributes.
+  (:method ((a t) (b signature)) (subset? (signature-input b) (attributes a))) ;; FIXME: new superclass of types with attributes.
   )
 
 (defgeneric ensure-relation (potential-relation)
   (:method ((r relation)) r)
-  (:method ((tuple tuple))
-    (make-relation (list tuple)))
+  (:method ((tuple wb-map))
+    (make-relation (set tuple)))
   (:method ((list list))
     (check-type list (cons tuple)) ;; Not exhaustive, but a good sanity check.
-    (make-relation list)))
+    (make-relation list))
+  (:method ((set set))
+    (let ((tuple (arb set)))
+      (check-type tuple tuple) ;; Not exhaustive, but a good sanity check.
+      (make-relation set)))
+  )
 
 (defgeneric combine-potential-relations (a b)
+  (:method ((a list) (b t))
+    (combine-potential-relations (convert 'set a) b))
+  (:method ((a t) (b list))
+    (combine-potential-relations a (convert 'set b)))
   (:method ((a relation) (b relation))
     ;; FIXME: Check that headings are compatible.
-    (make-relation (append (tuples a) (tuples b))))
-  (:method ((a tuple) (b tuple))
-    (make-relation (list a b)))
-  (:method ((a tuple) (b list))
-    (make-relation (cons a b)))
-  (:method ((a list) (b tuple))
+    (make-relation (union (tuples a) (tuples b))))
+  (:method ((a wb-map) (b wb-map))
+    (make-relation (set a b)))
+  (:method ((a wb-map) (b set))
+    (make-relation (with b a)))
+  (:method ((a list) (b wb-map))
     (combine-potential-relations b a))
-  (:method ((a list) (b list))
+  (:method ((a set) (b set))
     ;; We assume aruguments to COMBINE-POTENTIAL-RELATIONS can be destructively modified.
-    (make-relation (nconc a b)))
-  (:method ((a tuple) (b relation))
+    (make-relation (union a b)))
+  (:method ((a wb-map) (b relation))
     ;; FIXME: Check that headings are compatible.
     (make-relation (cons a (tuples b))))
-  (:method ((a relation) (b tuple))
+  (:method ((a relation) (b wb-map))
     (combine-potential-relations b a))
-  (:method ((a list) (b relation))
-    (make-relation (append a (tuples b))))
-  (:method ((a relation) (b list))
+  (:method ((a set) (b relation))
+    (make-relation (union a (tuples b))))
+  (:method ((a relation) (b set))
     (combine-potential-relations b a)))
 
 (deftype transformation-spec () '(or transformation symbol))
@@ -368,29 +302,30 @@
   (:method ((transformation t) (null null))
     ;; Everything collapses to NIL. This simplifies uniform handling of tuples/relations, but may need to be revisited.
     nil)
-  (:method ((transformation transformation) (tuple tuple))
+  (:method ((transformation transformation) (tuple wb-map))
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple))
   (:method ((transformation transformation) (relation simple-relation))
+    ;; TODO: Can we use GMAP here?
     (reduce #'combine-potential-relations
-	    (mapcar (lambda (tuple)
+	    (image (lambda (tuple)
 		      (apply-transformation transformation tuple))
 		    (tuples relation))
 	    :initial-value nil))
-  (:method ((list list) (tuple tuple))
+  (:method ((list list) (tuple wb-map))
     (check-type list (cons transformation-spec))
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
 	    list
 	    :initial-value tuple))
-  (:method ((f function) (tuple tuple))
+  (:method ((f function) (tuple wb-map))
     ;; All transformation applications need to go through here.
     (let* ((result (funcall f tuple)))
       (join tuple result))))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
-  (:method ((signature signature) (tuple tuple))
+  (:method ((signature signature) (tuple wb-map))
     (let ((attributes (attributes tuple)))
       (make-signature (union (signature-input signature) attributes)
 		      (union (signature-output signature) attributes))))
@@ -401,9 +336,8 @@
 (defun pipeline-signature (pipeline)
   ;; A plan is a pipeline -- a list of transformations.
   (and pipeline
-       (let ((signatures  (mapcar #'transformation-signature pipeline)))
+       (let ((signatures (mapcar #'transformation-signature pipeline)))
 	 (reduce #'compose-signatures signatures :initial-value (first signatures)))))
-
 
 (defclass plan-profile () ((transformations-tried :initform 0 :accessor transformations-tried)))
 
@@ -411,15 +345,6 @@
   (format stream "<PLAN-PROFILE; transformations-tried: ~d>" (transformations-tried p)))
 
 (defvar *plan-profile*)
-
-(defun permutations (elts)
-  ;; FIXME: Convert this to a lazy stream. Otherwise we will blow up trying to manifest permutations of many elements.
-  (assert (< (length elts) 11))
-  (if (cdr elts)
-      (mapcan (lambda (elt) (mapcar (lambda (x) (cons elt x))
-				    (permutations (remove elt elts))))
-	      elts)
-      (list elts)))
 
 (defun transformation-provides-p (signature transformation)
   (provides (signature-output signature) (transformation-signature transformation)))
@@ -431,7 +356,7 @@
 (defgeneric signature-satisfies-p (signature thing)
   (:documentation "True if thing's inputs are a subset of signature's.")
   (:method ((signature signature) (transformation transformation))
-    (subsetp (signature-input (transformation-signature transformation)) (signature-input signature)))
+    (subset? (signature-input (transformation-signature transformation)) (signature-input signature)))
   (:method ((signature signature) (component component))
     (some (lambda (transformation) (signature-satisfies-p signature transformation))
 	  (component-transformations component))))
@@ -465,13 +390,15 @@
       
       ;; FIXME: this will fail if there is no plan but none was needed. Fix that.
 
-      (debug-plan :signature-output  (signature-output signature))
+      (debug-plan :signature-output (signature-output signature))
       ;; TODO: prune extraneous transformations from the plan.
       (let ((needed-output (set-difference (signature-output signature) (signature-input signature))))
-	(and plan-signature (subsetp needed-output (signature-output plan-signature))
+	(and plan-signature (subset? needed-output (signature-output plan-signature))
 	     plan))))
   (:method ((selector (eql :component-list)) (component-list list) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list))	   )
+    (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list)
+
+	     ))
       (debug-plan :signature signature :component-list component-list :candidates candidates :plan plan)
       (or (some (lambda (component)
 		  (%plan (remove component component-list) ;; Each component can only be used once.
@@ -499,11 +426,12 @@
 
 (defmethod defaulted-initial-data ((system system) (provided t) &key override-data)
   ;; TODO: allow merging of provided data.
-  (let ((defaulted (duplicate (or provided
-				  (and (all-system-data system)
-				       (apply #'join (all-system-data system)))))))
-    (loop for (key value) in (and override-data (tuple-pairs override-data))
-       do (setf (tref key defaulted) value))
+  (let ((defaulted (or provided
+		       (and (all-system-data system)
+			    (apply #'join (all-system-data system))))))
+    (when override-data
+      (do-map (attr val override-data)
+	(adjoinf defaulted attr val)))
     defaulted))
 
 (defgeneric describe-transformation-calculation (transformation)
@@ -525,12 +453,11 @@
   ;; Quick and dirty for now, just set data in first naked tuple we find.
   (let ((tuple (some (lambda (x) (and (typep x 'tuple) x)) (system-data *current-construction*))))
 
-    (cond (tuple (setf (tref attribute tuple) value))
+    (cond (tuple (adjoinf tuple attribute value))
 	  (t  (push (tuple (attribute value)) (system-data *current-construction*))))))
 
 (defgeneric solve (system signature initial-data &key report override-data)
   (:documentation "REPORT, if true, specifies format to use, defaulting to plain text.")
-  ;;(:method ((system system) (signature signature) (initial-tuple tuple))
   (:method ((system-name symbol) (signature t) (initial-data t) &rest keys)
     (apply #'solve (find-system system-name) signature initial-data keys))
   (:method ((system system) (signature null) (initial-data t) &rest keys &key report override-data)
@@ -556,10 +483,11 @@
 
 (defun report-step (step transformation system &key format)
   (let* ((tuples (ensure-tuples step))
-	 (multiple (> (length tuples) 1)))
-    (loop for tuple in tuples
-       for i from 0
-       append (create-tuple-report-step format tuple transformation system :n (and multiple i)))))
+	 (multiple (> (size tuples) 1)))
+    (reduce #'append (gmap:gmap :list
+				(lambda (i tuple)
+				  (create-tuple-report-step format tuple transformation system :n (and multiple i)))
+				(:index 0) (:set tuples)))))
 
 (defgeneric synthesize-report-steps (format steps)
   (:method ((format t) (steps list))
@@ -570,32 +498,37 @@
 
 (defgeneric create-tuple-report-step (format tuple transformation system &key n)  
   (:documentation "N is index of TUPLE if TUPLE has siblings.")
-  (:method ((format t) (tuple tuple) (transformation transformation) (system system) &key n)
-    (loop for (key value) in (tuple-pairs tuple)
-       when (member key (signature-output (transformation-signature transformation)))
-       collect (format nil "~&~@[~A. ~]~A: ~A = ~A~% ~A~%"
-		       n
-		       key
-		       (describe-transformation-calculation transformation)
-		       value
-		       (let ((desc (and system (lookup-description key system))))
-			 (if desc (format nil "   ~A~%" desc) ""))))))
-
+  (:method ((format t) (tuple wb-map) (transformation transformation) (system system) &key n)
+    ;; FIXME: This can probably be done with GMAP.
+    (reduce (lambda (acc attr val)
+	      (cons (format nil "~&~@[~A. ~]~A: ~A = ~A~% ~A~%"
+			    n
+			    attr
+			    (describe-transformation-calculation transformation)
+			    val
+			    (let ((desc (and system (lookup-description attr system))))
+			      (if desc (format nil "   ~A~%" desc) "")))
+		    acc))
+	    (filter (lambda (attr val)
+		      (declare (ignore val))
+		      (contains? (signature-output (transformation-signature transformation)) attr))
+		    tuple)
+	    :initial-value '())))
 
 (defgeneric report (thing context)
   (:method ((null null) (context t))
     "Nothing to report.")
-  (:method ((tuple tuple) (schema schema))
+  (:method ((tuple wb-map) (schema schema))
     (with-output-to-string (out)
-      (loop for (key value) in (tuple-pairs tuple)
-	 do (format out "~&~A: ~A~% ~A~%"
-		    key
-		    value
-		    (let ((desc (and schema (lookup-description key schema))))
-		      (if desc (format nil "   ~A~%" desc) ""))))))
-  (:method ((tuple tuple) (system system))
+      (do-map (attr val tuple) 
+	(format out "~&~A: ~A~% ~A~%"
+		attr
+		val
+		(let ((desc (and schema (lookup-description attr schema))))
+		  (if desc (format nil "   ~A~%" desc) ""))))))
+  (:method ((tuple wb-map) (system system))
     (report tuple (find-schema (system-schema system))))
-  (:method ((tuple tuple) (system-name symbol))
+  (:method ((tuple wb-map) (system-name symbol))
     (when system-name
       (report tuple (find-system system-name)))))
 
@@ -634,20 +567,20 @@
 	 (sig (make-signature (and defaulted (attributes defaulted)) output)))
     (plan system sig)))
 
-(defun build-relation (from-pairs adding-attributes value-rows)
+(defun build-relation (from-tuple adding-attributes value-rows)
   (let ((tuples (loop for row in value-rows
-		   collect (let ((base (make-tuple from-pairs)))
+		   collect (let ((base from-tuple))
 			     (loop for attr in adding-attributes
 				for val in row
-				do (setf (tref attr base) val))
+				do (adjoinf base attr val))
 			     base))))
     (make-relation tuples)))
 
 (defun generate-directed-graph (plan)
   (loop for transformation in plan
        for signature = (transformation-signature transformation)
-     append (loop for dependency in (signature-input signature)
-	       append (loop for target in (signature-output signature)
+     append (loop for dependency in (convert 'list (signature-input signature))
+	       append (loop for target in (convert 'list (signature-output signature))
 			 collect (list dependency target)))))
 
 (defun write-dot-format (directed-graph stream &key base-url)
@@ -995,7 +928,7 @@
 								  '((t) (nil)))))))
 
 (test and-constraint
-  "Test CONSTRAINT-SYSTEM with two multiplication contraints."
+  "Test CONSTRAINT-SYSTEM with AND contraint."
   (let* ((system (constraint-system
 		  ((c (and a b)))))
 	 (sa-1 (tuple (a t) (b t) (c t)))
@@ -1020,7 +953,8 @@
     (is (same sa-4 (solve-for system '(c) (tuple (a nil) (b t)))))
     
     ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (a t) (b nil) (c t)))))))
+    (is (null (solve-for system '() (tuple (a t) (b nil) (c t)))))
+    ))
 
 (test constraint-constants
   "Test CONSTRAINT-SYSTEM with some constants."
@@ -1156,4 +1090,4 @@
 						     (values (* x b) (* x c)))))
 	 (s1 (sys ((component (t1))))))
 
-    (finishes (plan s1 (make-signature '(b c d) '(e))))))
+    (finishes (plan s1 (make-signature '(b c d) '(e)))))	)

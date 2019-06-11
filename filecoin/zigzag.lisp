@@ -76,7 +76,7 @@
 		(node-bytes 4)
 		(merkle-tree-leaves 8)
 		(merkle-inclusion-proof-hash-length 3)
-		(merkle-tree-height-raw 3.0)
+		(merkle-tree-height-raw 3)
 		(merkle-tree-hash-count 7)
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))

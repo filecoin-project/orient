@@ -72,20 +72,8 @@
   `(let ((*current-construction* ,system-form))
      ,@body))
 
-(defmacro forget (&rest attributes)
-  ;; This is actually evil. If we want this UX, we need to be able to do it without permanently mutating *current-construction*.
-  `(setf (system-data *current-construction*)
-	 (mapcar (lambda (d)
-		   (remove-attributes ',attributes d))
-		 (system-data *current-construction*))))
-
 (defmacro try-with (attribute value-form)
   `(set-construction-parameter ',attribute ,value-form))
-
-;;;
-
-(defmacro remv (attributes attributed)
-  `(remove-attributes ',attributes ,attributed))
 
 (defmacro !> (&rest elements)
   `(%!> ,@(reverse elements)))
@@ -234,11 +222,11 @@
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple))))
-	   (let ((,new-tuple (make-tuple (tuple-pairs ,tuple)))
+	   (let ((,new-tuple ,tuple)
 		 (,out (multiple-value-list (progn ,@body))))
 	     (declare (ignorable ,out))
 	     ,@(loop for attribute in output
-		  collect `(setf (tref ',attribute ,new-tuple) (pop ,out)))
+		  collect `(adjoinf ,new-tuple ',attribute (pop ,out)))
 	     ,new-tuple))))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
@@ -252,10 +240,9 @@
        (symbol-macrolet
 	   (,@(loop for in in input
 		 collect `(,in (tref ',in ,tuple))))
-	 (let ((,out (progn ,@body))
-	       (,supplied-pairs (tuple-pairs ,tuple)))
+	 (let ((,out (progn ,@body)))
 	   (declare (ignorable ,out))
-	   (build-relation ,supplied-pairs ',output ,out))))))
+	   (build-relation ,tuple ',output ,out))))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a relation -- whose heading must be correct.

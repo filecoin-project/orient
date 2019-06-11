@@ -1,5 +1,7 @@
 (defpackage orient.web
   (:use :common-lisp :orient :filecoin :orient.web.html :orient.base.util :it.bese.FiveAm)
+  (:import-from :fset :wb-map :image :filter :contains? :convert)
+  (:shadowing-import-from :fset :reduce  :union)
   (:nicknames :web)
   (:export :start-web :stop-web))
 
@@ -55,11 +57,12 @@
     (let* ((signature (pipeline-signature plan))
 	   (parameters (union (signature-input signature) (signature-output signature))))
       (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
-      `(:div (:html-escape ,(princ-to-string solution))
-	     ,@(when override-data
+      `(:div ,@(when override-data
 		 (list :p (format nil "Supplied: ~s" override-data)))
 	     (:hr)
-	     (:p (:b "Initial data: " (:html-escape ,(princ-to-string defaulted-data))))
+	     (:p (:b "Initial data: ") (:html-escape ,(princ-to-string defaulted-data)))
+	     (:hr)
+	     (:p (:b "Solution: ") (:html-escape ,(princ-to-string solution)))
 	     (:p ,report)))))
 
 (defun serve-report-page (&key title vars system initial-data override-data body-html)
@@ -81,24 +84,27 @@
 (defun format-value (value)
   `(:html-escape ,(or value "FALSE")))
 
-(defmethod create-tuple-report-step ((format (eql :html)) (tuple tuple) (transformation transformation) (system system) &key n)
+(defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))
-  (loop for (key value) in (tuple-pairs tuple)
-     when (member key (signature-output (transformation-signature transformation)))
-     ;; TODO: Handle N.
-     ;; TODO: Extend DESCRIBE-TRANSFORMATION-CALCULATION to generate links to parameters.
-     collect `(:html-escape
-	       ((:a :name ,(symbol-name key)) (:b ,(symbol-name key)))
-	       ": "
-		,(awhen (describe-transformation-calculation transformation)
-		   `((:font :color "red") ,it))
-	       " = "
-	       ((:font :color "blue") ,(format-value value))
-	       ,(let ((desc (and system (lookup-description key system))))
-	       	   (aif (and desc (not (equal desc "")))
-			`(:div "     " ((:font :color "green") (:i ,desc)))
-			;; '(:div "XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
-			)))))
+  (reduce (lambda (acc attr val)
+	    (cons `(:html-escape
+		    ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
+		    ": "
+		    ,(awhen (describe-transformation-calculation transformation)
+		       `((:font :color "red") ,it))
+		    " = "
+		    ((:font :color "blue") ,(format-value val))
+		    ,(let ((desc (and system (lookup-description attr system))))
+		       (aif (and desc (not (equal desc "")))
+			    `(:div "     " ((:font :color "green") (:i ,desc)))
+			    ;; '(:div "XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
+			    )))
+		  acc))
+	 (filter (lambda (attr val)
+		   (declare (ignore val))
+		   (contains? (signature-output (transformation-signature transformation)) attr))
+		 tuple)
+	 :initial-value '()))
 
 (defmacro define-calculation-pages ((base-name &key uri title vars system initial-data override-parameters) (&rest parameters)
 				    &body body)
