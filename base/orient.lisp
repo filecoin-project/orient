@@ -232,6 +232,10 @@
 
 (defclass engine () ())
 
+
+(defun set-same-equal (a b)
+  (and (subsetp a b :test #'same) (subsetp b a :test #'same)))
+
 (defgeneric same (a b)
   (:method
       ;; Things of different type are never the same.
@@ -251,7 +255,16 @@
     (and (same (implementation-module a) (implementation-module b))
 	 (same (implementation-name a) (implementation-name b))))
   (:method ((a relation) (b relation))
-    (equal? (tuples a) (tuples b))))
+    (equal? (tuples a) (tuples b)))
+  (:method ((a parameter) (b parameter))
+    (and (same (parameter-name a) (parameter-name b))
+	 (same (parameter-description a) (parameter-description b))
+	 (same (parameter-type a) (parameter-type b))))
+  (:method ((a schema) (b schema))
+    (and (same (schema-description a) (schema-description b))
+	 (set-same-equal (schema-parameters a) (schema-parameters b))
+	 (same (convert 'set (schema-subschemas a)) (convert 'set (schema-subschemas b))))))
+
 
 (defgeneric satisfies-input-p (attributed b)
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")

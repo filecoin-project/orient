@@ -25,8 +25,8 @@
 	   :implementation :implementation-module :implementation-name
 	   :tref :join :lookup-description :make-relation
 	   :make-signature :make-tuple
-	   :orient-tests :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :rename :report-data :report-solution-for :same
-	   :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
+	   :orient-tests :parameter :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :rename :report-data :report-solution-for
+	   :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
 	   :synthesize-report-steps :symbolconc :sys :system :system-components
 	   :system-data :system-schema
 	   :tpl :transformation :transformation-implementation :transformation-signature :tref :trem :try-with :use-construction :use-attribute

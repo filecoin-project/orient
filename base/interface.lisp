@@ -11,26 +11,30 @@
 
 (defvar *schema-package*)
 
-(defun effective-schema-package-name ()
+(defun effective-schema-package ()
   (or (and (boundp '*schema-package*)
-	   *schema-package*
-	   (package-name *schema-package*))
-      (package-name *package*)))
+	   *schema-package*)
+      *package*))
+  
+(defun effective-schema-package-name ()
+  (package-name (effective-schema-package)))
 
-(defun schema-intern (name &key (upcase t))
+(defun schema-intern (name &key (upcase nil))
   (let ((name (if upcase (string-upcase name) name)))
-    (intern name (effective-schema-package-name))))
+    (when (> (length name) 0)
+      (intern (simplified-camel-case-to-lisp name) (effective-schema-package-name)))))
 
 (defgeneric load-json (type-spec json-pathspec)
   (:method ((type t) (json-pathspec t))
     (load-json type (pathname json-pathspec)))
   (:method ((type t) (json-pathname pathname))    
-    (let ((json (decode-json-from-source (pathname json-pathname))))
+    (let* ((*json-symbols-package* *schema-package*)
+	   (json (decode-json-from-source (pathname json-pathname))))
       (<-json type json))))
 
 (defgeneric <-json (type json)
   (:method ((type (eql :pipeline)) (json list))
-    (mapcar #'transformation<-parsed-json json))
+    (mapcar #'transformation<-json json))
   (:method ((type (eql :transformation)) (json t))
     (transformation<-json json))
   (:method ((type (eql :tuple)) (json list))
@@ -40,7 +44,18 @@
 	   (string-outputs (cdr (assoc :output json)))
 	   (input (mapcar #'schema-intern string-inputs))
 	   (output (mapcar #'schema-intern string-outputs)))
-      (make-signature input output))))
+      (make-signature input output)))
+  (:method ((type (eql :schema)) (json list))
+    (let ((description (cdr (assoc :description json)))
+	  (parameters (mapcar (lambda (json) (<-json :parameter json)) (cdr (assoc :parameters json)))))
+      (make-instance 'schema :description description :parameters parameters)))
+  (:method ((type (eql :parameter)) (json list))
+    (let ((name (schema-intern (cdr (assoc :name json))))
+	  (description (cdr (assoc :description json)))
+	  (type (schema-intern (cdr (assoc :type json)))))
+      (make-instance 'parameter :name name :description description :type type)))
+  ;;; TODO: :system, :component, :constraint-system
+  )
 
 (defun load-pipeline (json-pathspec)
   (load-json :pipeline json-pathspec))
@@ -89,12 +104,29 @@
 
 (defun test-roundtrip (type-spec thing)
   (let* ((json-string (encode-json-to-string thing))
+	 (*schema-package* *package*)
 	 (json (decode-json-from-string json-string))
 	 (returned (<-json type-spec json)))
-    (is (same thing returned))))
+    (is (same thing returned))
+    ))
 
 (test transformation
   (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
 
 (test signature
-  (test-roundtrip :signature (sig (q r s) -> (t u v))))
+  (test-roundtrip :signature (sig (q r s) -> (u v w))))
+
+(test tuple
+  (let ((*json-symbols-package* *package*))
+    (test-roundtrip :tuple (tuple (a 1) (b 2) (c 3)))))
+
+(test schema
+  (test-roundtrip :schema (schema "Test Schema"
+				  (a-param "A parameter.")
+				  (another "Something else you should know."))))
+
+(test parameter
+  (test-roundtrip :parameter (make-instance 'parameter
+					    :name 'parmesan
+					    :description "The parmesan parameter."
+					    :type 'cheese)))

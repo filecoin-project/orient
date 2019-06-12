@@ -163,14 +163,17 @@
 			  for value in values
 			  collect `(list ',attribute ,value)))))
 
+(defmacro schema (description &rest parameters)
+  `(make-instance 'schema
+		  :description ,description
+		  :parameters (list ,@(mapcar (lambda (parameter-spec)
+						(destructuring-bind (name &optional description  type) parameter-spec
+						  `(make-instance 'parameter :name ',name :description ,description :type ,type)))
+					      parameters))))
+
 (defmacro defschema (name description &rest parameters)
   `(deftoplevel ,name (:schema)
-     (make-instance 'schema
-		    :description ,description
-		    :parameters (list ,@(mapcar (lambda (parameter-spec)
-						  (destructuring-bind (name &optional description  type) parameter-spec
-						    `(make-instance 'parameter :name ',name :description ,description :type ,(or type ""))))
-						parameters)))))
+     (schema ,description ,@parameters)))
 
 (defmacro sys ((&rest components))
   `(make-instance 'system :components (list ,@components)))

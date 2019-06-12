@@ -1,5 +1,6 @@
 (defpackage orient.cli
   (:use :common-lisp :orient :orient.interface :filecoin :unix-options)
+  (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
 

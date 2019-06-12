@@ -15,7 +15,7 @@
 (defclass schema ()
   ((description :initarg :description :initform nil :accessor schema-description)
    (parameters :initarg :parameters :initform '() :accessor schema-parameters)
-   (subscheams :initarg :subschemas :initform '() :accessor schema-subschemas)))
+   (subschemas :initarg :subschemas :initform '() :accessor schema-subschemas)))
 
 (defclass system ()
   ((schema :initarg :schema :initform nil :accessor system-schema)
