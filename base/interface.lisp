@@ -2,7 +2,7 @@
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
-  (:export :load-pipeline :load-transformation :load-tuple :load-json :<-json)
+  (:export :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json)
   (:nicknames :interface))
 
 (in-package "INTERFACE")
@@ -104,6 +104,10 @@
 	 (implementation (make-instance 'implementation :name implementation-symbol-name :module package-name))
 	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
+
+(defun dump-json (spec thing pathspec)
+  
+  )
 
 (defun test-roundtrip (type-spec thing)
   (let* ((json-string (encode-json-to-string thing))

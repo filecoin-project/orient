@@ -13,8 +13,6 @@
   (and thing (keywordize thing)))
 
 (defun main (&optional argv)
-  (declare (ignore argv))
-  
   (with-cli-options ((cli-options) t)
       (&parameters (in (in "FILE" "JSON input file"))
 		   (calc (calc  "{zigzag}"  "Calculator to use"))
@@ -31,6 +29,7 @@
 			  (progn (assert (not free-command))
 				 command)
 			  free-command))
+	     (calc-spec (maybe-keywordize calc))
 	     (json:*json-symbols-package* 'filecoin)
 	     (input (cond
 		      (in (and in (load-tuple in)))
@@ -46,16 +45,23 @@
 	     (let ((*package* (find-package :orient.web)))
 	       (sb-impl::toplevel-repl nil))))
 	  ((:solve)
-	   (case (maybe-keywordize calc)
-	     ((:zigzag)
-	      (handle-calc :system (zigzag-system) :input input :vars '(GiB-seal-time))
-	      nil)
-	     (otherwise
-	      (format t "No system specified.~%")
-	      nil)))
+	   (let ((system (choose-system calc-spec)))
+	     (case calc-spec
+	       ((:zigzag)
+		(handle-calc :system system :input input :vars '(GiB-seal-time))
+		nil)
+	       (otherwise
+		(format t "No system specified.~%")
+		nil))))
+	  ((:dump)
+	   (dump-json :system system out))
 	  (otherwise
 	   (format t "Usage: ~A command~%  command is one of {web, solve}~%" (car argv)))
 	  )))))
+
+(defun choose-system (spec)
+  (case spec
+    (:zigzag (zigzag-system))))
 
 (defun handle-calc (&key system vars input)
   (let ((solution (solve-for system vars nil :override-data input)))
