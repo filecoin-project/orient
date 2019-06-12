@@ -189,6 +189,9 @@
   (let ((implementation (transformation-implementation trans)))
     (format stream "(TRANSFORMATION ~S === ~S)" (transformation-signature trans) (if (functionp implementation) "FN()" implementation))))
 
+(defmethod print-object ((impl implementation) (stream t))
+  (format stream "<IMPLEMENTATION ~A / ~A>" (implementation-module impl) (implementation-name impl)))
+
 (defun identity-transformation () (make-instance 'transformation :implementation (lambda (attributed) attributed)))
 
 (defmethod print-object ((comp component) (stream t))
@@ -248,9 +251,7 @@
     (and (same (transformation-signature a) (transformation-signature b))
 	 (same (transformation-implementation a) (transformation-implementation b))))
   (:method ((a component) (b component))
-    ;; FIXME: use FSET.
-    (and (subsetp (component-transformations a) (component-transformations b) :test #'same)
-	 (subsetp (component-transformations b) (component-transformations a) :test #'same)))
+    (set-same-equal (component-transformations a) (component-transformations b)))
   (:method ((a implementation) (b implementation))
     (and (same (implementation-module a) (implementation-module b))
 	 (same (implementation-name a) (implementation-name b))))

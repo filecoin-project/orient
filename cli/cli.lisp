@@ -27,7 +27,7 @@
       (&parameters (in (in "FILE" "JSON input file, specify -- to use stdin"))
 		   (out (out "FILE" "JSON output file, otherwise stdout"))
 		   (calc (calc  "{zigzag}"  "Calculator to use"))
-		   (port (port "port number for web server"))
+		   (port (port "port-number" "porton to listen on"))
 		   (command (command "{web, solve}" "<COMMAND>: may be provided as free token (without flag)."))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"

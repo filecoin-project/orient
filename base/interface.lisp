@@ -37,6 +37,7 @@
 	 (json (decode-json-from-source source)))
     (<-json type-spec json)))
 
+;; TODO: Better destructuring to make this all clearer.
 (defgeneric <-json (type-spec json)
   (:method ((type-spec (eql :pipeline)) (json list))
     (mapcar #'transformation<-json json))
@@ -59,7 +60,12 @@
 	  (description (cdr (assoc :description json)))
 	  (type-spec (schema-intern (cdr (assoc :type json)))))
       (make-instance 'parameter :name name :description description :type type-spec)))
-  ;;; TODO: :system, :component, :constraint-system
+  (:method ((type-spec (eql :component)) (json list))
+    (make-instance 'component
+		   :transformations (mapcar (lambda (json)
+					      (<-json :transformation json))
+					    (cdr (assoc :transformations json)))))
+  ;;; TODO: :system, :constraint-system
   )
 
 (defun load-pipeline (json-pathspec)
@@ -99,6 +105,7 @@
 ;; TODO: roundtrip tests
 ;; TODO: there must be a cleaner/clearer way to do this.
 (defun transformation<-json (transformation-spec)
+  (display transformation-spec)
   (let* ((transformation-json (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
 	 (implementation-spec (cdr (assoc :implementation transformation-json)))
 	 (module-name (cdr (assoc :module implementation-spec)))
@@ -122,23 +129,27 @@
     (is (same thing returned))
     ))
 
-(test transformation
+(test roundtrip-transformation
   (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
 
-(test signature
+(test roundtrip-signature
   (test-roundtrip :signature (sig (q r s) -> (u v w))))
 
-(test tuple
+(test roundtrip-tuple
   (let ((*json-symbols-package* *package*))
     (test-roundtrip :tuple (tuple (a 1) (b 2) (c 3)))))
 
-(test schema
+(test roundtrip-schema
   (test-roundtrip :schema (schema "Test Schema"
 				  (a-param "A parameter.")
 				  (another "Something else you should know."))))
 
-(test parameter
+(test roundtrip-parameter
   (test-roundtrip :parameter (make-instance 'parameter
 					    :name 'parmesan
 					    :description "The parmesan parameter."
 					    :type 'cheese)))
+
+(test roundtrip-component
+  (test-roundtrip :component (component ((transformation ((a b c) ~> (d e f)) == xxx)
+					 (transformation ((x y) ~> (z)) == yyy)))))
