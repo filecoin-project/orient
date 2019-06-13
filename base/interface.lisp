@@ -73,18 +73,14 @@
     (make-instance 'component :transformations (extract-from-json-list :transformations :transformation json)))
   (:method ((type-spec (eql :system-spec)) (json t))
     (typecase json
-      (string
-       ;; Assume named systems will be in schema package.
-       (schema-intern json)) 
+      (string (schema-intern json)) ; Assume named systems will be in schema package.
       (list (<-json :system json))))
   (:method ((type-spec (eql :system)) (json list))
     (make-instance 'system
 		   :components (extract-from-json-list :components :component json)
 		   :subsystems (extract-from-json-list :subsystems :system-spec json)
 		   :schema (extract-from-json :schema :schema json)
-		   :data (extract-from-json-list :data :data json)))
-  ;;; TODO: :constraint-system
-  )
+		   :data (extract-from-json-list :data :data json))))
 
 (defun extract-from-json (key type-spec json)
   (<-json type-spec (cdr (assoc key json))))
@@ -166,10 +162,13 @@
 	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
 
-(defun dump-json (spec thing stream)
+(defun dump-json (spec thing stream &key expand-references)
   (declare (ignore spec))
-  (encode-json thing stream)
-  (terpri))
+  (let ((to-use (if expand-references
+		    (expand-references thing)
+		    thing)))
+    (encode-json to-use stream)
+    (terpri)))
 
 (defun test-roundtrip (type-spec thing)
   (let* ((json-string (encode-json-to-string thing))

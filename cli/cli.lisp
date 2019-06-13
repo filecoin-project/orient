@@ -71,7 +71,7 @@
 		(format *error-output* "No system specified.~%")
 		nil)))
 	    ((:dump)
-	     (dump-json :system system *out*))
+	     (dump-json :system system *out* :expand-references t))
 	    (otherwise
 	     (format t "Usage: ~A command~%  command is one of {web, solve}~%" (car argv)))))))))
 

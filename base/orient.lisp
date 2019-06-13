@@ -212,6 +212,14 @@
 (defmethod system-schema :around ((system system))
   (find-schema (call-next-method)))
 
+(defgeneric expand-references (thing)
+  (:method ((system system))
+    (make-instance 'system
+		   :components (system-components system)
+		   :schema (find-schema (system-schema system))
+		   :subsystems (mapcar #'expand-references (system-subsystems system))
+		   :data (system-data system))))
+
 (defmethod print-object ((sys system) (stream t))
   (format stream "<SYSTEM ~S)" (list :components (system-components sys)
 				     :subsystems (system-subsystems sys)
