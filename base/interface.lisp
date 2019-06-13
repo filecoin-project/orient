@@ -50,6 +50,7 @@
     (typecase json
       (atom json)
       (tuple (<-json :tuple json))
+      ;; TODO: relations
     ))
   (:method ((type-spec (eql :tuple)) (json list))
     (make-tuple json t))
@@ -93,9 +94,8 @@
 		   :data (<-json :data
 				 (mapcar (lambda (json)
 					   (<-json :data json))
-					 (cdr (assoc :data json))))
-		   ))
-  ;;; TODO: :system, :constraint-system
+					 (cdr (assoc :data json))))))
+  ;;; TODO: :constraint-system
   )
 
 (defun load-pipeline (json-pathspec)
@@ -121,16 +121,27 @@
    (signature-plist signature)
    stream))
 
+(defmethod encode-embedded-signature (signature stream)
+  (as-object-member (:input stream)
+    (encode-json (convert 'list (signature-input signature)) stream))
+  (as-object-member (:output stream)
+    (encode-json (convert 'list (signature-output signature)) stream)))
+
 (defmethod encode-json ((transformation transformation) &optional stream)
-  ;; TODO: handle SOURCE.
   (with-object (stream)
     (as-object-member (:transformation stream)
-      (encode-json-plist
-       ;; TODO: It would be better to package signatures as first-class items rather than unwrapping into the transformation. Try to have that changed.
-       `(,@(signature-plist (transformation-signature transformation))
-	   :implementation
-	   ,(transformation-implementation transformation))
-       stream))))
+      (with-object (stream)
+	(encode-embedded-signature (transformation-signature transformation) stream)
+	(as-object-member (:implementation stream)
+	  (encode-implementation-json (transformation-implementation transformation) stream))))))
+
+(defun encode-implementation-json (impl stream)
+  (typecase impl
+    (implementation (encode-json impl stream))
+    (symbol (encode-json-plist `(:module ,(package-name (symbol-package impl)) :name ,(symbol-name impl)) stream))
+    (function (encode-json-plist `(:source ,(with-output-to-string (out)
+					      (write (function-lambda-expression impl) :stream out)))
+				 stream))))
 
 ;; TODO: roundtrip tests
 ;; TODO: there must be a cleaner/clearer way to do this.
@@ -146,15 +157,17 @@
 	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
 
-(defun dump-json (spec thing pathspec))
+(defun dump-json (spec thing stream)
+  (declare (ignore spec))
+  (encode-json thing stream)
+  (terpri))
 
 (defun test-roundtrip (type-spec thing)
   (let* ((json-string (encode-json-to-string thing))
 	 (*schema-package* *package*)
 	 (json (decode-json-from-string json-string))
 	 (returned (<-json type-spec json)))
-    (is (same thing returned))
-    ))
+    (is (same thing returned))))
 
 (test roundtrip-transformation
   (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
