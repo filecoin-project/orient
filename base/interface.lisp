@@ -32,6 +32,9 @@
   (:method ((type-spec t) (json-pathname pathname))
     (%load-json type-spec (pathname json-pathname))))
 
+(deftype tuple-pair () '(cons symbol (not cons)))
+(deftype tuple () '(cons tuple-pair t))
+
 (defun %load-json (type-spec source)
   (let* ((*json-symbols-package* *schema-package*)
 	 (json (decode-json-from-source source)))
@@ -43,6 +46,11 @@
     (mapcar #'transformation<-json json))
   (:method ((type-spec (eql :transformation)) (json t))
     (transformation<-json json))
+  (:method ((type-spec (eql :data)) (json t))
+    (typecase json
+      (atom json)
+      (tuple (<-json :tuple json))
+    ))
   (:method ((type-spec (eql :tuple)) (json list))
     (make-tuple json t))
   (:method ((type-spec (eql :signature)) (json list))
@@ -53,7 +61,9 @@
       (make-signature input output)))
   (:method ((type-spec (eql :schema)) (json list))
     (let ((description (cdr (assoc :description json)))
-	  (parameters (mapcar (lambda (json) (<-json :parameter json)) (cdr (assoc :parameters json)))))
+	  (parameters (mapcar (lambda (json)
+				(<-json :parameter json))
+			      (cdr (assoc :parameters json)))))
       (make-instance 'schema :description description :parameters parameters)))
   (:method ((type-spec (eql :parameter)) (json list))
     (let ((name (schema-intern (cdr (assoc :name json))))
@@ -65,6 +75,26 @@
 		   :transformations (mapcar (lambda (json)
 					      (<-json :transformation json))
 					    (cdr (assoc :transformations json)))))
+  (:method ((type-spec (eql :system-spec)) (json t))
+    (typecase json
+      (string
+       ;; Assume named systems will be in schema package.
+       (schema-intern json)) 
+      (list (<-json :system json))))
+  (:method ((type-spec (eql :system)) (json list))
+    (make-instance 'system
+		   :components (mapcar (lambda (json)
+					 (<-json :component json))
+				       (cdr (assoc :components json)))
+		   :subsystems (mapcar (lambda (json)
+		    			 (<-json :system-spec json))
+		    		       (cdr (assoc :subsystems json)))
+		   :schema (<-json :schema (cdr (assoc :schema json)))
+		   :data (<-json :data
+				 (mapcar (lambda (json)
+					   (<-json :data json))
+					 (cdr (assoc :data json))))
+		   ))
   ;;; TODO: :system, :constraint-system
   )
 
@@ -105,7 +135,6 @@
 ;; TODO: roundtrip tests
 ;; TODO: there must be a cleaner/clearer way to do this.
 (defun transformation<-json (transformation-spec)
-  (display transformation-spec)
   (let* ((transformation-json (cdr (assoc :transformation transformation-spec))) ;; TODO: Should the spec just use :transformation?
 	 (implementation-spec (cdr (assoc :implementation transformation-json)))
 	 (module-name (cdr (assoc :module implementation-spec)))
@@ -117,9 +146,7 @@
 	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
 
-(defun dump-json (spec thing pathspec)
-  
-  )
+(defun dump-json (spec thing pathspec))
 
 (defun test-roundtrip (type-spec thing)
   (let* ((json-string (encode-json-to-string thing))
@@ -153,3 +180,17 @@
 (test roundtrip-component
   (test-roundtrip :component (component ((transformation ((a b c) ~> (d e f)) == xxx)
 					 (transformation ((x y) ~> (z)) == yyy)))))
+
+(test roundtrip-system
+  (test-roundtrip :system (make-instance 'system
+					   :components (list (component ((transformation ((a b c) ~> (d e f)) == xxx)
+									 (transformation ((x y) ~> (z)) == yyy)))
+							     (component ((transformation ((a b) ~> (c d e)) == xxx)
+									 (transformation ((x y z) ~> (q)) == yyy))))
+					   :subsystems (list 'system-a 'system-b)
+					   :schema (schema "Test Schema"
+							   (a-param "A parameter.")
+							   (another "Something else you should know."))
+					   ;; TODO: handle data.
+					   :data (list (tuple (a 1) (b 2) (c 3)))
+					   )))

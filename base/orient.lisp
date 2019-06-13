@@ -213,7 +213,10 @@
   (find-schema (call-next-method)))
 
 (defmethod print-object ((sys system) (stream t))
-  (format stream "(sys ~S :schema ~S)" (system-components sys) (system-schema sys)))
+  (format stream "<SYSTEM ~S)" (list :components (system-components sys)
+				     :subsystems (system-subsystems sys)
+				     :schema (system-schema sys)
+				     :data (system-data sys))))
 
 (defgeneric lookup- (attribute schemable)
   (:method ((attribute symbol) (schema schema))
@@ -264,8 +267,13 @@
   (:method ((a schema) (b schema))
     (and (same (schema-description a) (schema-description b))
 	 (set-same-equal (schema-parameters a) (schema-parameters b))
-	 (same (convert 'set (schema-subschemas a)) (convert 'set (schema-subschemas b))))))
-
+	 (same (convert 'set (schema-subschemas a)) (convert 'set (schema-subschemas b)))))
+  (:method ((a system) (b system))
+    (and (same (system-schema a) (system-schema b))
+	 (set-same-equal (system-components a) (system-components b))
+	 (same (system-subsystems a) (system-subsystems b))
+					;(same (system-data a) (system-data b))
+	 )))
 
 (defgeneric satisfies-input-p (attributed b)
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")
