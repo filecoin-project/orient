@@ -77,7 +77,10 @@
 
 (defun choose-system (spec)
   (case spec
-    (:zigzag (zigzag-system))))
+    (:zigzag (zigzag-system))
+    (:performance (performance-system))
+    (:filecoin (filecoin-system))
+    ))
 
 (defun handle-calc (&key system vars input)
   (let ((solution (solve-for system vars nil :override-data input)))
