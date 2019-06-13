@@ -118,7 +118,7 @@ T
 You should get similar output from the shell:
 
 ```bash
->  `make test`.
+>  make test
 ```
 
 
