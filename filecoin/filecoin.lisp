@@ -50,8 +50,11 @@
     (is (same (relation (seal-time) (289372.25))
 	      result))))
 
-(defun filecoin-system ()
-  (make-instance 'system :subsystems (list (performance-system) (zigzag-system) (filecoin-requirements-system))))
+(defun filecoin-system (&key no-zigzag)
+  (let* ((subsystems (if no-zigzag
+			 (list (performance-system) (filecoin-requirements-system))
+		         (list (performance-system) (zigzag-system) (filecoin-requirements-system)))))
+    (make-instance 'system :subsystems subsystems)))
 
 (test filecoin-defaults
   "Test and assert results of solving with defaults."

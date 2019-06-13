@@ -26,9 +26,9 @@
   (with-cli-options ((cli-options) t)
       (&parameters (in (in "FILE" "JSON input file, specify -- to use stdin"))
 		   (out (out "FILE" "JSON output file, otherwise stdout"))
-		   (calc (calc  "{zigzag}"  "Calculator to use"))
+		   (calc (calc  "{filecoin, performance, zigzag, fc-no-zigzag}"  "Calculator to use"))
 		   (port (port "port-number" "porton to listen on"))
-		   (command (command "{web, solve}" "<COMMAND>: may be provided as free token (without flag)."))
+		   (command (command "{dump, solve, web}" "<COMMAND>: may be provided as free token (without flag)."))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
 					    "out" "o"
@@ -80,7 +80,7 @@
     (:zigzag (zigzag-system))
     (:performance (performance-system))
     (:filecoin (filecoin-system))
-    ))
+    (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
 (defun handle-calc (&key system vars input)
   (let ((solution (solve-for system vars nil :override-data input)))

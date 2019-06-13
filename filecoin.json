@@ -1,0 +1,1692 @@
+{
+  "schema": null,
+  "components": null,
+  "subsystems": [
+    {
+      "schema": null,
+      "components": null,
+      "subsystems": [
+        {
+          "schema": {
+            "description": "Filecoin price performance.",
+            "parameters": [
+              {
+                "name": "awsGlacierPrice",
+                "description": "Cost of one GiB storage from AWS glacier for one month. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "annualIncome",
+                "description": "Annual income from selling storage on the storage market. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "monthlyIncome",
+                "description": "Monthly income from selling storage on the storage market. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "comparableMonthlyCost",
+                "description": "Expected cost of purchasing monthly storage from commodity provider. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "sealCost",
+                "description": "Cost of investment required to seal one GiB in one hour at scale. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "commodityStorageDiscount",
+                "description": "Fraction of commodity storage pricing expected as income from storage market. Unit: decimal fraction",
+                "type": null
+              },
+              {
+                "name": "minerMonthsToCapacity",
+                "description": "Months it should take a miner to reach full storage capacity. Unit: months",
+                "type": null
+              },
+              {
+                "name": "gibCapacity",
+                "description": "GiB of storage at full capacity. Unit: GiB",
+                "type": null
+              },
+              {
+                "name": "tibCapacity",
+                "description": "TiB of storage at full capacity. Unit: TiB",
+                "type": null
+              },
+              {
+                "name": "annualTib",
+                "description": "TiB of storage which must be brought online per year. Unit: TiB",
+                "type": null
+              },
+              {
+                "name": "monthlyTib",
+                "description": "TiB of storage which must be brought online per month. Unit: TiB",
+                "type": null
+              },
+              {
+                "name": "dailyTib",
+                "description": "TiB of storage which must be brought online per day. Unit: TiB",
+                "type": null
+              },
+              {
+                "name": "hourlyTib",
+                "description": "TiB of storage which must be brought online per hour. Unit: TiB",
+                "type": null
+              },
+              {
+                "name": "hourlyGib",
+                "description": "GiB of storage which must be brought online per hour. Unit: GiB",
+                "type": null
+              },
+              {
+                "name": "sealCyclesPerHour",
+                "description": "CPU required to seal at required rate for one hour. Unit: cycles",
+                "type": null
+              },
+              {
+                "name": "sealCyclesPerMinute",
+                "description": "CPU required to seal at required rate for one minute. Unit: cycles",
+                "type": null
+              },
+              {
+                "name": "sealCyclesPerSecond",
+                "description": "CPU required to seal at required rate for one second. Unit: cycles",
+                "type": null
+              },
+              {
+                "name": "gibSealCycles",
+                "description": "Total CPU cycles required to seal 1 GiB. Unit: Giga-cycles",
+                "type": null
+              },
+              {
+                "name": "neededGhz",
+                "description": "Total GhZ capacity needed to seal at the required rate.",
+                "type": null
+              },
+              {
+                "name": "upFrontDriveCost",
+                "description": "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars.",
+                "type": null
+              },
+              {
+                "name": "upFrontMemoryCost",
+                "description": "Up-front investment in memory (RAM) required to seal at necessary rate. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "upFrontComputeCost",
+                "description": "Up-front investement in compute hardware required to seal at necessary rate. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "upFrontSealingCost",
+                "description": "Up-front investment in total hardware require to seal at necessary rate. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "totalUpFrontCost",
+                "description": "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "averageMonthlyIncomeDuringRampUp",
+                "description": "Average monthly income before miner reaches capacity (assuming linear growth). Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "incomeDuringRampUp",
+                "description": "Total income during ramp-up period (before reaching capacity). Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "incomeToRoiAtCapacity",
+                "description": "Income still required to reach return on investment after reaching capacity. Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "roiMonthsAtCapacity",
+                "description": "Months needed after reaching capacity before return on investment.",
+                "type": null
+              },
+              {
+                "name": "roiMonths",
+                "description": "Months over which a miner should see return on investment.",
+                "type": null
+              },
+              {
+                "name": "oneYearProfitMonths",
+                "description": "Months from ROI to one year of profit. Unit: months",
+                "type": null
+              },
+              {
+                "name": "oneYearProfit",
+                "description": "Profit after one year of operation: Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "oneYearRoi",
+                "description": "ROI after one year of operation: Unit: fraction",
+                "type": null
+              },
+              {
+                "name": "twoYearProfitMonths",
+                "description": "Months from ROI to two years of profit. Unit: months",
+                "type": null
+              },
+              {
+                "name": "twoYearProfit",
+                "description": "Profit after two years of operation: Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "twoYearRoi",
+                "description": "ROI after two years of operation: Unit: fraction",
+                "type": null
+              },
+              {
+                "name": "threeYearProfitMonths",
+                "description": "Months from ROI to three years of profit. Unit: months",
+                "type": null
+              },
+              {
+                "name": "threeYearProfit",
+                "description": "Profit after three years of operation: Unit: dollars",
+                "type": null
+              },
+              {
+                "name": "threeYearRoi",
+                "description": "ROI after three years of operation: Unit: fraction",
+                "type": null
+              },
+              {
+                "name": "sealHz",
+                "description": "Cycles per second at which the sealing machine operates. Unit: Hz",
+                "type": null
+              },
+              {
+                "name": "sealghz",
+                "description": "Cycles per second at which the sealing machine operates. Unit: GHz",
+                "type": null
+              }
+            ],
+            "subschemas": null
+          },
+          "components": [
+            {
+              "operation": "*",
+              "target": "sealHz",
+              "args": [
+                "sealGhz",
+                1000000000
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "gibSealCycles",
+              "args": [
+                "gibSealTime",
+                "sealHz"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "monthlyIncome",
+              "args": [
+                "annualIncome",
+                12
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "monthlyIncome",
+              "args": [
+                "comparableMonthlyCost",
+                "commodityStorageDiscount"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "gibCapacity",
+              "args": [
+                "comparableMonthlyCost",
+                "awsGlacierPrice"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "tibCapacity",
+              "args": [
+                "gibCapacity",
+                1024
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "monthlyTib",
+              "args": [
+                "tibCapacity",
+                "minerMonthsToCapacity"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "dailyTib",
+              "args": [
+                "monthlyTib",
+                [
+                  "/",
+                  365,
+                  12
+                ]
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "hourlyTib",
+              "args": [
+                "dailyTib",
+                24
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "hourlyGib",
+              "args": [
+                "hourlyTib",
+                1024
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "upFrontDriveCost",
+              "args": [
+                "tibDriveCost",
+                "tibCapacity"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "sealCyclesPerHour",
+              "args": [
+                "hourlyGib",
+                "gibSealCycles"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "sealCyclesPerMinute",
+              "args": [
+                "sealCyclesPerHour",
+                60
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "sealCyclesPerSecond",
+              "args": [
+                "sealCyclesPerMinute",
+                60
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "neededGhz",
+              "args": [
+                "sealCyclesPerSecond",
+                1000000000
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "upFrontSealingCost",
+              "args": [
+                "upFrontComputeCost",
+                "upFrontMemoryCost"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "totalUpFrontCost",
+              "args": [
+                "upFrontSealingCost",
+                "upFrontDriveCost"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "upFrontComputeCost",
+              "args": [
+                "neededGhz",
+                "cpuGhzCost"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "sealCost",
+              "args": [
+                "upFrontSealingCost",
+                "hourlyGib"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "averageMonthlyIncomeDuringRampUp",
+              "args": [
+                "monthlyIncome",
+                2
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "incomeDuringRampUp",
+              "args": [
+                "averageMonthlyIncomeDuringRampUp",
+                "minerMonthsToCapacity"
+              ]
+            },
+            {
+              "operation": "-",
+              "target": "incomeToRoiAtCapacity",
+              "args": [
+                "totalUpFrontCost",
+                "incomeDuringRampUp"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "roiMonthsAtCapacity",
+              "args": [
+                "incomeToRoiAtCapacity",
+                "monthlyIncome"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "roiMonths",
+              "args": [
+                "roiMonthsAtCapacity",
+                "minerMonthsToCapacity"
+              ]
+            },
+            {
+              "operation": "-",
+              "target": "oneYearProfitMonths",
+              "args": [
+                12,
+                "roiMonths"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "oneYearProfit",
+              "args": [
+                "oneYearProfitMonths",
+                "monthlyIncome"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "oneYearRoi",
+              "args": [
+                "oneYearProfit",
+                "totalUpFrontCost"
+              ]
+            },
+            {
+              "operation": "-",
+              "target": "twoYearProfitMonths",
+              "args": [
+                24,
+                "roiMonths"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "twoYearProfit",
+              "args": [
+                "twoYearProfitMonths",
+                "monthlyIncome"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "twoYearRoi",
+              "args": [
+                "twoYearProfit",
+                "totalUpFrontCost"
+              ]
+            },
+            {
+              "operation": "-",
+              "target": "threeYearProfitMonths",
+              "args": [
+                36,
+                "roiMonths"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "threeYearProfit",
+              "args": [
+                "threeYearProfitMonths",
+                "monthlyIncome"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "threeYearRoi",
+              "args": [
+                "threeYearProfit",
+                "totalUpFrontCost"
+              ]
+            }
+          ],
+          "subsystems": null,
+          "data": null
+        }
+      ],
+      "data": [
+        {
+          "cpuGhzCost": 10,
+          "annualIncome": 50000,
+          "tibDriveCost": 30,
+          "awsGlacierPrice": 0.004,
+          "upFrontMemoryCost": 0,
+          "minerMonthsToCapacity": 6,
+          "commodityStorageDiscount": 0.9
+        },
+        {
+          "sealGhz": 4.3
+        }
+      ]
+    },
+    {
+      "schema": null,
+      "components": [
+        {
+          "transformations": [
+            {
+              "transformation": {
+                "input": [
+                  "hashFunctions",
+                  "merkleHashFunctionName"
+                ],
+                "output": [
+                  "merkleHashFunction"
+                ],
+                "implementation": {
+                  "source": "NIL"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "transformations": [
+            {
+              "transformation": {
+                "input": [
+                  "merkleHashFunction"
+                ],
+                "output": [
+                  "merkleHashFunctionSize",
+                  "merkleHashFunctionTime",
+                  "merkleHashFunctionConstraints"
+                ],
+                "implementation": {
+                  "source": "NIL"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "transformations": [
+            {
+              "transformation": {
+                "input": [
+                  "hashFunctions",
+                  "kdfHashFunctionName"
+                ],
+                "output": [
+                  "kdfHashFunction"
+                ],
+                "implementation": {
+                  "source": "NIL"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "transformations": [
+            {
+              "transformation": {
+                "input": [
+                  "kdfHashFunction"
+                ],
+                "output": [
+                  "kdfHashFunctionSize",
+                  "kdfHashFunctionTime",
+                  "kdfHashFunctionConstraints"
+                ],
+                "implementation": {
+                  "source": "NIL"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "subsystems": [
+        {
+          "schema": {
+            "description": "ZigZag",
+            "parameters": [
+              {
+                "name": "sectorGib",
+                "description": "Size of one sector. Unit: GiB",
+                "type": null
+              },
+              {
+                "name": "sectorSize",
+                "description": "Size of one sector. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "commDSize",
+                "description": "Size of the data commitment (CommD). Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "commRSize",
+                "description": "Size of the replica commitment (CommR). Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "commRStarSize",
+                "description": "Size of the aggregated commitment to each layer's replica (CommR*). Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "commRsSize",
+                "description": "Size of all replica commitments. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "commitmentsSize",
+                "description": "Size of all commitments returned by Seal. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "onChainPorepSize",
+                "description": "On-chain size of one Seal proof plus commitments. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "degree",
+                "description": "Total in-degree of the ZigZag graph.",
+                "type": null
+              },
+              {
+                "name": "baseDegree",
+                "description": "In-degree of the base depth-robust graph (DRG).",
+                "type": null
+              },
+              {
+                "name": "expansionDegree",
+                "description": "Maximum in-degree of the bipartite expander graph component of a ZigZag graph.",
+                "type": null
+              },
+              {
+                "name": "slothIter",
+                "description": "Number of iterations of sloth verifiable delay encoding (VDE) to perform.",
+                "type": null
+              },
+              {
+                "name": "partitions",
+                "description": "Number of circuit partitions into which a proof is divided.",
+                "type": null
+              },
+              {
+                "name": "replicationTime",
+                "description": "Time to replicate one sector. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "replicationTimePerByte",
+                "description": "Time to replicate one byte. Unit: seconds / byte",
+                "type": null
+              },
+              {
+                "name": "replicationTimePerGib",
+                "description": "Time to replicate one GiB. Unit: seconds / GiB",
+                "type": null
+              },
+              {
+                "name": "sealingTime",
+                "description": "Total CPU time to seal (replicate + generate proof of replication) one sector. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "nonCircuitProvingTime",
+                "description": "Time to generate a non-circuit proof of replication. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "vectorCommitmentTime",
+                "description": "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "circuitProvingTimePerConstraint",
+                "description": "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "circuitProvingTime",
+                "description": "Time to generate a circuit proof of replication using Groth16. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "zigzagTotalProvingTime",
+                "description": "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "sealTime",
+                "description": "Total time to seal (replication + proving) one sector. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "sectorGib",
+                "description": "Number of GiB in one sector. Unit: GiB",
+                "type": null
+              },
+              {
+                "name": "gibSealTime",
+                "description": "Total time to seal (replication + proving) one GiB. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "totalParents",
+                "description": "Number of parents (or padding) each node uses when performing key derivation.",
+                "type": null
+              },
+              {
+                "name": "singleKdfHashes",
+                "description": "Number of hashes performed as part of a single application of the key-derivation function (KDF).",
+                "type": null
+              },
+              {
+                "name": "kdfHashes",
+                "description": "Number of hashes performed as part of the key-derivation function (KDF).",
+                "type": null
+              },
+              {
+                "name": "singleKdfTime",
+                "description": "Hashing time to perform a single KDF. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "singleLayerMerkleHashingTime",
+                "description": "Merkle hashing time for a single layer. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "totalMerkleTrees",
+                "description": "Total merkle trees which must be generated.",
+                "type": null
+              },
+              {
+                "name": "totalMerkleHashingTime",
+                "description": "Total time to generate all merkle trees. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "totalNodesToEncode",
+                "description": "Total nodes to encode across all layers.",
+                "type": null
+              },
+              {
+                "name": "singleNodeSlothTime",
+                "description": "Time to perform sloth (VDE) for a single node. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "singleNodeEncodingTime",
+                "description": "Time to encode a single node. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "singleChallengeInclusionProofs",
+                "description": "Number of inclusion proofs which must be verified for a single challenge.",
+                "type": null
+              },
+              {
+                "name": "singleChallengeMerkleHases",
+                "description": "Number of merkle hashes which must be verified for a single challenge.",
+                "type": null
+              },
+              {
+                "name": "singleChallengeKdfHashes",
+                "description": "Number of KDF hashes which must be verified for a single challenge.",
+                "type": null
+              },
+              {
+                "name": "singleChallengeSlothVerifications",
+                "description": "Number of sloth iterations which must be verified for a single challenge.",
+                "type": null
+              },
+              {
+                "name": "totalKdfHashes",
+                "description": "Total number of KDF (key-derivation function) required during replication.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagMerkleHashingConstraints",
+                "description": "Total number of merkle hashing constraints in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagKdfHashingConstraints",
+                "description": "Total number of kdf hashing constraints in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagHashingConstraints",
+                "description": "Total number of hashing constraints in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagNonHashingConstraints",
+                "description": "Total number of hashes which must be verified in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagCircuitMerkleHashes",
+                "description": "Total number of merkle hashes which must be verified in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagCircuitKdfHashes",
+                "description": "Total number of KDF hashes which must be verified in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagSlothConstraints",
+                "description": "Total number of constraints due to sloth verification.",
+                "type": null
+              },
+              {
+                "name": "totalZigzagConstraints",
+                "description": "Total number of constraints which must be verified in a ZigZag circuit.",
+                "type": null
+              },
+              {
+                "name": "layerReplicationTime",
+                "description": "Time to replicate one layer. Unit: seconds",
+                "type": null
+              },
+              {
+                "name": "storageToProofSizeRatio",
+                "description": "Ratio of sealed sector size to on-chain PoRep size.",
+                "type": null
+              },
+              {
+                "name": "storageToProofSizeFloat",
+                "description": "Ratio of sealed sector size to on-chain PoRep size -- expressed as a float.",
+                "type": null
+              },
+              {
+                "name": "replicationCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "sealingCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagVanillaProvingCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagGrothProvingCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagTotalProvingCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "totalSealCycles",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagConstraints",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagHashingConstraints",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "zigzagNonHashingConstraints",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "singleCircuitProofSize",
+                "description": "Size of a single Groth16 Proof. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "totalCircuitProofSize",
+                "description": "Total size of a single circuit proof. Unit: bytes",
+                "type": null
+              },
+              {
+                "name": "totalChallenges",
+                "description": "",
+                "type": null
+              },
+              {
+                "name": "partitionChallenges",
+                "description": "",
+                "type": null
+              }
+            ],
+            "subschemas": null
+          },
+          "components": [
+            {
+              "operation": "*",
+              "target": "sectorSize",
+              "args": [
+                "sectorGib",
+                1073741824
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "commDSize",
+              "args": [
+                "merkleHashFunctionSize"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "commRSize",
+              "args": [
+                "merkleHashFunctionSize"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "commRStarSize",
+              "args": [
+                "merkleHashFunctionSize"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "commRsSize",
+              "args": [
+                "commRSize",
+                "commRStarSize"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "commitmentsSize",
+              "args": [
+                "commRsSize",
+                "commDSize"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalCircuitProofSize",
+              "args": [
+                "singleCircuitProofSize",
+                "partitions"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "onChainPorepSize",
+              "args": [
+                "commitmentsSize",
+                "totalCircuitProofSize"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalChallenges",
+              "args": [
+                "partitions",
+                "partitionChallenges"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "degree",
+              "args": [
+                "baseDegree",
+                "expansionDegree"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "totalParents",
+              "args": [
+                "degree"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "singleKdfHashes",
+              "args": [
+                "totalParents"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "singleKdfTime",
+              "args": [
+                "singleKdfHashes",
+                "kdfHashFunctionTime"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalNodesToEncode",
+              "args": [
+                "merkleTreeLeaves",
+                "layers"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "singleNodeSlothTime",
+              "args": [
+                "slothIter",
+                "singleSlothIterationTime"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "singleNodeEncodingTime",
+              "args": [
+                "singleKdfTime",
+                "singleNodeSlothTime"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "singleChallengeInclusionProofs",
+              "args": [
+                "totalParents",
+                2
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "singleChallengeKdfHashes",
+              "args": [
+                "singleKdfHashes",
+                1
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "singleChallengeSlothVerifications",
+              "args": [
+                "slothIter"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagCircuitKdfHashes",
+              "args": [
+                "singleChallengeKdfHashes",
+                "totalChallenges"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "layerReplicationTime",
+              "args": [
+                "singleNodeEncodingTime",
+                "merkleTreeLeaves"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "replicationTime",
+              "args": [
+                "layers",
+                "layerReplicationTime"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "replicationTimePerByte",
+              "args": [
+                "replicationTime",
+                "sectorSize"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "replicationTimePerGib",
+              "args": [
+                "replicationTimePerByte",
+                [
+                  "",
+                  1024,
+                  1024,
+                  1024
+                ]
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "singleLayerMerkleHashingTime",
+              "args": [
+                "merkleTreeHashCount",
+                "merkleHashFunctionTime"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "totalMerkleTrees",
+              "args": [
+                "layers",
+                1
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalMerkleHashingTime",
+              "args": [
+                "totalMerkleTrees",
+                "singleLayerMerkleHashingTime"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "nonCircuitProvingTime",
+              "args": [
+                "replicationTime",
+                "totalMerkleHashingTime"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "circuitProvingTimePerConstraint",
+              "args": [
+                "benchCircuitProvingTime",
+                "benchCircuitConstraints"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagCircuitInclusionProofs",
+              "args": [
+                "totalChallenges",
+                "singleChallengeInclusionProofs"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagCircuitMerkleHashes",
+              "args": [
+                "totalZigzagCircuitInclusionProofs",
+                "merkleInclusionProofHashLength"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagMerkleHashingConstraints",
+              "args": [
+                "totalZigzagCircuitMerkleHashes",
+                "merkleHashFunctionConstraints"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagKdfHashingConstraints",
+              "args": [
+                "totalZigzagCircuitKdfHashes",
+                "kdfHashFunctionConstraints"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "totalZigzagHashingConstraints",
+              "args": [
+                "totalZigzagMerkleHashingConstraints",
+                "totalZigzagKdfHashingConstraints"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "totalZigzagSlothConstraints",
+              "args": [
+                "totalChallenges",
+                "singleSlothIterationConstraints"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "totalZigzagNonHashingConstraints",
+              "args": [
+                "totalZigzagSlothConstraints",
+                "totalZigzagOtherConstraints"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "totalZigzagConstraints",
+              "args": [
+                "totalZigzagHashingConstraints",
+                "totalZigzagNonHashingConstraints"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "circuitProvingTime",
+              "args": [
+                "totalZigzagConstraints",
+                "circuitProvingTimePerConstraint"
+              ]
+            },
+            {
+              "operation": "+",
+              "target": "sealTime",
+              "args": [
+                "nonCircuitProvingTime",
+                "circuitProvingTime"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "sectorGib",
+              "args": [
+                "sectorSize",
+                1073741824
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "gibSealTime",
+              "args": [
+                "sealTime",
+                "sectorGib"
+              ]
+            },
+            {
+              "operation": "/",
+              "target": "storageToProofSizeRatio",
+              "args": [
+                "sectorSize",
+                "onChainPorepSize"
+              ]
+            },
+            {
+              "operation": "*",
+              "target": "storageToProofSizeFloat",
+              "args": [
+                1,
+                "storageToProofSizeRatio"
+              ]
+            }
+          ],
+          "subsystems": null,
+          "data": null
+        },
+        {
+          "schema": {
+            "description": "PoRep  Merkle Trees",
+            "parameters": [
+              {
+                "name": "nodeBytes",
+                "description": "The number of bytes in a node -- must also be the hash digest size.",
+                "type": null
+              },
+              {
+                "name": "merkleTreeLeaves",
+                "description": "Number of leaves in the merkle tree.",
+                "type": null
+              },
+              {
+                "name": "merkleTreeHeightRaw",
+                "description": "Height of the merkle tree. Unit: float which MUST be integer-valued",
+                "type": null
+              },
+              {
+                "name": "merkleTreeHeight",
+                "description": "Height of the merkle tree, including leaves and root.",
+                "type": null
+              },
+              {
+                "name": "merkleTreeHashCount",
+                "description": "Total number of hashes required to construct the merkle tree (leaves are not hashed).",
+                "type": null
+              },
+              {
+                "name": "merkleInclusionProofHashLength",
+                "description": "Number of hashes required for a merkle inclusion proof.",
+                "type": null
+              },
+              {
+                "name": "merkleInclusionProofHashLengthRaw",
+                "description": "Number of hashes required for a merkle inclusion proof. Unit: float which MUST be integer-valued.",
+                "type": null
+              }
+            ],
+            "subschemas": null
+          },
+          "components": [
+            {
+              "operation": "/",
+              "target": "merkleTreeLeaves",
+              "args": [
+                "sectorSize",
+                "nodeBytes"
+              ]
+            },
+            {
+              "operation": "LOG",
+              "target": "merkleTreeHeightRaw",
+              "args": [
+                "merkleTreeLeaves",
+                2
+              ]
+            },
+            {
+              "operation": "INTEGER",
+              "target": "merkleTreeHeight",
+              "args": [
+                "merkleTreeHeightRaw"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "merkleInclusionProofHashLength",
+              "args": [
+                "merkleTreeHeight"
+              ]
+            },
+            {
+              "operation": "-",
+              "target": "merkleTreeHashCount",
+              "args": [
+                "merkleTreeLeaves",
+                1
+              ]
+            }
+          ],
+          "subsystems": null,
+          "data": null
+        },
+        {
+          "schema": null,
+          "components": [
+            {
+              "transformations": [
+                {
+                  "transformation": {
+                    "input": [
+                      "zigzagDelta",
+                      "zigzagEpsilon"
+                    ],
+                    "output": [
+                      "zigzagLayers"
+                    ],
+                    "implementation": {
+                      "source": "NIL"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "transformations": [
+                {
+                  "transformation": {
+                    "input": [
+                      "layers",
+                      "zigzagTaper",
+                      "zigzagLambda",
+                      "zigzagBasicLayerChallengeFactor"
+                    ],
+                    "output": [
+                      "totalZigzagChallenges",
+                      "zigzagLayerChallenges"
+                    ],
+                    "implementation": {
+                      "source": "NIL"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "subsystems": [
+            {
+              "schema": {
+                "description": "ZigZag Security",
+                "parameters": [
+                  {
+                    "name": "zigzagSoundness",
+                    "description": "ZigZag soundness: Unit fraction",
+                    "type": null
+                  },
+                  {
+                    "name": "zigzagLambda",
+                    "description": "ZigZag soundness: Unit bits",
+                    "type": null
+                  },
+                  {
+                    "name": "zigzagEpsilon",
+                    "description": "Maximum allowable deletion (space tightness): Unit: fraction",
+                    "type": null
+                  },
+                  {
+                    "name": "zigzagDelta",
+                    "description": "Maximum allowable cheating on labels (block corruption)",
+                    "type": null
+                  },
+                  {
+                    "name": "zigzagBasicLayerChallenges",
+                    "description": "Multiple of lambda challenges per layer, without tapering optimization.",
+                    "type": null
+                  },
+                  {
+                    "name": "zigzagSpaceGap",
+                    "description": "Maximum allowable gap between actual and claimed storage. Unit: fraction",
+                    "type": null
+                  }
+                ],
+                "subschemas": null
+              },
+              "components": [
+                {
+                  "operation": "LOG",
+                  "target": "zigzagLambda",
+                  "args": [
+                    "zigzagSoundness",
+                    [
+                      "/",
+                      1,
+                      2
+                    ]
+                  ]
+                },
+                {
+                  "operation": "+",
+                  "target": "zigzagSpaceGap",
+                  "args": [
+                    "zigzagEpsilon",
+                    "zigzagDelta"
+                  ]
+                },
+                {
+                  "operation": "/",
+                  "target": "zigzagBasicLayerChallengeFactor",
+                  "args": [
+                    1,
+                    "zigzagDelta"
+                  ]
+                },
+                {
+                  "operation": "*",
+                  "target": "zigzagBasicLayerChallenges",
+                  "args": [
+                    "zigzagLambda",
+                    "zigzagBasicLayerChallengeFactor"
+                  ]
+                },
+                {
+                  "operation": "*",
+                  "target": "totalUntaperedChallenges",
+                  "args": [
+                    "layers",
+                    "zigzagBasicLayerChallenges"
+                  ]
+                },
+                {
+                  "operation": "==",
+                  "target": "totalChallenges",
+                  "args": [
+                    "totalZigzagChallenges"
+                  ]
+                }
+              ],
+              "subsystems": null,
+              "data": null
+            }
+          ],
+          "data": [
+            {
+              "zigzagDelta": 0.003,
+              "zigzagTaper": 0.33333334,
+              "zigzagLambda": 8,
+              "zigzagEpsilon": 0.007
+            }
+          ]
+        }
+      ],
+      "data": [
+        {
+          "nodeBytes": 32,
+          "sectorGib": 32
+        },
+        {
+          "layers": 10,
+          "partitions": 1,
+          "slothIter": 0,
+          "baseDegree": 5,
+          "expansionDegree": 8,
+          "betaMerkleHeight": 0,
+          "kdfHashFunctionName": "blake2s",
+          "betaHashFunctionName": "blake2s",
+          "benchCircuitConstraints": 16000000,
+          "merkleHashFunctionName": "pedersen",
+          "singleCircuitProofSize": 192,
+          "benchCircuitProvingTime": 167.1,
+          "singleSlothIterationTime": 123,
+          "totalZigzagOtherConstraints": 0,
+          "alphaMerkleHashFunctionName": "pedersen",
+          "singleSlothIterationConstraints": 321
+        },
+        {
+          "hashFunctions": {
+            "tuples": [
+              {
+                "hashFunctionName": "blake2s",
+                "hashFunctionSize": 32,
+                "hashFunctionTime": 1.6055e-07,
+                "hashFunctionConstraints": 10324
+              },
+              {
+                "hashFunctionName": "pedersen",
+                "hashFunctionSize": 32,
+                "hashFunctionTime": 1.7993e-05,
+                "hashFunctionConstraints": 1152
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema": {
+        "description": "Filecoin Requirements -- sine qua non (without which not)",
+        "parameters": [
+          {
+            "name": "mustHaveFilecoin",
+            "description": "WE MUST HAVE FILECOIN -- SWEET, SWEET FILECOIN.",
+            "type": null
+          },
+          {
+            "name": "spaceGapSatisfied",
+            "description": "Is the actual space gap less than or equal to the maximum allowable space gap?",
+            "type": null
+          },
+          {
+            "name": "filecoinRequirementsSatisfied",
+            "description": "Are the Filecoin requirements all satisfied?",
+            "type": null
+          },
+          {
+            "name": "minimumOneYearRoi",
+            "description": "Minimum allowable ROI after one year.",
+            "type": null
+          },
+          {
+            "name": "minimumTwoYearRoi",
+            "description": "Minimum allowable ROI after two years.",
+            "type": null
+          },
+          {
+            "name": "minimumThreeYearRoi",
+            "description": "Minimum allowable ROI after three years.",
+            "type": null
+          },
+          {
+            "name": "minimumStorageToProofSizeRatio",
+            "description": "Minimum necessary storage to on-chain proof ratio.",
+            "type": null
+          },
+          {
+            "name": "profit",
+            "description": "… Profit.",
+            "type": null
+          }
+        ],
+        "subschemas": null
+      },
+      "components": null,
+      "subsystems": [
+        {
+          "schema": null,
+          "components": [
+            {
+              "operation": "<=",
+              "target": "spaceGapSatisfied",
+              "args": [
+                "zigzagSpaceGap",
+                "maximumAllowableSpaceGap"
+              ]
+            },
+            {
+              "operation": ">=",
+              "target": "oneYearRoiSatisfied",
+              "args": [
+                "oneYearRoi",
+                "minimumOneYearRoi"
+              ]
+            },
+            {
+              "operation": ">=",
+              "target": "twoYearRoiSatisfied",
+              "args": [
+                "twoYearRoi",
+                "minimumTwoYearRoi"
+              ]
+            },
+            {
+              "operation": ">=",
+              "target": "threeYearRoiSatisfied",
+              "args": [
+                "threeYearRoi",
+                "minimumThreeYearRoi"
+              ]
+            },
+            {
+              "operation": "AND",
+              "target": "filecoinRoiRequirement1",
+              "args": [
+                "oneYearRoiSatisfied",
+                "twoYearRoiSatisfied"
+              ]
+            },
+            {
+              "operation": "AND",
+              "target": "filecoinRoiRequirement",
+              "args": [
+                "filecoinRoiRequirement1",
+                "threeYearRoiSatisfied"
+              ]
+            },
+            {
+              "operation": ">=",
+              "target": "filecoinStorageRatioSatisfied",
+              "args": [
+                "storageToProofSizeRatio",
+                "minimumStorageToProofSizeRatio"
+              ]
+            },
+            {
+              "operation": "==",
+              "target": "filecoinPorepSecurityRequirementsSatisfied",
+              "args": [
+                "spaceGapSatisfied"
+              ]
+            },
+            {
+              "operation": "AND",
+              "target": "filecoinPorepRequirementsSatisfied",
+              "args": [
+                "filecoinPorepSecurityRequirementsSatisfied",
+                "filecoinStorageRatioSatisfied"
+              ]
+            },
+            {
+              "operation": "AND",
+              "target": "filecoinRequirementsSatisfied",
+              "args": [
+                "filecoinRoiRequirement",
+                "filecoinPorepRequirementsSatisfied"
+              ]
+            },
+            {
+              "operation": "AND",
+              "target": "profit",
+              "args": [
+                "mustHaveFilecoin",
+                "filecoinRequirementsSatisfied"
+              ]
+            }
+          ],
+          "subsystems": null,
+          "data": null
+        }
+      ],
+      "data": [
+        {
+          "mustHaveFilecoin": true,
+          "minimumOneYearRoi": -2,
+          "minimumTwoYearRoi": 0.25,
+          "minimumThreeYearRoi": 1,
+          "maximumAllowableSpaceGap": 0.02,
+          "minimumStorageToProofSizeRatio": 42949670
+        }
+      ]
+    }
+  ],
+  "data": null
+}
