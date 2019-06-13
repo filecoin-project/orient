@@ -63,13 +63,9 @@
 	       (let ((*package* (find-package :orient.web)))
 		 (sb-impl::toplevel-repl nil))))
 	    ((:solve)
-	     (case calc-spec
-	       ((:zigzag)
-		(handle-calc :system system :input input :vars '(GiB-seal-time))
-		nil)
-	       (otherwise
-		(format *error-output* "No system specified.~%")
-		nil)))
+	     (cond
+	       (system (handle-calc :system system :input input))
+	       (t (format *error-output* "No system specified.~%"))))
 	    ((:dump)
 	     (dump-json :system system *out* :expand-references t))
 	    (otherwise
@@ -84,6 +80,6 @@
 
 (defun handle-calc (&key system vars input)
   (let ((solution (solve-for system vars nil :override-data input)))
-    (cl-json:encode-json (tuples solution) *out*)
+    (cl-json:encode-json (ensure-tuples solution) *out*)
     (terpri)))
 

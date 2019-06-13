@@ -17,7 +17,7 @@
 			  #:substitute #:substitute-if #:substitute-if-not
 			  #:some #:every #:notany #:notevery)
   (:export :dbg :display :aif :apply-transformation :ask :attributes :awhen :component :component-operation :component-args :component-target
-	   :constraint-system :defconstraint-system :display :expand-references
+	   :constraint-system :defconstraint-system :display :ensure-tuples :expand-references
 	   ::tuple :tuples :create-tuple-report-step
 	   :describe-transformation-calculation :defschema
 	   :deftransformation :deftransformation= :extract

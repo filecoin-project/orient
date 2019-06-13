@@ -22,6 +22,12 @@
 (defclass simple-relation (relation)
   ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
 
+(defgeneric ensure-tuples (thing)
+  (:method ((tuple wb-map))
+    (list tuple))
+  (:method ((relation relation))
+    (tuples relation)))
+
 (defmethod print-object ((relation relation) (stream t))
   (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
