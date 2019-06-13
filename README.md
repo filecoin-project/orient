@@ -121,7 +121,6 @@ You should get similar output from the shell:
 >  make test
 ```
 
-
 To start a web server, from REPL:
 
 ```lisp
@@ -129,6 +128,8 @@ To start a web server, from REPL:
 ```
 
 Then navigate to `http://localhost:8888`.
+
+To generate graphs, you will need [Graphviz](https://www.graphviz.org/).
 
 To generate and view graphs, `graphviz` must be installed locally, and `dot` must be in the path.
 
