@@ -16,7 +16,8 @@
 			  #:remove #:remove-if #:remove-if-not
 			  #:substitute #:substitute-if #:substitute-if-not
 			  #:some #:every #:notany #:notevery)
-  (:export :dbg :display :aif :apply-transformation :ask :attributes :awhen :component :constraint-system  :defconstraint-system :display :tuple :tuples
+  (:export :dbg :display :aif :apply-transformation :ask :attributes :awhen :component :component-operation :component-args :component-target
+	   :constraint-system :defconstraint-system :display :tuple :tuples	   
 	   :create-tuple-report-step
 	   :describe-transformation-calculation :defschema
 	   :deftransformation :deftransformation= :extract
@@ -24,7 +25,7 @@
 	   :forget :generate-directed-graph :it
 	   :implementation :implementation-module :implementation-name
 	   :tref :join :lookup-description :make-relation
-	   :make-signature :make-tuple
+	   :make-signature :make-tuple :operation
 	   :orient-tests :parameter :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :rename :report-data :report-solution-for
 	   :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
 	   :synthesize-report-steps :symbolconc :sys :system :system-components

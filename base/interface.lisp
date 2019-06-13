@@ -62,9 +62,7 @@
       (make-signature input output)))
   (:method ((type-spec (eql :schema)) (json list))
     (let ((description (cdr (assoc :description json)))
-	  (parameters (mapcar (lambda (json)
-				(<-json :parameter json))
-			      (cdr (assoc :parameters json)))))
+	  (parameters (extract-from-json-list :parameters :parameter json)))
       (make-instance 'schema :description description :parameters parameters)))
   (:method ((type-spec (eql :parameter)) (json list))
     (let ((name (schema-intern (cdr (assoc :name json))))
@@ -72,10 +70,7 @@
 	  (type-spec (schema-intern (cdr (assoc :type json)))))
       (make-instance 'parameter :name name :description description :type type-spec)))
   (:method ((type-spec (eql :component)) (json list))
-    (make-instance 'component
-		   :transformations (mapcar (lambda (json)
-					      (<-json :transformation json))
-					    (cdr (assoc :transformations json)))))
+    (make-instance 'component :transformations (extract-from-json-list :transformations :transformation json)))
   (:method ((type-spec (eql :system-spec)) (json t))
     (typecase json
       (string
@@ -84,19 +79,21 @@
       (list (<-json :system json))))
   (:method ((type-spec (eql :system)) (json list))
     (make-instance 'system
-		   :components (mapcar (lambda (json)
-					 (<-json :component json))
-				       (cdr (assoc :components json)))
-		   :subsystems (mapcar (lambda (json)
-		    			 (<-json :system-spec json))
-		    		       (cdr (assoc :subsystems json)))
-		   :schema (<-json :schema (cdr (assoc :schema json)))
-		   :data (<-json :data
-				 (mapcar (lambda (json)
-					   (<-json :data json))
-					 (cdr (assoc :data json))))))
+		   :components (extract-from-json-list :components :component json)
+		   :subsystems (extract-from-json-list :subsystems :system-spec json)
+		   :schema (extract-from-json :schema :schema json)
+		   :data (extract-from-json-list :data :data json)))
   ;;; TODO: :constraint-system
   )
+
+(defun extract-from-json (key type-spec json)
+  (<-json type-spec (cdr (assoc key json))))
+
+(defun extract-from-json-list (key type-spec json)
+  (mapcar (lambda (json)
+	    (<-json type-spec json))
+	  (cdr (assoc key json))))
+	  
 
 (defun load-pipeline (json-pathspec)
   (load-json :pipeline json-pathspec))
@@ -134,6 +131,18 @@
 	(encode-embedded-signature (transformation-signature transformation) stream)
 	(as-object-member (:implementation stream)
 	  (encode-implementation-json (transformation-implementation transformation) stream))))))
+
+(defmethod encode-json :around ((component component) &optional stream)
+  (cond
+    ((slot-boundp component 'operation)
+     (with-object (stream)
+       (as-object-member (:operation stream)
+	 (encode-json (symbol-name (component-operation component)) stream))
+       (as-object-member (:target stream)
+	 (encode-json (component-target component) stream))
+       (as-object-member (:args stream)
+	 (encode-json (component-args component) stream))))
+    (t (call-next-method))))
 
 (defun encode-implementation-json (impl stream)
   (typecase impl

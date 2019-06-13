@@ -29,7 +29,10 @@
    (source :initarg :source :initform nil :accessor transformation-source)))
 
 (defclass component ()
-  ((transformations :initarg :transformations :initform '() :accessor component-transformations)))
+  ((transformations :initarg :transformations :initform '() :accessor component-transformations)
+   (operation :initarg :operation :accessor component-operation)
+   (target :initarg :target :accessor component-target)
+   (args :initarg :args :accessor component-args)))
 
 (defclass implementation ()
   ((module :initarg :module :initform *package* :accessor implementation-module)

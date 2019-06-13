@@ -670,42 +670,47 @@
 
 ;; Only handles binary constraints, for now.
 (defun expand-constraint-definition (name constraint-form)
-  (etypecase constraint-form
-    (multiplication-constraint-form
-     (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (division-constraint-form
-     (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (addition-constraint-form
-     (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (subtraction-constraint-form
-     (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (log-constraint-form
-     (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (expt-constraint-form
-     (expand-expt-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (integer-constraint-form
-     (expand-integer-constraint name (first (cdr constraint-form))))
-    (equality-constraint-form
-     (expand-equality-constraint name (first (cdr constraint-form))))
-    #+(or)
-    (disequality-constraint-form
-     (expand-disequality-constraint name (first (cdr constraint-form))))
-    (and-constraint-form
-     (expand-and-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (less-than-constraint-form
-     (expand-less-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (less-than-or-equal-constraint-form
-     (expand-less-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (greater-than-constraint-form
-     (expand-greater-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-    (greater-than-or-equal-constraint-form
-     (expand-greater-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))))
+  `(macrolet ((%component (&body body)
+		`(component ,@body
+			    :operation ',',(car constraint-form)
+			    :target ',',name
+			    :args ',',(cdr constraint-form))))
+     ,(etypecase constraint-form
+	(multiplication-constraint-form
+	 (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(division-constraint-form
+	 (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(addition-constraint-form
+	 (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(subtraction-constraint-form
+	 (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(log-constraint-form
+	 (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(expt-constraint-form
+	 (expand-expt-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(integer-constraint-form
+	 (expand-integer-constraint name (first (cdr constraint-form))))
+	(equality-constraint-form
+	 (expand-equality-constraint name (first (cdr constraint-form))))
+	#+(or)
+	(disequality-constraint-form
+	 (expand-disequality-constraint name (first (cdr constraint-form))))
+	(and-constraint-form
+	 (expand-and-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(less-than-constraint-form
+	 (expand-less-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(less-than-or-equal-constraint-form
+	 (expand-less-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(greater-than-constraint-form
+	 (expand-greater-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
+	(greater-than-or-equal-constraint-form
+	 (expand-greater-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form)))))))
 
 (defun expand-multiplication-constraint (product a b)
   "PRODUCT = A * B"
-  `(component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
-	       (transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
-	       (transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
+  `(%component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
+		(transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
+		(transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
 
 
 (test multiplication-constraint
@@ -756,7 +761,7 @@
 
 (defun expand-addition-constraint (sum  a b)
   "SUM = A + B"
-  `(component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
+  `(%component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
 	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
 	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
 
@@ -804,7 +809,7 @@
 
 (defun expand-log-constraint (log n base)
   "LOG = (LOG N BASE)"
-  `(component ((transformation ((,n ,base) -> (,log)) == (log ,n ,base))
+  `(%component ((transformation ((,n ,base) -> (,log)) == (log ,n ,base))
 	       ;; TODO:
 	       ;(transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
 	       (transformation ((,base ,log) -> (,n)) == (expt ,base ,log)))))
@@ -828,7 +833,7 @@
 
 (defun expand-expt-constraint (pow base ex)
   "POW = (EXPT BASE EX)"
-  `(component ((transformation ((,base ,ex) -> (,pow)) == (expt ,base ,ex))
+  `(%component ((transformation ((,base ,ex) -> (,pow)) == (expt ,base ,ex))
 	       ;(transformation ((,ex ,pow) -> (,base)) == ;; need ex-th root of pow)
 	       (transformation ((,base ,pow) -> (,ex)) == (log ,pow ,base)))))
 
@@ -841,7 +846,7 @@
 
 (defun expand-integer-constraint (integer maybe-integer)
   "Returns a component which returns a relation binding INTEGER to MAYBE-INTEGER if it is equal to an integer, otherwise an empty relation."
-  `(component ((transformation ((,maybe-integer) => (,integer)) == (awhen (must-integer ,maybe-integer)
+  `(%component ((transformation ((,maybe-integer) => (,integer)) == (awhen (must-integer ,maybe-integer)
 								    `((,it))))
 	       (transformation ((,integer) => (,maybe-integer)) == (progn (check-type ,integer integer)
 									  `((,,integer)))))))
@@ -884,7 +889,7 @@
   ;; TODO: in general, constraints must be able to function as restrictions -- but they are at least sometimes now short-circuited
   ;; by the planning process. (may be fixed -- verify)
   "Sets A to B or vice versa." 
-  `(component ((transformation ((,a) -> (,b)) == ,a)
+  `(%component ((transformation ((,a) -> (,b)) == ,a)
 	       (transformation ((,b) -> (,a)) == ,b)
 	       ;; This is no longer needed because apply-transformation eliminates inconsistent transformations *and* transformations
 	       ;; are eagerly matched. 
@@ -910,7 +915,7 @@
 
 (defun  expand-less-than-constraint-form (result a b)
   "RESULT == A < B." 
-  `(component ((transformation ((,a ,b) -> (,result)) == (< ,a ,b)))))
+  `(%component ((transformation ((,a ,b) -> (,result)) == (< ,a ,b)))))
 
 (test less-than-constraint
   "Test CONSTRAINT-SYSTEM with a LESS-THAN-CONSTRAINT."
@@ -920,7 +925,7 @@
 
 (defun expand-less-than-or-equal-constraint-form (result a b)
   "RESULT == A <= B" 
-  `(component ((transformation ((,a ,b) -> (,result)) == (<= ,a ,b)))))
+  `(%component ((transformation ((,a ,b) -> (,result)) == (<= ,a ,b)))))
 
 (test less-than-or-equal-constraint
   "Test CONSTRAINT-SYSTEM with a LESS-THAN-OR-EQUAL-CONSTRAINT."
@@ -931,7 +936,7 @@
 
 (defun expand-greater-than-constraint-form (result a b)
   "RESULT == A > B." 
-  `(component ((transformation ((,a ,b) -> (,result)) == (> ,a ,b)))))
+  `(%component ((transformation ((,a ,b) -> (,result)) == (> ,a ,b)))))
 
 (test greater-than-constraint
   "Test CONSTRAINT-SYSTEM with a GREATER-THAN-CONSTRAINT."
@@ -941,7 +946,7 @@
 
 (defun expand-greater-than-or-equal-constraint-form (result a b)
   "RESULT == A >= B" 
-  `(component ((transformation ((,a ,b) -> (,result)) == (>= ,a ,b)))))
+  `(%component ((transformation ((,a ,b) -> (,result)) == (>= ,a ,b)))))
 
 (test greater-than-or-equal-constraint
   "Test CONSTRAINT-SYSTEM with a LESS-THAN-OR-EQUAL-CONSTRAINT."
@@ -953,7 +958,7 @@
 
 (defun expand-and-constraint (conjunction a b)
   "CONJUCTION = A && B"
-  `(component ((transformation ((,a ,b) -> (,conjunction)) == (and ,a ,b))
+  `(%component ((transformation ((,a ,b) -> (,conjunction)) == (and ,a ,b))
 	       (transformation ((,a ,conjunction) => (,b)) == (if ,a
 								  `((,(and ,conjunction ,a)))
 								  '((t) (nil))))

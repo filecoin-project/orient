@@ -129,8 +129,11 @@
      (progn (deftoplevel ,name (:transformation) (transformation ((,@input) ,arrow (,@output) :source (,name ,@input))
 								 == (progn ,@implementation))))))
 
-(defmacro component (transformations)
-  `(make-instance 'component :transformations (list ,@transformations)))
+(defmacro component (transformations &key operation target args)
+  `(make-instance 'component :transformations (list ,@transformations)
+		  ,@(and target (list :target target))
+		  ,@(and operation (list :operation operation))
+		  ,@(and args (list :args args))))
 
 (defmacro defcomponent (name (&rest transformations))
   `(deftoplevel ,name (:component) (make-instance 'component :transformations (list ,@transformations))))
