@@ -82,4 +82,3 @@
   (let ((solution (solve-for system vars nil :override-data input)))
     (cl-json:encode-json (ensure-tuples solution) *out*)
     (terpri)))
-

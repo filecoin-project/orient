@@ -7,9 +7,14 @@
 (defun make-tuple (&optional pairs dotted)
   (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
-(defmethod tref ((attribute t) (tuple wb-map))
+;; (defmethod tref ((attribute t) (tuple wb-map))
+;;   "Get value of ATTRIBUTE in TUPLE."
+;;   (@ tuple attribute))
+
+
+(defmacro tref (attribute tuple)
   "Get value of ATTRIBUTE in TUPLE."
-  (@ tuple attribute))
+  `(@ ,tuple ,attribute))
 
 (defclass relation () ())
 
@@ -181,15 +186,6 @@
        (subset? (signature-output s) (signature-output other))))
 
 (defun sig-equal (a b) (and (sig-subset-p a b) (sig-subset-p b a)))
-
-(defmethod provides-p ((s signature) (name symbol))
-  "Returns true if name is an output of signature."
-  (contains? (signature-output s) name))
-
-(defmethod provides ((output set) (s signature))
-  "Returns the names in OUTPUT which are provided as output of signature, S."
-  (set-intersection (signature-output s) output))
-
 
 (defmethod print-object ((trans transformation) (stream t))
   (let ((implementation (transformation-implementation trans)))
@@ -394,13 +390,6 @@
 
 (defvar *plan-profile*)
 
-(defun transformation-provides-p (signature transformation)
-  (provides (signature-output signature) (transformation-signature transformation)))
-
-(defun component-provides-p (signature component)
-  (some (lambda (transformation) (transformation-provides-p signature transformation))
-	(component-transformations component)))
-
 (defgeneric signature-satisfies-p (signature thing)
   (:documentation "True if thing's inputs are a subset of signature's.")
   (:method ((signature signature) (transformation transformation))
@@ -509,25 +498,27 @@
   (:method ((system-name symbol) (signature t) (initial-data t) &rest keys)
     (apply #'solve (find-system system-name) signature initial-data keys))
   (:method ((system system) (signature null) (initial-data t) &rest keys &key report override-data)
+    (declare (ignore report))
     (let* ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	   (signature (or signature (make-signature (attributes initial-value) (attributes initial-value)))))
       (apply #'solve system signature initial-value keys)))
   (:method ((system system) (signature signature) (initial-data t) &key report override-data)
     (let ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
-	  (plan (plan system signature))
-	  (report-results '()))
+	  (plan (plan system signature)))
       (and plan
 	   (satisfies-input-p initial-data signature)
-	   ;; TODO: Finish refactoring this to be cleaner.
-	   (let ((result (reduce (lambda (tuple-or-relation transformation)
-				   (let ((transformed (apply-transformation transformation tuple-or-relation)))
-				     (when report
-				       (setf report-results
-					     (append report-results (report-step transformed transformation system :format report))))
-				     transformed))
-				   plan
-				   :initial-value initial-value)))
-		 (values result plan (synthesize-report-steps report report-results) initial-value))))))
+	   (let* ((reducer (make-pipeline-reducer system :report report))
+		  (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
+	     (destructuring-bind (result report-results) reduce-result
+	       (values result plan (synthesize-report-steps report report-results) initial-value)))))))
+
+(defun make-pipeline-reducer (system &key report)
+  (lambda (acc transformation)
+    (destructuring-bind (tuple-or-relation report-results) acc
+      (let* ((transformed (apply-transformation transformation tuple-or-relation))
+	     (new-report (when report
+			   (append report-results (report-step transformed transformation system :format report)))))
+	(list transformed new-report)))))
 
 (defun report-step (step transformation system &key format)
   (let* ((tuples (ensure-tuples step))
@@ -584,6 +575,7 @@
   (mapcar (lambda (data) (report data system)) (system-data system)))
 
 (defun solve-for (system output &optional initial-data &key report override-data project-solution)
+  "Returns four values: solution, plan, report, and defaulted-data."
   (let* ((system (find-system system))
 	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (attributes defaulted) output)))

@@ -8,7 +8,6 @@
   (let ((binding-form 
          (lambda (var)
                 `(,var (gensym ,(format nil "~a-" (string var)))))))
-    (declare (dynamic-extent binding-form))
     `(let (,@(mapcar binding-form vars))
        ,@body)))
 
@@ -242,8 +241,7 @@
 ;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
 (defmacro xlambda ((&rest input) (&rest output) &body body)
   (let ((tuple (gensym "TUPLE"))
-	(out (gensym "OUTPUT"))
-	(supplied-pairs (gensym "PAIRS")))
+	(out (gensym "OUTPUT")))
     `(lambda (,tuple)
        (declare (ignorable ,tuple))
        (symbol-macrolet
