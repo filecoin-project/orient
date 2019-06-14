@@ -31,7 +31,7 @@
 	   :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :rename :report-data :report-solution-for
 	   :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
 	   :synthesize-report-steps :symbolconc :sys :system
-	   :system-components :system-data :system-schema :system-subsystems
+	   :system-components :system-data :system-name :system-schema :system-subsystems
 	   :tpl :transformation :transformation-implementation :transformation-name :transformation-signature :tref :trem :try-with
 	   :use-construction :use-attribute
 	   :where :with-construction :write-dot-format

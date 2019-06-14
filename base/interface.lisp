@@ -176,6 +176,9 @@
 
 (defmethod encode-json ((system system) &optional stream)
   (with-object (stream)
+    (awhen (system-name system)
+      (as-object-member (:name stream)
+	(encode-json it stream)))
     (awhen (system-schema system)
       (as-object-member (:schema stream)
 	(encode-json it stream)))

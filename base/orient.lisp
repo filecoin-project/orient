@@ -7,10 +7,6 @@
 (defun make-tuple (&optional pairs dotted)
   (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
-;; (defmethod tref ((attribute t) (tuple wb-map))
-;;   "Get value of ATTRIBUTE in TUPLE."
-;;   (@ tuple attribute))
-
 (defmacro tref (attribute tuple)
   "Get value of ATTRIBUTE in TUPLE."
   `(@ ,tuple ,attribute))
@@ -222,6 +218,7 @@
 (defgeneric expand-references (thing)
   (:method ((system system))
     (make-instance 'system
+		   :name (system-name system)
 		   :components (system-components system)
 		   :schema (find-schema (system-schema system))
 		   :subsystems (mapcar #'expand-references (system-subsystems system))

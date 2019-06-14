@@ -17,7 +17,8 @@
    (parameters :initarg :parameters :initform '() :accessor schema-parameters)))
 
 (defclass system ()
-  ((schema :initarg :schema :initform nil :accessor system-schema)
+  ((name :initarg :name :initform nil :accessor system-name)
+   (schema :initarg :schema :initform nil :accessor system-schema)
    (components :initarg :components :initform '() :accessor system-components)
    (subsystems :initarg :subsystems :initform '() :accessor system-subsystems)
    (data :initarg :data :initform '() :accessor system-data)))

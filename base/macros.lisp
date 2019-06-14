@@ -199,6 +199,7 @@
 (defmacro defconstraint-system (name constraint-definitions &key schema)  
   `(eval-when (:load-toplevel :compile-toplevel :execute)
      (let ((system (constraint-system ,constraint-definitions)))
+       (setf (system-name system) ',name)
        (awhen ,schema
 	 (setf (system-schema system) it))
        (deftoplevel ,name (:system) system))))
