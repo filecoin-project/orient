@@ -93,7 +93,7 @@
 
 (deftype transformation-arrow () '(or tlambda-arrow xlambda-arrow literal-arrow))
 
-(defmacro transformation (((&rest input-lambda-list) arrow (&rest output) &key source) eqmark implementation)
+(defmacro transformation (((&rest input-lambda-list) arrow (&rest output) &key source name) eqmark implementation)
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
   (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
@@ -102,21 +102,28 @@
     (etypecase arrow
             ;; -> tlambda
       (tlambda-arrow `(let ((sig (make-signature ',input ',output)))
-	     (make-instance 'transformation
-			    :signature sig
-			    :implementation (tlambda ,input-lambda-list ,output ,implementation)
-			    :source ,(if source
-					 `(quote ,source)
-					 `(quote ,implementation)))))
+			(make-instance 'transformation
+				       :name ',name
+				       :signature sig
+				       :implementation (tlambda ,input-lambda-list ,output ,implementation)
+				       :source ,(if source
+						    `(quote ,source)
+						    `(quote ,implementation)))))
       ;; => xlambda
       (xlambda-arrow `(let ((sig (make-signature ',input ',output)))
-			(make-instance 'transformation :signature sig :implementation (xlambda ,input-lambda-list ,output ,implementation))))
+			(make-instance 'transformation
+				       :name ',name
+				       :signature sig
+				       :implementation (xlambda ,input-lambda-list ,output ,implementation))))
       ;; ~> literal implementation
       (literal-arrow `(let ((sig (make-signature ',input ',output)))
-			(make-instance 'transformation :signature sig :implementation ,(make-instance 'implementation
-												      :module (package-name
-													       (symbol-package implementation))
-												      :name (symbol-name implementation))))))))
+			(make-instance 'transformation
+				       :name ',name
+				       :signature sig
+				       :implementation ,(make-instance 'implementation
+								       :module (package-name
+										(symbol-package implementation))
+								       :name (symbol-name implementation))))))))
 
 (defmacro deftoplevel (name (type) &body body)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -125,8 +132,14 @@
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (check-type arrow transformation-arrow)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
-     (progn (deftoplevel ,name (:transformation) (transformation ((,@input) ,arrow (,@output) :source (,name ,@input))
-								 == (progn ,@implementation))))))
+     (let* ((transformation (transformation ((,@input) ,arrow (,@output) :source (,name ,@input) :name ,name) == (progn ,@implementation)))
+	    (implementation (transformation-implementation transformation)))
+       ;; If transformation has a function implementation, associate it with transformation name as if by DEFUN,
+       ;; and replace implementation with the symbol.
+       ;; (when (functionp implementation)
+       ;; 	 (setf (symbol-function ',name) implementation)
+       ;; 	 (setf (transformation-implementation transformation) ',name))
+       (deftoplevel ,name (:transformation) transformation))))
 
 (defmacro component (transformations &key operation target args)
   `(make-instance 'component :transformations (list ,@transformations)

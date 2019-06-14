@@ -124,29 +124,90 @@
   (with-object (stream)
     (as-object-member (:transformation stream)
       (with-object (stream)
+	;; Can we just use the non-embedded signature?
 	(encode-embedded-signature (transformation-signature transformation) stream)
 	(as-object-member (:implementation stream)
-	  (encode-implementation-json (transformation-implementation transformation) stream))))))
+	  (encode-implementation-json transformation stream))))))
 
-(defmethod encode-json :around ((component component) &optional stream)
+(defun encode-implementation-json (transformation stream)
+  (let ((impl (transformation-implementation transformation)))
+    (typecase impl
+      (implementation (encode-json impl stream))
+      (symbol (encode-json-plist `(:module
+				   ,(lisp-to-camel-case (package-name (symbol-package impl)))
+				   :name
+				   ,(lisp-to-camel-case (symbol-name impl)))
+				 stream))
+      (t (awhen (transformation-name transformation)
+	   (with-object (stream)
+	     (as-object-member (:module stream)
+	       (encode-json (lisp-to-camel-case (package-name (symbol-package it))) stream))
+	     (as-object-member (:name stream)
+	       (encode-json (lisp-to-camel-case (symbol-name it)) stream))))))))
+
+(defvar *encode-constraint-component-formulas* t)
+(defvar *encode-constraint-component-structure* nil)
+
+(defmethod encode-json ((component component) &optional stream)
   (cond
-    ((slot-boundp component 'operation)
+    ((component-operation component)
      (with-object (stream)
-       (as-object-member (:operation stream)
-	 (encode-json (symbol-name (component-operation component)) stream))
-       (as-object-member (:target stream)
-	 (encode-json (component-target component) stream))
-       (as-object-member (:args stream)
-	 (encode-json (component-args component) stream))))
-    (t (call-next-method))))
+       (when *encode-constraint-component-structure*
+	 (as-object-member (:operation stream)
+	   (encode-json (symbol-name (component-operation component)) stream))
+	 (as-object-member (:target stream)
+	   (encode-json (component-target component) stream))
+	 (as-object-member (:args stream)
+	   (encode-json (component-args component) stream)))
+       (when *encode-constraint-component-formulas*
+	 (encode-constraint component stream))))
+    (t
+     (with-object (stream)
+       (as-object-member (:transformations stream)
+	 (encode-json (component-transformations component) stream)
+	 )))))
 
-(defun encode-implementation-json (impl stream)
-  (typecase impl
-    (implementation (encode-json impl stream))
-    (symbol (encode-json-plist `(:module ,(package-name (symbol-package impl)) :name ,(symbol-name impl)) stream))
-    (function (encode-json-plist `(:source ,(with-output-to-string (out)
-					      (write (function-lambda-expression impl) :stream out)))
-				 stream))))
+(defun encode-constraint (component stream)
+  (as-object-member ((component-target component) stream)
+    (encode-json (let ((*package* *schema-package*))
+		   (write-to-string `(,(component-operation component) ,@(component-args component))
+				    :case :downcase))
+		 stream)))
+
+(defmethod encode-json ((system system) &optional stream)
+  (with-object (stream)
+    (awhen (system-schema system)
+      (as-object-member (:schema stream)
+	(encode-json it stream)))
+    (awhen (system-components system)
+      (let ((constraint-components (remove-if-not #'component-operation it))
+	    (non-constraint-components (remove-if #'component-operation it)))
+	(when constraint-components
+	  (as-object-member (:constraints stream)
+	    (with-object (stream)
+	      (dolist (component constraint-components)
+		(encode-constraint component stream)))))
+	(when non-constraint-components
+	  (as-object-member (:components stream)
+	    (encode-json non-constraint-components stream)))))
+    (awhen (system-subsystems system)
+      (as-object-member (:subsystems stream)
+	(encode-json it stream)))
+    (awhen (system-data system)
+      (as-object-member (:data stream)
+	(encode-json it stream)))))
+
+(defmethod encode-json ((parameter parameter) &optional stream)
+  (with-object (stream)
+    (awhen (parameter-name parameter)
+      (as-object-member (:name stream)
+	(encode-json it stream)))
+    (awhen (parameter-description parameter)
+      (as-object-member (:description stream)
+	(encode-json it stream)))
+    (awhen (parameter-type parameter)
+      (as-object-member (:type stream)
+	(encode-json it stream)))))
 
 ;; TODO: roundtrip tests
 ;; TODO: there must be a cleaner/clearer way to do this.

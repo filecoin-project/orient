@@ -11,7 +11,6 @@
 ;;   "Get value of ATTRIBUTE in TUPLE."
 ;;   (@ tuple attribute))
 
-
 (defmacro tref (attribute tuple)
   "Get value of ATTRIBUTE in TUPLE."
   `(@ ,tuple ,attribute))
@@ -19,6 +18,7 @@
 (defclass relation () ())
 
 (defgeneric attributes (tuple)
+  (:method ((null null)) nil)
   (:method ((d wb-map)) (domain d))
   (:method ((r relation))
     (awhen (arb (tuples r))
@@ -207,6 +207,11 @@
     (reduce #'append (cons (system-components system)
 			   (mapcar #'all-system-components (system-subsystems system))))))
 
+(defgeneric all-system-schemas (system)
+  (:method ((system system))
+    (remove nil (cons (system-schema system)
+		      (mapcan #'all-system-schemas (system-subsystems system))))))
+
 (defgeneric all-system-data (system)
   (:method ((system system))
     (reduce #'append (cons (system-data system) (mapcar #'all-system-data (system-subsystems system))))))
@@ -276,8 +281,7 @@
 	 (same (parameter-type a) (parameter-type b))))
   (:method ((a schema) (b schema))
     (and (same (schema-description a) (schema-description b))
-	 (set-same-equal (schema-parameters a) (schema-parameters b))
-	 (same (convert 'set (schema-subschemas a)) (convert 'set (schema-subschemas b)))))
+	 (set-same-equal (schema-parameters a) (schema-parameters b))))
   (:method ((a system) (b system))
     (and (same (system-schema a) (system-schema b))
 	 (set-same-equal (system-components a) (system-components b))
@@ -338,7 +342,9 @@
 ;; TODO: Transformation should fail if any output changes the value of an input.
 (defgeneric apply-transformation (transformation tuple)
   (:method ((f function) (tuple wb-map))
-    ;; All transformation applications need to go through here.
+    ;;; This is where the real work happens.
+    ;;; All transformation applications need to go through here.
+    
     (let* ((result (funcall f tuple)))
       (join tuple result)))
   (:method ((impl implementation) (tuple t))
@@ -364,8 +370,7 @@
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
 	    list
-	    :initial-value tuple))
-  )
+	    :initial-value tuple)))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
