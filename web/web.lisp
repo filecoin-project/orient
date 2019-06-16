@@ -110,7 +110,7 @@
 				    &body body)
   (let* ((graph-uri (format nil "~A-graph" uri))
 	 (graph-name (symbolconc base-name '-graph))
-	 (test-name (symbolconc 'test- base-name))
+	 (test-name (symbolconc 'test- base-name '-web))
 	 (graph-namestring (symbol-name graph-name)))
     `(eval-when
 	 (:compile-toplevel :load-toplevel :execute)
@@ -150,7 +150,7 @@
   (let ((image-file (make-pathname :directory "tmp" :name tmp-name :type format)))
     (orient::dot
      (orient::dot-format
-      (generate-directed-graph plan) nil :base-url base-url)
+      (generate-directed-graph plan) :base-url base-url)
      :layout layout
      :format format
      :output-file image-file)

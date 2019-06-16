@@ -336,7 +336,7 @@
 
 (deftype transformation-spec () '(or transformation symbol))
 
-;; TODO: Transformation should fail if any output changes the value of an input.
+;; TODO: Transformation should fail if any input is removed from output.
 (defgeneric apply-transformation (transformation tuple)
   (:method ((f function) (tuple wb-map))
     ;;; This is where the real work happens.
@@ -355,12 +355,12 @@
   (:method ((transformation transformation) (tuple wb-map))
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple))
-  (:method ((transformation transformation) (relation simple-relation))
+  (:method ((transformation t) (relation simple-relation))
     ;; TODO: Can we use GMAP here?
     (reduce #'combine-potential-relations
 	    (image (lambda (tuple)
 		      (apply-transformation transformation tuple))
-		    (tuples relation))
+		   (tuples relation))
 	    :initial-value nil))
   (:method ((list list) (tuple wb-map))
     (check-type list (cons transformation-spec))
@@ -472,6 +472,13 @@
       (do-map (attr val override-data)
 	(adjoinf defaulted attr val)))
     defaulted))
+
+(defgeneric transformation-description (transformation)
+  (:method ((transformation transformation))
+    (let ((source (transformation-source transformation)))
+      (typecase source
+	(null "<?>")
+	(t nil (format nil "~A" source))))))
 
 (defgeneric describe-transformation-calculation (transformation)
   (:method ((transformation transformation))
@@ -638,381 +645,13 @@
        do (format stream "~A -> ~A ~%" (make-label dependency) (make-label node :url "xxx" :target "yyy")))
     (format stream "}~%")))
 
-(defun dot-format (directed-graph stream &key base-url)
-  (with-output-to-string (stream)
-    (write-dot-format directed-graph stream :base-url base-url)))
+(defun dot-format (directed-graph &key base-url)
+  (with-output-to-string (out)
+    (write-dot-format directed-graph out :base-url base-url)))
 
 (defun dot (dot-format &key format output-file (layout "dot"))
   (with-input-from-string (in dot-format)
     (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Constraints
-
-(defun expand-constraint-definitions (constraint-definitions)
-  `(list ,@(mapcar (lambda (constraint-form) (apply #'expand-constraint-definition constraint-form)) constraint-definitions)))
-
-;;; TODO: Definer macro to simplify defining new constraints.
-
-(deftype multiplication-constraint-form () '(cons (eql *)))
-(deftype division-constraint-form () '(cons (eql /)))
-(deftype addition-constraint-form () '(cons (eql +)))
-(deftype subtraction-constraint-form () '(cons (eql -)))
-(deftype log-constraint-form () '(cons (eql log)))
-(deftype expt-constraint-form () '(cons (eql expt)))
-(deftype integer-constraint-form () '(cons (eql integer)))
-(deftype equality-constraint-form () '(cons (eql ==)))
-(deftype disequality-constraint-form () '(cons (eql =/=)))
-(deftype less-than-constraint-form () '(cons (eql <)))
-(deftype greater-than-constraint-form () '(cons (eql >)))
-(deftype less-than-or-equal-constraint-form () '(cons (eql <=)))
-(deftype greater-than-or-equal-constraint-form () '(cons (eql >=)))
-
-(deftype and-constraint-form () '(cons (eql and)))
-
-(deftype constraint-form () '(or multiplication-constraint-form division-constraint-form addition-constraint-form subtraction-constraint-form
-			      log-constraint-form expt-constraint-form integer equality-constraint-form disequality-constraint-form and-constraint-form
-			      less-than-constraint-form greater-than-constraint-form
-			      less-than-or-equal-constraint-form
-			      greater-than-or-equal-constraint-form))
-
-;; Only handles binary constraints, for now.
-(defun expand-constraint-definition (name constraint-form)
-  `(macrolet ((%component (&body body)
-		`(component ,@body
-			    :operation ',',(car constraint-form)
-			    :target ',',name
-			    :args ',',(cdr constraint-form))))
-     ,(etypecase constraint-form
-	(multiplication-constraint-form
-	 (expand-multiplication-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(division-constraint-form
-	 (expand-division-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(addition-constraint-form
-	 (expand-addition-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(subtraction-constraint-form
-	 (expand-subtraction-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(log-constraint-form
-	 (expand-log-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(expt-constraint-form
-	 (expand-expt-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(integer-constraint-form
-	 (expand-integer-constraint name (first (cdr constraint-form))))
-	(equality-constraint-form
-	 (expand-equality-constraint name (first (cdr constraint-form))))
-	#+(or)
-	(disequality-constraint-form
-	 (expand-disequality-constraint name (first (cdr constraint-form))))
-	(and-constraint-form
-	 (expand-and-constraint name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(less-than-constraint-form
-	 (expand-less-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(less-than-or-equal-constraint-form
-	 (expand-less-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(greater-than-constraint-form
-	 (expand-greater-than-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form))))
-	(greater-than-or-equal-constraint-form
-	 (expand-greater-than-or-equal-constraint-form name (first (cdr constraint-form)) (second (cdr constraint-form)))))))
-
-(defun expand-multiplication-constraint (product a b)
-  "PRODUCT = A * B"
-  `(%component ((transformation ((,a ,b) -> (,product)) == (* ,a ,b))
-		(transformation ((,a ,product) -> (,b)) == (/ ,product ,a))
-		(transformation ((,b ,product) -> (,a)) == (/ ,product ,b)))))
-
-
-(test multiplication-constraint
-  "Test CONSTRAINT-SYSTEM with two multiplication contraints."
-  (let* ((system (constraint-system
-		  ((c (* a b))
-		   (d (* a c)))))
-	 (satsifying-assignment (tuple (a 3) (b 2) (c 6) (d 18))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(a b) (tuple (c 6) (d 18)))))    
-    (is (same satsifying-assignment
-	      (solve-for system '(a d) (tuple (b 2) (c 6)))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(b c) (tuple (a 3) (d 18)))))
-    (is (same satsifying-assignment
-	      (solve-for system '(b d) (tuple (a 3) (c 6)))))
-    
-    (is (same satsifying-assignment
-	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
-
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (a 3) (b 2) (c 5) (d 10)))))
-    
-    ;; This one can't (currently) be solved.
-    (is (same nil 
-	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
-
-(defun expand-division-constraint (quotient dividend divisor)
-  "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
-  (expand-multiplication-constraint dividend quotient divisor))
-
-(test division-constraint
-  "Test CONSTRAINT-SYSTEM with a division constraint."
-  (let* ((system (constraint-system ((z (/ x y)))))
-	 (satisfying-assignment (tuple (z 3) (x 12) (y 4))))
-    (is (same satisfying-assignment
-	      (solve-for system '(z) (tuple (x 12) (y 4)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(x) (tuple (y 4) (z 3)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(y) (tuple (x 12) (z 3)))))
-
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (z 3) (x 12) (y 5)))))
-    ))
-
-(defun expand-addition-constraint (sum  a b)
-  "SUM = A + B"
-  `(%component ((transformation ((,a ,b) -> (,sum)) == (+ ,a ,b))
-	       (transformation ((,a ,sum) -> (,b)) == (- ,sum ,a))
-	       (transformation ((,b ,sum) -> (,a)) == (- ,sum ,b)))))
-
-(test addition-constraint
-  "Test CONSTRAINT-SYSTEM with two addition contraints."
-  (let* ((system (constraint-system
-		  ((c (+ a b))
-		   (d (+ a c)))))
-	 (satsifying-assignment (tuple (a 3) (b 2) (c 5) (d 8))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(a b) (tuple (c 5) (d 8)))))    
-    (is (same satsifying-assignment
-	      (solve-for system '(a d) (tuple (b 2) (c 5)))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(b c) (tuple (a 3) (d 8)))))
-    (is (same satsifying-assignment
-	      (solve-for system '(b d) (tuple (a 3) (c 5)))))
-    
-    (is (same satsifying-assignment
-	      (solve-for system '(c d) (tuple (a 3) (b 2)))))
-
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (a 3) (b 2) (c 5) (d 9)))))
-
-    ;; This one can't (currently) be solved. TODO: Return relation of factorization tuples.
-    (is (same nil 
-	      (solve-for system '(a c) (tuple (b 2) (d 8)))))))
-
-(defun expand-subtraction-constraint (difference minuend subtrahend)
-  "MINUEND - SUBTRAHEND = DIFFERENCE => MINUEND = DIFFERENCE + SUBTRAHEND"
-  (expand-addition-constraint MINUEND DIFFERENCE SUBTRAHEND))
-
-(test subtraction-constraint
-  "Test CONSTRAINT-SYSTEM with a division constraint."
-  (let* ((system (constraint-system ((z (- x y)))))
-	 (satisfying-assignment (tuple (z 8) (x 12) (y 4))))
-    (is (same satisfying-assignment
-	      (solve-for system '(z) (tuple (x 12) (y 4)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(x) (tuple (y 4) (z 8)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
-
-(defun expand-log-constraint (log n base)
-  "LOG = (LOG N BASE)"
-  `(%component ((transformation ((,n ,base) -> (,log)) == (log ,n ,base))
-	       ;; TODO:
-	       ;(transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
-	       (transformation ((,base ,log) -> (,n)) == (expt ,base ,log)))))
-
-(test log-constraint
-  "Test CONSTRAINT-SYSTEM with a log constraint."
-  (let* ((system (constraint-system ((l (log n base)))))
-	 (satisfying-assignment (tuple (base 2) (n 8.0) (l 3.0))))
-
-    (is (same satisfying-assignment
-	      (solve-for system '(l) (tuple (base 2) (n 8.0)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(n) (tuple (base 2) (l 3.0)))))
-
-    (is (not (same satisfying-assignment
-		   (solve-for system '(l) (tuple (base 3) (n 8.0))))))
-
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (base 3) (n 8.0) (l 5.0)))))
-    ))
-
-(defun expand-expt-constraint (pow base ex)
-  "POW = (EXPT BASE EX)"
-  `(%component ((transformation ((,base ,ex) -> (,pow)) == (expt ,base ,ex))
-	       ;(transformation ((,ex ,pow) -> (,base)) == ;; need ex-th root of pow)
-	       (transformation ((,base ,pow) -> (,ex)) == (log ,pow ,base)))))
-
-
-(defun must-integer (n)
-  "Returns N if it is equivalent to an integer, otherwise NIL."
-  (multiple-value-bind (div rem)
-      (floor n)
-    (and (zerop rem) div)))
-
-(defun expand-integer-constraint (integer maybe-integer)
-  "Returns a component which returns a relation binding INTEGER to MAYBE-INTEGER if it is equal to an integer, otherwise an empty relation."
-  `(%component ((transformation ((,maybe-integer) => (,integer)) == (awhen (must-integer ,maybe-integer)
-								    `((,it))))
-	       (transformation ((,integer) => (,maybe-integer)) == (progn (check-type ,integer integer)
-									  `((,,integer)))))))
-
-(defgeneric transformation-description (transformation)
-  (:method ((transformation transformation))
-    (let ((source (transformation-source transformation)))
-      (typecase source
-	((or constraint-form (and symbol (not null))) (format nil "~A" source))
-	(null "<?>")
-	(t nil (format nil "~A" source))))))
-
-(test integer-constraint
-  "Test CONSTRAINT-SYSTEM with an integer constraint."
-  (let* ((system (constraint-system ((k (integer n))))))
-    
-    (is (same (relation (k n) (4 4.0))
-     	      (solve-for system '(k) (tuple (n 4.0)))))
-    (is (same (relation (k n) (4 4))
-    	      (solve-for system '(k) (tuple (n 4)))))
-
-    (is (same (relation (k n) (4 4))
-    	      (solve-for system '(n) (tuple (k 4)))))
-    (is (same (relation (k n) (4 4))
-    	      (solve-for system '(n) (tuple (k 4)))))
-
-    ;; It is a program error for the INTEGER input to the INTEGER constraint not to be an integer.
-    (signals (type-error) (solve-for system '(n) (tuple (k 4.0))))
-
-    ;; Inconsistent data are not produced. NOTE: Most such constraints yield NIL, but this explicitly produces an empty relation. Normalize?
-    (is (same (relation (k n))
-	      (solve-for system '() (tuple (k 3) (n 4.0)))))
-    
-    (is (same (relation (k n)) ;; Empty relation with expected heading.
-    	      (solve-for system '(k) (tuple (n 4.1)))))
-    ))
-
-
-(defun expand-equality-constraint (a b)
-  ;; TODO: in general, constraints must be able to function as restrictions -- but they are at least sometimes now short-circuited
-  ;; by the planning process. (may be fixed -- verify)
-  "Sets A to B or vice versa." 
-  `(%component ((transformation ((,a) -> (,b)) == ,a)
-	       (transformation ((,b) -> (,a)) == ,b)
-	       ;; This is no longer needed because apply-transformation eliminates inconsistent transformations *and* transformations
-	       ;; are eagerly matched. 
-	       #+(or)
-	       (transformation ((,a ,b) => (,a ,b)) == (awhen (same ,a ,b)
-							 `((,,a ,,b))))
-	       )))
-
-(test equality-constraint
-  "Test CONSTRAINT-SYSTEM with an equality constraint."
-  (let ((system (constraint-system ((a (== b)))))
-	(satsifying-assignment (tuple (a 1) (b 1))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(a) (tuple (b 1)))))
-
-    (is (same satsifying-assignment
-	      (solve-for system '(b) (tuple (a 1)))))
-
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '(a b) (tuple (a 1) (b 2)))))))
-
-
-(defun  expand-less-than-constraint-form (result a b)
-  "RESULT == A < B." 
-  `(%component ((transformation ((,a ,b) -> (,result)) == (< ,a ,b)))))
-
-(test less-than-constraint
-  "Test CONSTRAINT-SYSTEM with a LESS-THAN-CONSTRAINT."
-  (let ((system (constraint-system ((x (< a b))))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 1) (b 2)))))
-    (is (same (tuple (x nil)) (ask system '(x) (tuple (a 2) (b 2)))))))
-
-(defun expand-less-than-or-equal-constraint-form (result a b)
-  "RESULT == A <= B" 
-  `(%component ((transformation ((,a ,b) -> (,result)) == (<= ,a ,b)))))
-
-(test less-than-or-equal-constraint
-  "Test CONSTRAINT-SYSTEM with a LESS-THAN-OR-EQUAL-CONSTRAINT."
-  (let ((system (constraint-system ((x (<= a b))))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 1) (b 2)))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 2) (b 2)))))
-    (is (same (tuple (x nil)) (ask system '(x) (tuple (a 3) (b 2)))))))
-
-(defun expand-greater-than-constraint-form (result a b)
-  "RESULT == A > B." 
-  `(%component ((transformation ((,a ,b) -> (,result)) == (> ,a ,b)))))
-
-(test greater-than-constraint
-  "Test CONSTRAINT-SYSTEM with a GREATER-THAN-CONSTRAINT."
-  (let ((system (constraint-system ((x (> a b))))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 3) (b 2)))))
-    (is (same (tuple (x nil)) (ask system '(x) (tuple (a 2) (b 2)))))))
-
-(defun expand-greater-than-or-equal-constraint-form (result a b)
-  "RESULT == A >= B" 
-  `(%component ((transformation ((,a ,b) -> (,result)) == (>= ,a ,b)))))
-
-(test greater-than-or-equal-constraint
-  "Test CONSTRAINT-SYSTEM with a LESS-THAN-OR-EQUAL-CONSTRAINT."
-  (let ((system (constraint-system ((x (>= a b))))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 3) (b 2)))))
-    (is (same (tuple (x t)) (ask system '(x) (tuple (a 2) (b 2)))))
-    (is (same (tuple (x nil)) (ask system '(x) (tuple (a 1) (b 2)))))))
-
-
-(defun expand-and-constraint (conjunction a b)
-  "CONJUCTION = A && B"
-  `(%component ((transformation ((,a ,b) -> (,conjunction)) == (and ,a ,b))
-	       (transformation ((,a ,conjunction) => (,b)) == (if ,a
-								  `((,(and ,conjunction ,a)))
-								  '((t) (nil))))
-	       (transformation ((,b ,conjunction) => (,a)) == (if ,b
-								  `((,(and ,conjunction ,b)))
-								  '((t) (nil)))))))
-
-(test and-constraint
-  "Test CONSTRAINT-SYSTEM with AND contraint."
-  (let* ((system (constraint-system
-		  ((c (and a b)))))
-	 (sa-1 (tuple (a t) (b t) (c t)))
-	 (sa-2 (tuple (a t) (b nil) (c nil)))
-	 (sa-3 (tuple (a nil) (b nil) (c nil)))
-	 (sa-4 (tuple (a nil) (b t) (c nil))))
-
-    (is (same (rel sa-1) (solve-for system '(a) (tuple (b t) (c t)))))
-    (is (same (rel sa-1) (solve-for system '(b) (tuple (a t) (c t)))))
-    (is (same sa-1 (solve-for system '(c) (tuple (a t) (b t)))))
-
-    (is (same (rel sa-2 sa-3) (solve-for system '(a) (tuple (b nil) (c nil)))))
-    (is (same (rel sa-2) (solve-for system '(b) (tuple (a t) (c nil)))))
-    (is (same sa-2 (solve-for system '(c) (tuple (a t) (b nil)))))
-
-    (is (same (rel sa-2 sa-3) (solve-for system '(a) (tuple (b nil) (c nil)))))
-    (is (same (rel sa-3 sa-4) (solve-for system '(b) (tuple (a nil) (c nil)))))
-    (is (same sa-3 (solve-for system '(c) (tuple (a nil) (b nil)))))
-
-    (is (same (rel sa-2 sa-3) (solve-for system '(a) (tuple (b nil) (c nil)))))
-    (is (same (rel  sa-3 sa-4) (solve-for system '(b) (tuple (a nil) (c nil)))))
-    (is (same sa-4 (solve-for system '(c) (tuple (a nil) (b t)))))
-    
-    ;; Inconsistent data are not produced.
-    (is (null (solve-for system '() (tuple (a t) (b nil) (c t)))))
-    ))
-
-(test constraint-constants
-  "Test CONSTRAINT-SYSTEM with some constants."
-  (let* ((system (constraint-system ((c (+ a 2)))))
-	 (satisfying-assignment (tuple (a 3) (c 5))))
-
-    (is (same satisfying-assignment
-	      (solve-for system '(a) (tuple (c 5)))))
-    (is (same satisfying-assignment
-	      (solve-for system '(c) (tuple (a 3)))))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples

@@ -294,7 +294,7 @@ Which is
      (layer-replication-time (* single-node-encoding-time merkle-tree-leaves))
      (replication-time (* layers layer-replication-time))
      (replication-time-per-byte (/ replication-time sector-size))
-     (replication-time-per-GiB (* replication-time-per-byte (* 1024 1024 1024)))
+     (replication-time-per-GiB (* replication-time-per-byte #.(* 1024 1024 1024)))
 
      (single-layer-merkle-hashing-time (* merkle-tree-hash-count merkle-hash-function-time))
      (total-merkle-trees (+ layers 1))
@@ -333,7 +333,7 @@ Which is
   (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction"))
 
 (defconstraint-system zigzag-security-constraint-system
-    ((zigzag-lambda (log zigzag-soundness (/ 1 2)))
+    ((zigzag-lambda (log zigzag-soundness #.(/ 1 2)))
      (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
      (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
      (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))

@@ -99,7 +99,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
      (TiB-capacity (/ GiB-capacity 1024))
      (monthly-TiB (/ TiB-capacity miner-months-to-capacity)) 
-     (daily-TiB (/ monthly-TiB (/ 365 12)))
+     (daily-TiB (/ monthly-TiB #.(/ 365 12)))
      (hourly-TiB (/ daily-Tib 24))
      (hourly-GiB (* hourly-TiB 1024)) 
      (up-front-drive-cost (* TiB-drive-cost TiB-capacity))
