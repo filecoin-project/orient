@@ -20,6 +20,7 @@
     (awhen (arb (tuples r))
 	 (attributes it))))
 
+;; TODO: Make TUPLES accept an optional conversion type to simplifying getting list for iteration.
 (defclass simple-relation (relation)
   ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
 
