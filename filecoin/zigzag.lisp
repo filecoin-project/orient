@@ -382,8 +382,7 @@ Which is
 				   (component ((find-transformation 'extract-kdf-hash-function-components))))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
 				   (find-system 'merkle-tree-constraint-system)
-				   (zigzag-security-system)
-				   )
+				   (zigzag-security-system))
 		 :data (list *defaults*
 			     *zigzag-defaults*
 			     (tuple (hash-functions *hash-functions*)))))

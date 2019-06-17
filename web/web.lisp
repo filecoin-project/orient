@@ -50,7 +50,7 @@
 		      :body-html (with-output-to-string (*html-output-stream*)
 				   (html ,@body))))
 
-(defun report-page (&key vars system initial-data override-data style)
+(defun report-page (&key vars system initial-data override-data)
   (multiple-value-bind (report solution defaulted-data plan)
       (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data :project-solution t
 			   :return-plan t)
@@ -59,8 +59,8 @@
       (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
       `(:div
 	,@(when override-data
-	    (:div (list :p (format nil "Supplied: ~s" override-data))
-		  (:hr)))
+	    (list `(:div (:p ,(format nil "Supplied: ~s" override-data))
+			 (:hr))))
 	((:div :style "background-color:lightgrey")
 	 (:p (:h3 "Solution ") ,(present-data :html solution system))
 	 (:hr))

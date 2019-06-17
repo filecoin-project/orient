@@ -27,14 +27,16 @@
       (&parameters (in (in "FILE" "JSON input file, specify -- to use stdin"))
 		   (out (out "FILE" "JSON output file, otherwise stdout"))
 		   (calc (calc  "{filecoin, performance, zigzag, fc-no-zigzag}"  "Calculator to use"))
-		   (port (port "port-number" "porton to listen on"))
+		   (port (port "port-number" "port to listen on"))
+		   (merge (merge nil "merge inputs with (instead of replacing) defaults"))
 		   (command (command "{dump, solve, web}" "<COMMAND>: may be provided as free token (without flag)."))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
 					    "out" "o"
 					    "calc" "c"
 					    "port" "p"
-					    "command" "c") ;; Need to include all parameters from WITH-CLI-OPTIONS here.
+					    "command" "c"
+					    "merge" "m") ;; Need to include all parameters from WITH-CLI-OPTIONS here.
 			(lambda (option value) (declare (ignore option value)))
 			(lambda (free-val) (declare (ignore free-val))))
     (destructuring-bind (&optional arg0 free-command &rest subcommands) commands
@@ -63,8 +65,11 @@
 	       (let ((*package* (find-package :orient.web)))
 		 (sb-impl::toplevel-repl nil))))
 	    ((:solve)
-	     (cond
-	       (system (handle-calc :system system :input input))
+	     (cond	       
+	       (system
+		(let ((override-data (and merge input))
+		      (input (and (not merge) input)))
+		  (handle-calc :system system :input input :override-data override-data)))
 	       (t (format *error-output* "No system specified.~%"))))
 	    ((:dump)
 	     (dump-json :system system *out* :expand-references t))
@@ -78,7 +83,7 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defun handle-calc (&key system vars input)
-  (let ((solution (solve-for system vars nil :override-data input)))
+(defun handle-calc (&key system vars input override-data)
+  (let ((solution (solve-for system vars input :override-data override-data)))
     (cl-json:encode-json (ensure-tuples solution) *out*)
     (terpri)))
