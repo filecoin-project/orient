@@ -63,3 +63,7 @@
 	  (relation (SEAL-COST SEAL-TIME) (108.01221 289372.25))))
     (is (same expected result))))
 
+
+(test filecoin-system-json
+  ;; TODO: Transformation interfaces, so we don't have to specify :PARSING-ONLY.
+  (interface:test-roundtrip :system (filecoin-system) :parsing-only t))

@@ -2,7 +2,8 @@
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
-  (:export :*schema-package* :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json)
+  (:export :*schema-package* :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
+	   :test-roundtrip)
   (:nicknames :interface))
 
 (in-package "INTERFACE")
@@ -125,25 +126,27 @@
     (as-object-member (:transformation stream)
       (with-object (stream)
 	;; Can we just use the non-embedded signature?
-	(encode-embedded-signature (transformation-signature transformation) stream)
-	(as-object-member (:implementation stream)
-	  (encode-implementation-json transformation stream))))))
+	(encode-embedded-signature (transformation-signature transformation) stream)	
+	(encode-implementation-json transformation stream)))))
 
 (defun encode-implementation-json (transformation stream)
   (let ((impl (transformation-implementation transformation)))
     (typecase impl
-      (implementation (encode-json impl stream))
-      (symbol (encode-json-plist `(:module
-				   ,(lisp-to-camel-case (package-name (symbol-package impl)))
-				   :name
-				   ,(lisp-to-camel-case (symbol-name impl)))
-				 stream))
+      (implementation (as-object-member (:implementation stream)
+			(encode-json impl stream)))
+      (symbol (as-object-member (:implementation stream)
+		(encode-json-plist `(:module
+				     ,(lisp-to-camel-case (package-name (symbol-package impl)))
+				     :name
+				     ,(lisp-to-camel-case (symbol-name impl)))
+				   stream)))
       (t (awhen (transformation-name transformation)
-	   (with-object (stream)
-	     (as-object-member (:module stream)
-	       (encode-json (lisp-to-camel-case (package-name (symbol-package it))) stream))
-	     (as-object-member (:name stream)
-	       (encode-json (lisp-to-camel-case (symbol-name it)) stream))))))))
+	   (as-object-member (:implementation stream)
+	     (with-object (stream)
+	       (as-object-member (:module stream)
+		 (encode-json (lisp-to-camel-case (package-name (symbol-package it))) stream))
+	       (as-object-member (:name stream)
+		 (encode-json (lisp-to-camel-case (symbol-name it)) stream)))))))))
 
 (defvar *encode-constraint-component-formulas* t)
 (defvar *encode-constraint-component-structure* nil)
@@ -234,12 +237,15 @@
     (encode-json to-use stream)
     (terpri)))
 
-(defun test-roundtrip (type-spec thing)
-  (let* ((json-string (encode-json-to-string thing))
-	 (*schema-package* *package*)
-	 (json (decode-json-from-string json-string))
-	 (returned (<-json type-spec json)))
-    (is (same thing returned))))
+(defun test-roundtrip (type-spec thing &key parsing-only)
+  "Test that thing can be converted to JSON and back, preserving sameness. If PARSING-ONLY is true, only verify that encoding/decoding completes without error. This at least ensure the JSON is well-formed."
+  (let ((returned (finishes
+		    (let* ((json-string (encode-json-to-string thing))
+			   (*schema-package* *package*)
+			   (json (decode-json-from-string json-string)))
+			   (<-json type-spec json)))))
+    (when (not parsing-only)
+      (is (same thing returned)))))
 
 (test roundtrip-transformation
   (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
