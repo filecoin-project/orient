@@ -18,7 +18,7 @@
   (:method ((d wb-map)) (domain d))
   (:method ((r relation))
     (awhen (arb (tuples r))
-	 (attributes it))))
+      (attributes it))))
 
 ;; TODO: Make TUPLES accept an optional conversion type to simplifying getting list for iteration.
 (defclass simple-relation (relation)
@@ -360,7 +360,7 @@
     ;; TODO: Can we use GMAP here?
     (reduce #'combine-potential-relations
 	    (image (lambda (tuple)
-		      (apply-transformation transformation tuple))
+		     (apply-transformation transformation tuple))
 		   (tuples relation))
 	    :initial-value nil))
   (:method ((list list) (tuple wb-map))
@@ -628,7 +628,7 @@
 
 (defun generate-directed-graph (plan)
   (loop for transformation in plan
-       for signature = (transformation-signature transformation)
+     for signature = (transformation-signature transformation)
      append (loop for dependency in (convert 'list (signature-input signature))
 	       append (loop for target in (convert 'list (signature-output signature))
 			 collect (list dependency target)))))
@@ -663,7 +663,7 @@
   (let* ((d1 (tuple (a 2) (b 3) (c 4)))
 	 (d2 (tuple (a 2) (b 3) (c 4) (d 5)))
 	 (d3 (tuple (x 5) (y 6) (z 7)))
-	 ;(d4 (tuple (a 1) (b 2) (c 3)))
+	 ;;(d4 (tuple (a 1) (b 2) (c 3)))
 
 	 ;; (r1 (make-relation (list d1 d4)))
 	 ;; (r2 (make-relation (list d2)))
