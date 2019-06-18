@@ -33,7 +33,12 @@
     `(setf (tref ',operator ,constraint-factories)
 	   (lambda (,target args)
 	     (destructuring-bind (,@inputs) args
-	       (make-instance 'component :transformations (list ,@transformations)))))))
+	       (make-instance 'component
+			      :transformations (list ,@transformations)
+			      :operation ',operator
+			      :target ,target
+			      :args args
+			      ))))))
 
 (defmacro define-alias-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
 				   &rest body

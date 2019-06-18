@@ -172,9 +172,10 @@
 
 (defun encode-constraint (component stream)
   (as-object-member ((component-target component) stream)
-    (encode-json (let ((*package* *schema-package*))
+    (encode-json (let ((*package* (effective-schema-package)))
 		   (write-to-string `(,(component-operation component) ,@(component-args component))
-				    :case :downcase))
+				    :case :downcase
+				    :pretty nil))
 		 stream)))
 
 (defmethod encode-json ((system system) &optional stream)
@@ -240,12 +241,19 @@
 (defun test-roundtrip (type-spec thing &key parsing-only)
   "Test that thing can be converted to JSON and back, preserving sameness. If PARSING-ONLY is true, only verify that encoding/decoding completes without error. This at least ensure the JSON is well-formed."
   (let ((returned (finishes
-		    (let* ((json-string (encode-json-to-string thing))
-			   (*schema-package* *package*)
+		    (let* ((*schema-package* *package*)
+			   (json-string (encode-json-to-string thing))
 			   (json (decode-json-from-string json-string)))
 			   (<-json type-spec json)))))
     (when (not parsing-only)
       (is (same thing returned)))))
+
+(defun test-encoding (thing expected-json)
+  (let ((json (finishes
+		(let* ((*schema-package* *package*)
+		       (json-string (encode-json-to-string thing)))
+		  (decode-json-from-string json-string)))))
+    (is (same expected-json json))))
 
 (test roundtrip-transformation
   (test-roundtrip :transformation (transformation ((a b c) ~> (d e f)) == xxx)))
@@ -285,3 +293,11 @@
 					   ;; TODO: handle data.
 					   :data (list (tuple (a 1) (b 2) (c 3)))
 					   )))
+
+(test constraint-encoding
+  (test-encoding (constraint-system ((dog (* cat pig))
+				     (slug (- snail shell))))
+		 ;; TODO: We want :CONSTRAINTS to be a keyword, but DOG and SNAIL should be interned in *SCHEMA-PACKAGE*.
+		 ;; Making this happen correctly may require a custom binding of *BEGINNING-OF-OBJECT-HANDLER*.
+		 '((:CONSTRAINTS (:DOG . "(* cat pig)") (:snail . "(+ slug shell)")))))
+
