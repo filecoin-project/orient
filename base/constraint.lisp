@@ -31,19 +31,19 @@
     (declare (ignore documentation))
     (assert (eq operator op))
     `(setf (tref ',operator ,constraint-factories)
-	   (lambda (,target args)
+	   (lambda (,target args &key source-operator source-name source-args)
 	     (destructuring-bind (,@inputs) args
 	       (make-instance 'component
 			      :transformations (list ,@transformations)
-			      :operation ',operator
-			      :target ,target
-			      :args args
+			      :operation (or source-operator ',operator)
+			      :target (or source-name ,target)
+			      :args (or source-args args)
 			      ))))))
 
 (defmacro define-alias-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
-				   &rest body
-				     ;;(other-target (other-op &rest other-inputs))
-								 )
+				   &rest body)
+  ;; Define OPERATOR as an alias for another operator but with rearranged target and inputs.
+  ;; This is most commonly used to implement the inverse of a binary operator in terms of that operator.
   (destructuring-bind (documentation (other-target (other-op &rest other-inputs)))
       (typecase (first body)
 	(string (destructuring-bind (doc alias-spec)
@@ -54,14 +54,21 @@
 	     (list nil alias-spec))))
     (declare (ignore documentation))
     (assert (eq operator op))
-    `(setf (tref ',operator ,constraint-factories)
+    `(setf (tref ',operator ,constraint-factories)	   
 	   (lambda (,target args)
 	     (destructuring-bind (,@inputs) args
-	       (make-operation-constraint ',other-op ,other-target (list ,@other-inputs)))))))
+	       (make-operation-constraint ',other-op ,other-target (list ,@other-inputs)
+					  :source-operator ',operator
+					  :source-name ,target
+					  :source-args args))))))
 
-(defun make-operation-constraint (operator name args &optional (constraint-factories *constraint-factories*))
+(defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)
+						       source-operator source-name source-args)
   (awhen (tref operator constraint-factories)
-    (funcall it name args)))
+    (if source-operator
+	;; Only pass alias-related keywords if this is an alias, which means it has a SOURCE-OPERATOR.
+	(funcall it name args :source-operator source-operator :source-name source-name :source-args source-args)
+	(funcall it name args))))
 
 (define-constraint * (product (* a b))
     "PRODUCT = A * B"
@@ -95,6 +102,7 @@
     ;; This one can't (currently) be solved.
     (is (same nil 
 	      (solve-for system '(a c) (tuple (b 2) (d 18)))))))
+
 (define-alias-constraint / (quotient (/ dividend divisor))
   "DIVIDEND / DIVISOR = QUOTIENT => DIVIDEND = QUOTIENT * DIVISOR"
   (dividend (* quotient divisor)))

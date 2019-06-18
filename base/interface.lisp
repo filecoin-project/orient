@@ -296,8 +296,10 @@
 
 (test constraint-encoding
   (test-encoding (constraint-system ((dog (* cat pig))
-				     (slug (- snail shell))))
+				     ;; Include an alias constraint to ensure the operation used in definition is encoded.
+				     (slug (- snail shell))
+				     ))
 		 ;; TODO: We want :CONSTRAINTS to be a keyword, but DOG and SNAIL should be interned in *SCHEMA-PACKAGE*.
 		 ;; Making this happen correctly may require a custom binding of *BEGINNING-OF-OBJECT-HANDLER*.
-		 '((:CONSTRAINTS (:DOG . "(* cat pig)") (:snail . "(+ slug shell)")))))
+		 '((:CONSTRAINTS (:DOG . "(* cat pig)") (:slug . "(- snail shell)")))))
 
