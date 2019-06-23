@@ -33,14 +33,18 @@
     (make-operation-constraint operator name args)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun expand-constraint-forms (constraint-forms)
-    (mapcar #'expand-constraint-form constraint-forms))
+  (defun expand-constraint-forms (constraint-forms &key namespace)
+    (mapcar (lambda (constraint-form) (expand-constraint-form constraint-form :namespace namespace))
+	    constraint-forms))
 
-  (defun expand-constraint-form (constraint-form)
+  (defun expand-constraint-form (constraint-form &key namespace)
     (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
 	constraint-form
       (declare (ignore constraint-factories))
-      `(make-operation-constraint ',op ',target ',inputs))))
+      ;;; WITH-NAMESPACE must be lexically bound in containing expression.
+      `(make-operation-constraint ',op (with-namespace ',target) (list ,@(mapcar (lambda (input)
+										  `(with-namespace ',input))
+										inputs))))))
 
 (defmacro define-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*)) &rest body)
   ;; TODO: make a macro to reduce this documentation-supporting boilerplate.
@@ -86,7 +90,8 @@
 					  :source-name ,target
 					  :source-args args))))))
 
-(defmacro define-system-constraint (name (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
+(defmacro define-system-constraint (name (target (op &rest inputs)
+						 &key (constraint-factories '*constraint-factories*))
 				    &rest body)
   (destructuring-bind (documentation constraint-definitions)
       (typecase (first body)
@@ -100,25 +105,30 @@
     (assert (eq name op))
     `(setf (tref ',name ,constraint-factories)
 	   (lambda (,target args)
-	     (destructuring-bind (,@inputs) args
-	       (make-instance 'system
-			      :components (list (make-operation-constraint '== out (list 'out))
-						,@(mapcar (lambda (input)
-								    `(make-operation-constraint
-								      '== ',input (list ,input)))
-							  inputs)
-						,@(expand-constraint-forms constraint-definitions))))))))
+	     (flet ((with-namespace (x) (symbolconc ,target '\. x)))
+	       (destructuring-bind (,@inputs) args
+		 (make-instance 'system
+				:components
+				(list (make-operation-constraint '== ,target
+								 (list (with-namespace ',target)))
+				      ,@(mapcar (lambda (input)
+						  `(make-operation-constraint
+						    '== (with-namespace ',input)
+						    (list ,input)))
+						inputs)
+				      ,@(expand-constraint-forms constraint-definitions :namespace target)))))))))
 
-(define-system-constraint some-complex-constraint (out (some-complex-constraint a b c))
+(define-system-constraint some-complex-constraint (result (some-complex-constraint a b c))
   ((q (+ a b))
    (f (* b c))
    (g (- f q))
-   (out (* g g))))
+   (result (* g g))))
 
 (test system-constraint
   (let ((system (constraint-system
 		 ((x (some-complex-constraint aa bb cc)))))
-	(satisfying-assignment (tuple (a 1) (b 2) (c 3) (q 3) (f 6) (g 3) (out 9) (x 9) (aa 1) (bb 2) (cc 3))))
+	(satisfying-assignment (tuple (aa 1) (bb 2) (cc 3) (x 9)
+				      (x.a 1) (x.b 2) (x.c 3) (x.q 3) (x.f 6) (x.g 3) (x.result 9))))
     (is (same satisfying-assignment
 	      (solve-for system '() (tuple (aa 1) (bb 2) (cc 3)))))))
 #|
@@ -152,6 +162,15 @@ Want to do this:
   ((transformation* ((a b) -> (product)) == (* a b))
    (transformation* ((a product) -> (b)) == (/ product a))
    (transformation* ((b product) -> (a)) == (/ product b))))
+
+#|
+;;; Question: would this syntax or something like it be better?
+(define-constraint * (a b)
+    "* = A * B"
+  ((transformation* ((a b) -> (*)) == (* a b))
+   (transformation* ((a *) -> (b)) == (/ * a))
+   (transformation* ((b *) -> (a)) == (/ * b))))
+|#
 
 (test multiplication-constraint
   "Test CONSTRAINT-SYSTEM with two multiplication contraints."
