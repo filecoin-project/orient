@@ -193,7 +193,7 @@
        (deftoplevel ,name (:transformation) transformation))))
 
 (defmacro component (transformations &key operation target args)
-  `(make-instance 'component :transformations (list ,@transformations)
+  `(make-instance 'component :transformations (mapcar #'find-transformation (list ,@transformations))
 		  ,@(and target (list :target target))
 		  ,@(and operation (list :operation operation))
 		  ,@(and args (list :args args))))
@@ -247,7 +247,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Constraints
 
-(defmacro defconstraint-system (name constraint-definitions &key schema)  
+(defmacro defconstraint-system (name constraint-definitions &key schema)
   `(eval-when (:load-toplevel :compile-toplevel :execute)
      (let ((system (constraint-system ,constraint-definitions)))
        (setf (system-name system) ',name)

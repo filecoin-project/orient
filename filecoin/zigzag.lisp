@@ -118,6 +118,7 @@
 				     (component ((find-transformation ',extractor-name)))))))))
 
 (define-hash-function-selector merkle)
+(define-hash-function-selector alpha-merkle)
 (define-hash-function-selector beta-merkle)
 (define-hash-function-selector kdf)
 
@@ -366,9 +367,8 @@ Which is
 
 (defun zigzag-security-system (&key isolated)
   (make-instance 'system
-		 :components (list (component((find-transformation 'compute-zigzag-layers)))
-				   (component((find-transformation 'compute-zigzag-tapered-layers)))
-				   )
+		 :components (list (component ('compute-zigzag-layers))
+				   (component ('compute-zigzag-tapered-layers)))
 		 :subsystems (list (find-system 'zigzag-security-constraint-system))
 		 :data (if isolated
 			   (list (tuple (layers 10)) *default-zigzag-security*)
@@ -376,10 +376,12 @@ Which is
 
 (defun zigzag-system ()
   (make-instance 'system
-		 :components (list (component ((find-transformation 'select-merkle-hash-function)))
-				   (component ((find-transformation 'extract-merkle-hash-function-components)))
-				   (component ((find-transformation 'select-kdf-hash-function)))
-				   (component ((find-transformation 'extract-kdf-hash-function-components))))
+		 :components (list (component ('select-merkle-hash-function))
+				   (component ('select-alpha-merkle-hash-function))
+				   (component ('select-beta-merkle-hash-function))
+				   (component ('extract-merkle-hash-function-components))
+				   (component ('select-kdf-hash-function))
+				   (component ('extract-kdf-hash-function-components)))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
 				   (find-system 'merkle-tree-constraint-system)
 				   (zigzag-security-system))
