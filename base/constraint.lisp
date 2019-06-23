@@ -8,7 +8,20 @@
 (defvar *constraint-factories* (tuple))
 
 (defmacro constraint-system (constraint-definitions)
-  `(make-instance 'system :components (make-constraints ',constraint-definitions)))
+  `(make-constraint-system ',constraint-definitions))
+
+(defun make-constraint-system (constraint-definitions)
+  "Takes a list of constraint definitions (which may include 'system constraint' definitions) and returns a system containing the corresponding constraint components or constraint subsystems."
+  (let* ((constraints (make-constraints constraint-definitions))
+	 (components)
+	 (systems))
+    (dolist (constraint constraints)
+      (typecase constraint
+	(component (push constraint components))
+	(system (push constraint systems))))
+    (make-instance 'system
+		   :components (nreverse components)
+		   :subsystems (nreverse systems))))
 
 (defun make-constraints (constraint-definitions)
   (mapcar #'make-constraint constraint-definitions))
@@ -19,7 +32,18 @@
       constraint-definition
     (make-operation-constraint operator name args)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun expand-constraint-forms (constraint-forms)
+    (mapcar #'expand-constraint-form constraint-forms))
+
+  (defun expand-constraint-form (constraint-form)
+    (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
+	constraint-form
+      (declare (ignore constraint-factories))
+      `(make-operation-constraint ',op ',target ',inputs))))
+
 (defmacro define-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*)) &rest body)
+  ;; TODO: make a macro to reduce this documentation-supporting boilerplate.
   (multiple-value-bind (documentation transformations)
       (typecase (first body)
 	(string (destructuring-bind (doc transformations)
@@ -61,6 +85,59 @@
 					  :source-operator ',operator
 					  :source-name ,target
 					  :source-args args))))))
+
+(defmacro define-system-constraint (name (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
+				    &rest body)
+  (destructuring-bind (documentation constraint-definitions)
+      (typecase (first body)
+	(string (destructuring-bind (doc constraint-definitions)
+		    body
+		  (list doc constraint-definitions)))
+	(t (destructuring-bind (constraint-definitions)
+	       body
+	     (list nil constraint-definitions))))
+    (declare (ignore documentation))
+    (assert (eq name op))
+    `(setf (tref ',name ,constraint-factories)
+	   (lambda (,target args)
+	     (destructuring-bind (,@inputs) args
+	       (make-instance 'system
+			      :components (list (make-operation-constraint '== out (list 'out))
+						,@(mapcar (lambda (input)
+								    `(make-operation-constraint
+								      '== ',input (list ,input)))
+							  inputs)
+						,@(expand-constraint-forms constraint-definitions))))))))
+
+(define-system-constraint some-complex-constraint (out (some-complex-constraint a b c))
+  ((q (+ a b))
+   (f (* b c))
+   (g (- f q))
+   (out (* g g))))
+
+(test system-constraint
+  (let ((system (constraint-system
+		 ((x (some-complex-constraint aa bb cc)))))
+	(satisfying-assignment (tuple (a 1) (b 2) (c 3) (q 3) (f 6) (g 3) (out 9) (x 9) (aa 1) (bb 2) (cc 3))))
+    (is (same satisfying-assignment
+	      (solve-for system '() (tuple (aa 1) (bb 2) (cc 3)))))))
+#|
+Want to do this:
+
+(defxxx some-complex-constraint (a b c)
+  ((q (+ a b))
+   (r (* b c))
+   (internal (- q r))
+   (some-complex-constraint (+ a internal))))
+
+(constraint-system
+ ((c (* a b))
+  (d (+ e f))
+  (g (- f a))
+  (some-complex-constraint ...)
+  (h (some-complex-constraint c d g))
+  (i (+ h.internal 9))))
+|#
 
 (defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)
 						       source-operator source-name source-args)
