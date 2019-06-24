@@ -47,7 +47,7 @@
 			    (interface (run-suite :interface-suite :orient.interface))
 			    (filecoin (run-suite :filecoin-suite :filecoin))			    
 			    (web (run-suite :web-suite :orient.web)))
-		      (unless (and orient-relation orient interface filecoin web)
+		      (unless (and orient-relation orient-constraint orient interface filecoin web)
 			(error "Some tests failed.")
 			       ;; TODO: report which suites failed.
 			      )))))

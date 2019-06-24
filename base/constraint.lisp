@@ -33,18 +33,18 @@
     (make-operation-constraint operator name args)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun expand-constraint-forms (constraint-forms &key namespace)
-    (mapcar (lambda (constraint-form) (expand-constraint-form constraint-form :namespace namespace))
+  (defun expand-constraint-forms (constraint-forms)
+    (mapcar (lambda (constraint-form) (expand-constraint-form constraint-form))
 	    constraint-forms))
 
-  (defun expand-constraint-form (constraint-form &key namespace)
+  (defun expand-constraint-form (constraint-form)
     (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
 	constraint-form
       (declare (ignore constraint-factories))
       ;;; WITH-NAMESPACE must be lexically bound in containing expression.
       `(make-operation-constraint ',op (with-namespace ',target) (list ,@(mapcar (lambda (input)
 										  `(with-namespace ',input))
-										inputs))))))
+										 inputs))))))
 
 (defmacro define-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*)) &rest body)
   ;; TODO: make a macro to reduce this documentation-supporting boilerplate.
@@ -59,14 +59,18 @@
     (declare (ignore documentation))
     (assert (eq operator op))
     `(setf (tref ',operator ,constraint-factories)
-	   (lambda (,target args &key source-operator source-name source-args)
-	     (destructuring-bind (,@inputs) args
-	       (make-instance 'component
-			      :transformations (list ,@transformations)
-			      :operation (or source-operator ',operator)
-			      :target (or source-name ,target)
-			      :args (or source-args args)
-			      ))))))
+	   (constraint (,target (,op ,@inputs)) ,transformations))))
+
+
+
+(defmacro constraint ((target (operator &rest inputs)) transformations)
+  `(lambda (,target args &key source-operator source-name source-args)
+     (destructuring-bind (,@inputs) args
+       (make-instance 'component
+		      :transformations (list ,@transformations)
+		      :operation (or source-operator ',operator)
+		      :target (or source-name ,target)
+		      :args (or source-args args)))))
 
 (defmacro define-alias-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
 				   &rest body)
@@ -90,33 +94,60 @@
 					  :source-name ,target
 					  :source-args args))))))
 
-(defmacro define-system-constraint (name (target (op &rest inputs)
-						 &key (constraint-factories '*constraint-factories*))
-				    &rest body)
-  (destructuring-bind (documentation constraint-definitions)
+#+(or)
+(defmacro define-alias-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
+				   &rest body)
+  ;; Define OPERATOR as an alias for another operator but with rearranged target and inputs.
+  ;; This is most commonly used to implement the inverse of a binary operator in terms of that operator.
+  (destructuring-bind (documentation (other-target (other-op &rest other-inputs)))
       (typecase (first body)
-	(string (destructuring-bind (doc constraint-definitions)
+	(string (destructuring-bind (doc alias-spec)
 		    body
-		  (list doc constraint-definitions)))
-	(t (destructuring-bind (constraint-definitions)
+		  (list doc alias-spec)))
+	(t (destructuring-bind (alias-spec)
 	       body
-	     (list nil constraint-definitions))))
+	     (list nil alias-spec))))
     (declare (ignore documentation))
-    (assert (eq name op))
+    (assert (eq operator op))
+    `(setf (tref ',operator ,constraint-factories)	   
+	   (alias-constraint (,target (,op ,@inputs)
+				      :other-op ,other-op
+				      :other-target ,other-target
+				      :other-inputs ,other-inputs)))))
+
+(defmacro alias-constraint ((target (op &rest inputs) &key other-op other-target other-inputs))
+    `(lambda (,target args)
+	     (destructuring-bind (,@inputs) args
+	       (make-operation-constraint ',other-op ,other-target (list ,@other-inputs)
+					  :source-operator ',op
+					  :source-name ,target
+					  :source-args args))))
+
+(defmacro define-system-constraint (name (target (op &rest inputs)
+						&key (constraint-factories '*constraint-factories*))
+				    &body body)
+  (assert (eq name op))
+  (destructuring-bind (definitions) body
     `(setf (tref ',name ,constraint-factories)
 	   (lambda (,target args)
-	     (flet ((with-namespace (x) (symbolconc ,target '\. x)))
+	     (system-constraint (,target (,op ,@inputs)) ,definitions)))))
+
+(defmacro system-constraint ((target (op &rest inputs)) constraint-definitions)
+  (declare (ignore op)) ;; Should we record this somewhere? May need.
+  `(flet ((with-namespace (x) (symbolconc ,target '\. x)))
 	       (destructuring-bind (,@inputs) args
 		 (make-instance 'system
 				:components
-				(list (make-operation-constraint '== ,target
-								 (list (with-namespace ',target)))
-				      ,@(mapcar (lambda (input)
-						  `(make-operation-constraint
-						    '== (with-namespace ',input)
-						    (list ,input)))
-						inputs)
-				      ,@(expand-constraint-forms constraint-definitions :namespace target)))))))))
+				(list
+				 ;; Assign internally-namespaced result to supplied target.
+				 (make-operation-constraint '== ,target (list (with-namespace ',target)))
+				 ;; Assign supplied inputs to internally-namespaced inputs.
+				 ,@(mapcar (lambda (input)
+					     `(make-operation-constraint
+					       '== (with-namespace ',input)
+					       (list ,input)))
+					   inputs)
+				 ,@(expand-constraint-forms constraint-definitions))))))
 
 (define-system-constraint some-complex-constraint (result (some-complex-constraint a b c))
   ((q (+ a b))

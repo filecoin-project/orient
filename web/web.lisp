@@ -88,7 +88,9 @@
 	    collect '(:hr))))))
 
 (defun format-value (value)
-  `(:html-escape ,(or value "FALSE")))
+  (if (keywordp value)
+      `(:html-escape ,(format nil "~S" value))
+      `(:html-escape ,(or value "FALSE"))))
 
 (defgeneric present-data (format tuple system)
   (:method ((format (eql :html)) (tuple wb-map) (system system))

@@ -8,9 +8,9 @@
 (defun make-tuple (&optional pairs dotted)
   (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
-(defmacro tref (attribute tuple)
-  "Get value of ATTRIBUTE in TUPLE."
-  `(@ ,tuple ,attribute))
+;; (defmacro tref (attribute tuple)
+;;   "Get value of ATTRIBUTE in TUPLE."
+;;   `(@ ,tuple ,attribute))
 
 (defclass relation () ())
 

@@ -271,6 +271,10 @@
     (is (equal '(a b c) attrs))
     (is (eql 'all all-var))))
 
+(defmacro tref (attribute tuple)
+  "Get value of ATTRIBUTE in TUPLE."
+  `(@ ,tuple ,attribute))
+
 ;; Convenience function for manipulating tuples.
 (defmacro tfn ((&rest tuple-lambda-list) &body body)
   (multiple-value-bind (attrs all-var) (process-input-list tuple-lambda-list)
