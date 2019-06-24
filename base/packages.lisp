@@ -18,7 +18,9 @@
 			  #:some #:every #:notany #:notevery)
   (:export :dbg :display :aif :apply-transformation :ask :attributes :awhen
 	   :component :component-operation :component-args :component-target :component-transformations
-	   :constraint-system :defconstraint-system :display :ensure-tuples :expand-references
+	   :constraint-system
+	   :defconstraint-system :define-system-constraint
+	   :display :ensure-tuples :expand-references
 	   ::tuple :tuples :create-tuple-report-step
 	   :describe-transformation-calculation :defschema
 	   :deftransformation :deftransformation= :extract

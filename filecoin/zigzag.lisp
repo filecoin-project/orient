@@ -94,6 +94,30 @@
 		(merkle-tree-height 3))))
        (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
 
+;; -- is not assigned internally, so this constraint will not produce a 'return value'.
+;; TODO: Consider a more explicit way to do this -- at least a strong convention, if not a syntax
+;; allowing to explicitly forego a return value.
+(define-system-constraint merkle-tree (-- (merkle-tree sector-size node-bytes))
+    ((leaves (/ sector-size node-bytes))
+     (height-raw (log leaves 2))
+     (height (integer height-raw))
+     (inclusion-proof-hash-length (== height))
+     (hash-count (- leaves 1))))
+
+(test merkle-tree-system-constraint
+  (let* ((cs  (constraint-system ((mt (merkle-tree sector-size node-bytes)))))
+	 (expected (rel (tuple (MT.HEIGHT 5)
+                               (MT.LEAVES 32)
+                               (NODE-BYTES 32)
+                               (SECTOR-SIZE 1024)
+                               (MT.HASH-COUNT 31)
+                               (MT.HEIGHT-RAW 5.0)
+                               (MT.NODE-BYTES 32)
+                               (MT.SECTOR-SIZE 1024)
+                               (MT.INCLUSION-PROOF-HASH-LENGTH 5)))))
+    (is (same expected
+	      (solve-for cs '() (tuple (sector-size 1024) (node-bytes 32)))))))
+
 (defmacro define-hash-function-selector (prefix)
   (let ((selector-name (symbolconc 'select- prefix '-hash-function))
 	(extractor-name (symbolconc 'extract- prefix '-hash-function-components))

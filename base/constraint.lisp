@@ -132,22 +132,32 @@
 	   (lambda (,target args)
 	     (system-constraint (,target (,op ,@inputs)) ,definitions)))))
 
+(defun namespaced (thing namespace)
+  (typecase thing
+    (symbol (symbolconc namespace '\. thing))
+    (t thing)))
+
+;; TODO: handle schema.
+;; Interface: optional string per constraint definition, defining the 'internal target'.
+;; Create appropriate schema entries.
 (defmacro system-constraint ((target (op &rest inputs)) constraint-definitions)
   (declare (ignore op)) ;; Should we record this somewhere? May need.
-  `(flet ((with-namespace (x) (symbolconc ,target '\. x)))
-	       (destructuring-bind (,@inputs) args
-		 (make-instance 'system
-				:components
-				(list
-				 ;; Assign internally-namespaced result to supplied target.
-				 (make-operation-constraint '== ,target (list (with-namespace ',target)))
-				 ;; Assign supplied inputs to internally-namespaced inputs.
-				 ,@(mapcar (lambda (input)
-					     `(make-operation-constraint
-					       '== (with-namespace ',input)
-					       (list ,input)))
-					   inputs)
-				 ,@(expand-constraint-forms constraint-definitions))))))
+  `(flet ((with-namespace (x) (namespaced x ,target)))
+     (destructuring-bind (,@inputs) args
+       (make-instance 'system
+		      :components
+		      (remove nil
+			      (list
+			       ;; Assign internally-namespaced result to supplied target.
+			       (when ',target
+			       	 (make-operation-constraint '== ,target (list (with-namespace ',target))))
+			       ;; Assign supplied inputs to internally-namespaced inputs.
+			       ,@(mapcar (lambda (input)
+					   `(make-operation-constraint
+					     '== (with-namespace ',input)
+					     (list ,input)))
+					 inputs)
+			       ,@(expand-constraint-forms constraint-definitions)))))))
 
 (define-system-constraint some-complex-constraint (result (some-complex-constraint a b c))
   ((q (+ a b))
