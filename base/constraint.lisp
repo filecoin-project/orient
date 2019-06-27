@@ -38,13 +38,22 @@
 	    constraint-forms))
 
   (defun expand-constraint-form (constraint-form)
-    (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
+    (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*) description)
 	constraint-form
       (declare (ignore constraint-factories))
       ;;; WITH-NAMESPACE must be lexically bound in containing expression.
-      `(make-operation-constraint ',op (with-namespace ',target) (list ,@(mapcar (lambda (input)
-										  `(with-namespace ',input))
-										 inputs))))))
+      `(let ((namespaced-target (with-namespace ',target)))	 
+	 (prog1
+	     (make-operation-constraint ',op namespaced-target ;(with-namespace ',target)
+					(list ,@(mapcar (lambda (input)
+							  `(with-namespace ',input))
+							inputs)))
+	   ,(when description
+	      `(when *new-schema*
+		 (push (make-instance 'parameter
+				      :name namespaced-target
+				      :description ,description)
+		       (schema-parameters *new-schema*)))))))))
 
 (defmacro define-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*)) &rest body)
   ;; TODO: make a macro to reduce this documentation-supporting boilerplate.
@@ -123,8 +132,8 @@
 					  :source-name ,target
 					  :source-args args))))
 
-(defmacro define-system-constraint (name (target (op &rest inputs)
-						&key (constraint-factories '*constraint-factories*))
+(defmacro define-system-constraint (name (target (op &rest inputs) 
+						 &key (constraint-factories '*constraint-factories*))
 				    &body body)
   (assert (eq name op))
   (destructuring-bind (definitions) body
@@ -137,6 +146,9 @@
     (symbol (symbolconc namespace '\. thing))
     (t thing)))
 
+
+(defvar *new-schema*)
+
 ;; TODO: handle schema.
 ;; Interface: optional string per constraint definition, defining the 'internal target'.
 ;; Create appropriate schema entries.
@@ -144,20 +156,23 @@
   (declare (ignore op)) ;; Should we record this somewhere? May need.
   `(flet ((with-namespace (x) (namespaced x ,target)))
      (destructuring-bind (,@inputs) args
-       (make-instance 'system
-		      :components
-		      (remove nil
-			      (list
-			       ;; Assign internally-namespaced result to supplied target.
-			       (when ',target
-			       	 (make-operation-constraint '== ,target (list (with-namespace ',target))))
-			       ;; Assign supplied inputs to internally-namespaced inputs.
-			       ,@(mapcar (lambda (input)
-					   `(make-operation-constraint
-					     '== (with-namespace ',input)
-					     (list ,input)))
-					 inputs)
-			       ,@(expand-constraint-forms constraint-definitions)))))))
+       (let ((*new-schema* (make-instance 'schema)))
+	 (make-instance 'system
+			:components
+			(remove nil
+				(list
+				 ;; Assign internally-namespaced result to supplied target.
+				 (when ',target
+				   (make-operation-constraint '== ,target (list (with-namespace ',target))))
+				 ;; Assign supplied inputs to internally-namespaced inputs.
+				 ,@(mapcar (lambda (input)
+					     `(make-operation-constraint
+					       '== (with-namespace ',input)
+					       (list ,input)))
+					   inputs)
+				 ,@(expand-constraint-forms constraint-definitions)))
+			:schema (when (schema-parameters *new-schema*)
+				  *new-schema*))))))
 
 (define-system-constraint some-complex-constraint (result (some-complex-constraint a b c))
   ((q (+ a b))

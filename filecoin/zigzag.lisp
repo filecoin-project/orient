@@ -23,7 +23,7 @@
 ;				 (total-challenges 8000)
 
 				 ;; TODO: account for other constraint sources.
-				 (total-zigzag-other-constraints 0) 
+				 (total-zigzag-other-constraints 0)
 
 				 ;; Need from benchmarks
 				 (single-sloth-iteration-time 123) ;; BOGUS
@@ -98,14 +98,19 @@
 ;; TODO: Consider a more explicit way to do this -- at least a strong convention, if not a syntax
 ;; allowing to explicitly forego a return value.
 (define-system-constraint merkle-tree (-- (merkle-tree sector-size node-bytes))
-    ((leaves (/ sector-size node-bytes))
-     (height-raw (log leaves 2))
-     (height (integer height-raw))
-     (inclusion-proof-hash-length (== height))
-     (hash-count (- leaves 1))))
+  ((leaves (/ sector-size node-bytes)
+	   :description "Number of leaves in the merkle tree.")
+   (height-raw (log leaves 2)
+	       :description "Height of the merkle tree. Unit: float which MUST be integer-valued")
+   (height (integer height-raw)
+	   :description "Height of the merkle tree, including leaves and root.")
+   (inclusion-proof-hash-length (== height)
+				:description "Number of hashes required for a merkle inclusion proof.")
+   (hash-count (- leaves 1)
+	       :description "Total number of hashes required to construct the merkle tree (leaves are not hashed).")))
 
 (test merkle-tree-system-constraint
-  (let* ((cs  (constraint-system ((mt (merkle-tree sector-size node-bytes)))))
+  (let* ((cs (constraint-system ((mt (merkle-tree sector-size node-bytes)))))
 	 (expected (rel (tuple (MT.HEIGHT 5)
                                (MT.LEAVES 32)
                                (NODE-BYTES 32)
@@ -304,9 +309,11 @@ Which is
      (degree (+ base-degree expansion-degree))
      (total-parents (== degree))
 
+     (merkle-tree (merkle-tree sector-size node-bytes))
+     
      (single-kdf-hashes (== total-parents))
      (single-kdf-time (* single-kdf-hashes kdf-hash-function-time))
-     (total-nodes-to-encode (* merkle-tree-leaves layers))
+     (total-nodes-to-encode (* merkle-tree.leaves layers))
      (single-node-sloth-time (* sloth-iter single-sloth-iteration-time))
      (single-node-encoding-time (+ single-kdf-time single-node-sloth-time)) ;; Excludes parent loading time.
      
@@ -316,12 +323,12 @@ Which is
      
      (total-zigzag-circuit-kdf-hashes (* single-challenge-kdf-hashes total-challenges))
      
-     (layer-replication-time (* single-node-encoding-time merkle-tree-leaves))
+     (layer-replication-time (* single-node-encoding-time merkle-tree.leaves))
      (replication-time (* layers layer-replication-time))
      (replication-time-per-byte (/ replication-time sector-size))
      (replication-time-per-GiB (* replication-time-per-byte #.(* 1024 1024 1024)))
 
-     (single-layer-merkle-hashing-time (* merkle-tree-hash-count merkle-hash-function-time))
+     (single-layer-merkle-hashing-time (* merkle-tree.hash-count merkle-hash-function-time))
      (total-merkle-trees (+ layers 1))
      (total-merkle-hashing-time (* total-merkle-trees single-layer-merkle-hashing-time))
      
@@ -329,7 +336,7 @@ Which is
      (circuit-proving-time-per-constraint (/ bench-circuit-proving-time bench-circuit-constraints))
 
      (total-zigzag-circuit-inclusion-proofs (* total-challenges single-challenge-inclusion-proofs))
-     (total-zigzag-circuit-merkle-hashes (* total-zigzag-circuit-inclusion-proofs merkle-inclusion-proof-hash-length))
+     (total-zigzag-circuit-merkle-hashes (* total-zigzag-circuit-inclusion-proofs merkle-tree.inclusion-proof-hash-length))
      (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function-constraints))
 
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function-constraints))
@@ -386,9 +393,6 @@ Which is
    (zigzag-epsilon 0.007)
    (zigzag-delta 0.003)))
 
-;; (defparameter *isolated-zigzag-security-defaults* (tuple (layers 10)))
-;; (defparameter *integrated-zigzag-security-defaults* nil))
-
 (defun zigzag-security-system (&key isolated)
   (make-instance 'system
 		 :components (list (component ('compute-zigzag-layers))
@@ -407,7 +411,6 @@ Which is
 				   (component ('select-kdf-hash-function))
 				   (component ('extract-kdf-hash-function-components)))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
-				   (find-system 'merkle-tree-constraint-system)
 				   (zigzag-security-system))
 		 :data (list *defaults*
 			     *zigzag-defaults*

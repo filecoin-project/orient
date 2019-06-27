@@ -94,7 +94,9 @@
 
 (defgeneric present-data (format tuple system)
   (:method ((format (eql :html)) (tuple wb-map) (system system))
-    `(:html-escape ,@(loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
+    (cons ;; Compiler claims the LOOP below is unreachable when using backquote syntax here.
+     :html-escape
+     (loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
 			for desc = (lookup-description attr system)
 			collect `(:div
 				  ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
@@ -104,9 +106,7 @@
 					`(:div "     " ((:font :color "green") (:i ,desc)))
 					;'(:span "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
 					)
-				  :hr
-				  ))
-		   ))
+				  :hr))))
   (:method ((format (eql :html)) (relation relation) (system system))
     `(:div ,@(loop for tuple in (convert 'list (tuples relation))
 		collect (present-data format tuple system)))))
