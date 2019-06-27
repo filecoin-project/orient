@@ -474,16 +474,6 @@ Want to do this:
     (is (same (tuple (x t)) (ask system '(x) (tuple (a 2) (b 2)))))
     (is (same (tuple (x nil)) (ask system '(x) (tuple (a 1) (b 2)))))))
 
-(defun expand-and-constraint (conjunction a b)
-  "CONJUCTION = A && B"
-  `(%component ((transformation ((,a ,b) -> (,conjunction)) == (and ,a ,b))
-	       (transformation ((,a ,conjunction) => (,b)) == (if ,a
-								  `((,(and ,conjunction ,a)))
-								  '((t) (nil))))
-	       (transformation ((,b ,conjunction) => (,a)) == (if ,b
-								  `((,(and ,conjunction ,b)))
-								  '((t) (nil)))))))
-
 (define-constraint and (conjunction (and a b))
     "CONJUCTION = A && B"
   ((transformation* ((a b) -> (conjunction)) == (and a b))
@@ -540,4 +530,16 @@ Want to do this:
 	      (solve-for system '(a) (tuple (c 5)))))
     (is (same satisfying-assignment
 	      (solve-for system '(c) (tuple (a 3)))))))
+
+(define-constraint tref (value (tref attr tuple))
+  "VALUE = (TREF ATTR TUPLE)"
+  ((transformation* ((attr tuple) -> (value)) == (tref attr tuple))))
+
+(test tref-constraint
+  "TEST CONSTRAINT-SYSTEM with tuple referece constraint."
+  (let* ((system (constraint-system
+		  ((v (tref x tuple)))))
+	 (satisfying-assignment (tuple (x 'a) (v 3) (tuple (tuple (a 3))))))
+    (is (same satisfying-assignment
+	      (solve-for system '(v) (tuple (tuple (tuple (a 3))) (x 'a)))))))
 
