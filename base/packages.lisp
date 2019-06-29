@@ -17,9 +17,10 @@
 			  #:substitute #:substitute-if #:substitute-if-not
 			  #:some #:every #:notany #:notevery)
   (:export :dbg :display :aif :apply-transformation :ask :attributes :awhen
+	   :dbreak :*dval*
 	   :component :component-operation :component-args :component-target :component-transformations
 	   :constraint-system
-	   :defconstraint-system :define-system-constraint
+	   :defconstraint-system :define-simple-constraint :define-system-constraint
 	   :display :ensure-tuples :expand-references
 	   ::tuple :tuples :create-tuple-report-step
 	   :describe-transformation-calculation :defschema

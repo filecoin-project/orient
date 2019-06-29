@@ -1,5 +1,6 @@
 (defpackage filecoin
   (:use :common-lisp :orient :it.bese.FiveAm)
+  (:import-from :fset :with)
   (:nicknames :fc)
   (:export
    :GiB-seal-cycles :sector-GiB

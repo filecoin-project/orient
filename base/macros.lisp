@@ -57,6 +57,8 @@
 (defvar *break-on-debugging* nil)
 (defvar *silence-debug-warning* nil)
 
+(defvar *dval* nil "Value in which to stash debugging values via DBREAK.")
+
 (defmacro dbg (&body body)
   `(cond (*debug* (progn (unless *silence-debug-warning*
                            (warn (format nil "~w" `(debugging ,',@body))))
@@ -70,6 +72,11 @@
        (when *break-on-display* (break))
        (terpri *debug-io*))
      (progn ,@forms)))
+
+(defmacro dbreak (value-form)
+  `(progn
+     (setq *dval* ,value-form)
+     (break)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -271,9 +278,15 @@
     (is (equal '(a b c) attrs))
     (is (eql 'all all-var))))
 
+(defun arg-eval (arg)
+  "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
+  (typecase arg
+    ((cons (eql quote)) (cadr arg))
+    (t arg)))
+
 (defmacro tref (attribute tuple)
   "Get value of ATTRIBUTE in TUPLE."
-  `(@ ,tuple ,attribute))
+  `(@ ,tuple (arg-eval ,attribute)))
 
 ;; Convenience function for manipulating tuples.
 (defmacro tfn ((&rest tuple-lambda-list) &body body)

@@ -187,23 +187,7 @@
 				      (x.a 1) (x.b 2) (x.c 3) (x.q 3) (x.f 6) (x.g 3) (x.result 9))))
     (is (same satisfying-assignment
 	      (solve-for system '() (tuple (aa 1) (bb 2) (cc 3)))))))
-#|
-Want to do this:
 
-(defxxx some-complex-constraint (a b c)
-  ((q (+ a b))
-   (r (* b c))
-   (internal (- q r))
-   (some-complex-constraint (+ a internal))))
-
-(constraint-system
- ((c (* a b))
-  (d (+ e f))
-  (g (- f a))
-  (some-complex-constraint ...)
-  (h (some-complex-constraint c d g))
-  (i (+ h.internal 9))))
-|#
 
 (defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)
 						       source-operator source-name source-args)
@@ -540,7 +524,7 @@ Want to do this:
        ((transformation* ((,@inputs) -> (,target)) == ,@body)))))
 
 (define-simple-constraint tref (value (attr tuple))
-    "VALUE = (TREF ATTR TUPLE)"
+    "VALUE = (TREF ATTR TUPLE)"  
   (tref attr tuple))
 
 (test define-simple-constraint

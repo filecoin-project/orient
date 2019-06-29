@@ -205,6 +205,20 @@
 					   (:PEDERSEN 0.000017993 1152 32))))
 	 result))))
 
+(define-simple-constraint select-hash-function (hash-function (name hash-functions))
+    (extract (join (tuple (hash-function-name name)) hash-functions)))
+
+(test select-hash-function
+  (let* ((data (tuple (hf-name :pedersen) (hash-functions *hash-functions*)))
+	 (expected (with
+		    (with data 'constraints 1152)
+		    'hf (extract (join (tuple (hash-function-name :pedersen)) *hash-functions*))))
+	 (system (constraint-system
+		  ((hf (select-hash-function hf-name hash-functions))
+		   (constraints (tref 'hash-function-constraints hf))))))
+    (is (same expected
+	      (solve-for system '() data)))))
+
 #|
 (apply-transformation select-merkle-hash-function-inner (join *defaults* (tuple (hash-functions *hash-functions*))))
 
