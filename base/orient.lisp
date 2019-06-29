@@ -477,12 +477,12 @@
 	   (let* ((symbol-name (symbol-name symbol))
 		  (cleaned (substitute #\_ #\- symbol-name)))
 	     (if url
-		 (format nil "~A~%~A [LABEL = \"asdf\"; URL = \"~A#~A\"; TARGET = \"~A\" ] " cleaned cleaned base-url symbol-name target)
+		 (format nil "~S~%~S [URL = \"~A#~A\"; TARGET = \"~A\" ] " cleaned cleaned base-url symbol-name target)
 		 cleaned
 		 ))))
     (format stream "digraph {~%")
     (loop for (dependency node) in directed-graph
-       do (format stream "~A -> ~A ~%" (make-label dependency) (make-label node :url "xxx" :target "yyy")))
+       do (format stream "~S -> ~A ~%" (make-label dependency) (make-label node :url "xxx" :target "yyy")))
     (format stream "}~%")))
 
 (defun dot-format (directed-graph &key base-url)
