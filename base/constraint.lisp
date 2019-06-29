@@ -531,15 +531,58 @@ Want to do this:
     (is (same satisfying-assignment
 	      (solve-for system '(c) (tuple (a 3)))))))
 
-(define-constraint tref (value (tref attr tuple))
-  "VALUE = (TREF ATTR TUPLE)"
-  ((transformation* ((attr tuple) -> (value)) == (tref attr tuple))))
+
+(defmacro define-simple-constraint (name (target (&rest inputs)) maybe-doc &body body)
+  (let ((doc (when (stringp maybe-doc) maybe-doc))
+	(body (if (stringp maybe-doc) body (cons maybe-doc body))))
+    `(define-constraint ,name (,target (,name ,@inputs))
+       ,@(when doc (list doc))
+       ((transformation* ((,@inputs) -> (,target)) == ,@body)))))
+
+(define-simple-constraint tref (value (attr tuple))
+    "VALUE = (TREF ATTR TUPLE)"
+  (tref attr tuple))
+
+(test define-simple-constraint
+  (equal (macroexpand '(define-simple-constraint tref (value (attr tuple))
+			"VALUE = (TREF ATTR TUPLE)"
+			(tref attr tuple)))
+	 '(define-constraint tref (value (tref attr tuple))
+	   "VALUE = (TREF ATTR TUPLE)"
+	   ((transformation* ((attr tuple) -> (value)) == (tref attr tuple))))))
+
 
 (test tref-constraint
-  "TEST CONSTRAINT-SYSTEM with tuple referece constraint."
+  "TEST CONSTRAINT-SYSTEM with tuple reference constraint."
   (let* ((system (constraint-system
 		  ((v (tref x tuple)))))
 	 (satisfying-assignment (tuple (x 'a) (v 3) (tuple (tuple (a 3))))))
     (is (same satisfying-assignment
 	      (solve-for system '(v) (tuple (tuple (tuple (a 3))) (x 'a)))))))
 
+(define-simple-constraint join (joined (a b)) (join a b))
+
+(test join-constraint
+  (let* ((system (constraint-system
+		  ((j (join a b)))))
+	 (satsifying-assignment (tuple (a (tuple (a 1) (b 2)))
+				       (b (tuple (b 2) (c 3)))
+				       (j (tuple (a 1) (b 2) (c 3))))))
+    (is (same satsifying-assignment
+	      (solve-for system '(j) (tuple (a (tuple (a 1) (b 2)))
+					    (b (tuple (b 2) (c 3)))))))))
+
+
+
+
+
+
+(define-simple-constraint extract (tuple (relation)) (extract relation))
+
+(test extract-constraint
+  (let* ((system (constraint-system
+		  ((x (extract r)))))
+	 (satisfying-assignment (tuple (r (relation (a b) (1 2)))
+				       (x (tuple (a 1) (b 2))))))
+    (is (same satisfying-assignment
+	      (solve-for system '(x) (tuple (r (relation (a b) (1 2)))))))))

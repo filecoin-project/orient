@@ -120,8 +120,6 @@
   (:method ((a implementation) (b implementation))
     (and (same (implementation-module a) (implementation-module b))
 	 (same (implementation-name a) (implementation-name b))))
-  (:method ((a relation) (b relation))
-    (equal? (tuples a) (tuples b)))
   (:method ((a parameter) (b parameter))
     (and (same (parameter-name a) (parameter-name b))
 	 (same (parameter-description a) (parameter-description b))
@@ -135,6 +133,11 @@
 	 (same (system-subsystems a) (system-subsystems b))
 					;(same (system-data a) (system-data b))
 	 )))
+
+(test same
+  ;; Regression test.
+  (is (same (tuple (r (relation ())))
+	    (tuple (r (relation ()))))))
 
 (defgeneric satisfies-input-p (attributed b)
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")

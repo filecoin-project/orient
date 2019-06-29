@@ -23,6 +23,9 @@
     (awhen (arb (tuples r))
       (attributes it))))
 
+(defmethod compare ((a relation) (b relation))
+  (compare (tuples a) (tuples b)))
+
 ;; TODO: Make TUPLES accept an optional conversion type to simplifying getting list for iteration.
 (defclass simple-relation (relation)
   ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
@@ -153,6 +156,7 @@
 					  (9 2 3))))))
 
 (defgeneric extract (relation)
+  (:documentation "Extract the sole tuple of a RELATION of cardinality 1.")
   (:method ((relation relation))
     (and (= (cardinality relation) 1)
 	 (arb (tuples relation)))))

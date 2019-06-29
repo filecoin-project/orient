@@ -34,6 +34,8 @@
     (%load-json type-spec (pathname json-pathname))))
 
 (deftype tuple-pair () '(cons symbol (not cons)))
+
+;; FIXME: Should probably change this name.
 (deftype tuple () '(cons tuple-pair t))
 
 (defun %load-json (type-spec source)
