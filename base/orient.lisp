@@ -445,6 +445,12 @@
 	(values (if solution report "NO SOLUTION") solution defaulted-data plan)
 	(values (if solution report "NO SOLUTION") solution defaulted-data))))
 
+(defun private-attr-p (attr)
+  "If ATTR name ends with %, don't include in reports."
+  (let* ((name (symbol-name attr))
+	 (last-char (char name (1- (length name)))))
+    (eql #\% last-char)))
+
 (defun ask (system output &optional initial-data &key override-data)
   "Like solve-for but only returns the requested attributes in response tuple."
   (let ((solution (solve-for system output initial-data :override-data override-data)))

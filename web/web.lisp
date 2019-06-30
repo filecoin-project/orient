@@ -114,19 +114,21 @@
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))
   (reduce (lambda (acc attr val)
-	    (cons `(:html-escape
-		    ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
-		    ": "
-		    ,(awhen (describe-transformation-calculation transformation)
-		       `((:font :color "red") ,it))
-		    " = "
-		    ((:font :color "blue") ,(format-value val))
-		    ,(let ((desc (and system (lookup-description attr system))))
-		       (aif (and desc (not (equal desc "")))
-			    `(:div "     " ((:font :color "green") (:i ,desc)))
+	    (if (private-attr-p attr)
+		acc
+		(cons `(:html-escape
+			((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
+			": "
+			,(awhen (describe-transformation-calculation transformation)
+			   `((:font :color "red") ,it))
+			" = "
+			((:font :color "blue") ,(format-value val))
+			,(let ((desc (and system (lookup-description attr system))))
+			   (aif (and desc (not (equal desc "")))
+				`(:div "     " ((:font :color "green") (:i ,desc)))
 					; '(:div "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
-			    )))
-		  acc))
+				)))
+		      acc)))
 	  (filter (lambda (attr val)
 		    (declare (ignore val))
 		    (contains? (signature-output (transformation-signature transformation)) attr))

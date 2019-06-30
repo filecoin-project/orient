@@ -31,7 +31,8 @@
 	   :tref :join :lookup-description :make-relation
 	   :make-signature :make-tuple :operation
 	   :orient-tests :parameter :parameter-name :parameter-description :parameter-type
-	   :plan :plan-for :pipeline-signature :rel :relation :remove-attributes :rename :report-data :report-solution-for
+	   :plan :plan-for :pipeline-signature :private-attr-p
+	   :rel :relation :remove-attributes :rename :report-data :report-solution-for
 	   :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
 	   :synthesize-report-steps :symbolconc :sys :system
 	   :system-components :system-data :system-name :system-schema :system-subsystems
