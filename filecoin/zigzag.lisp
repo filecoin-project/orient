@@ -9,6 +9,7 @@
 (defparameter *zigzag-defaults* (tuple
 				 (alpha-merkle-hash-function-name :pedersen)
 				 (merkle-hash-function-name :pedersen)
+				 (alpha-hash-function-name :pedersen)
 				 (beta-hash-function-name :blake2s)
 				 (kdf-hash-function-name :blake2s)
 				 ;;(partition-challenges 400)
@@ -147,8 +148,6 @@
 				     (component ((find-transformation ',extractor-name)))))))))
 
 (define-hash-function-selector merkle)
-(define-hash-function-selector alpha-merkle)
-(define-hash-function-selector beta-merkle)
 
 (test select-merkle-hash-function
   (let* ((data (join (tuple (merkle-hash-function-name :pedersen))
@@ -325,6 +324,8 @@
 
      (merkle-tree (merkle-tree sector-size node-bytes))
      (kdf-hash-function (select-hash-function kdf-hash-function-name hash-functions))
+     (alpha-hash-function (select-hash-function alpha-hash-function-name hash-functions))
+     (beta-hash-function (select-hash-function beta-hash-function-name hash-functions))
      (single-kdf-hashes (== total-parents))
      (single-kdf-time (* single-kdf-hashes kdf-hash-function.time))
      (total-nodes-to-encode (* merkle-tree.leaves layers))
@@ -419,8 +420,6 @@
 (defun zigzag-system ()
   (make-instance 'system
 		 :components (list (component ('select-merkle-hash-function))
-				   (component ('select-alpha-merkle-hash-function))
-				   (component ('select-beta-merkle-hash-function))
 				   (component ('extract-merkle-hash-function-components))
 				   )
 		 :subsystems (list (find-system 'zigzag-constraint-system)
