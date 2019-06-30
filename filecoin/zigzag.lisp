@@ -124,71 +124,6 @@
     (is (same expected
 	      (solve-for cs '() (tuple (sector-size 1024) (node-bytes 32)))))))
 
-(defmacro define-hash-function-selector (prefix)
-  (let ((selector-name (symbolconc 'select- prefix '-hash-function))
-	(extractor-name (symbolconc 'extract- prefix '-hash-function-components))
-	(-hash-function-name (symbolconc prefix '-hash-function-name))
-	(-hash-function (symbolconc prefix '-hash-function))
-	(-hash-function-constraints (symbolconc prefix '-hash-function-constraints))
-	(-hash-function-time (symbolconc prefix '-hash-function-time))
-	(-hash-function-size (symbolconc prefix '-hash-function-size))
-	(-hash-function-system (symbolconc prefix '-hash-function-system)))
-    `(progn
-       (deftransformation ,selector-name ((hash-functions ,-hash-function-name)
-					  -> (,-hash-function))
-	 (extract (join (tuple (hash-function-name ,-hash-function-name)) hash-functions)))
-       (deftransformation ,extractor-name ((,-hash-function) -> (,-hash-function-constraints ,-hash-function-time ,-hash-function-size))
-	 (values (tref 'hash-function-constraints ,-hash-function)
-		 (tref 'hash-function-time ,-hash-function)
-		 (tref 'hash-function-size ,-hash-function)))
-       (defun ,-hash-function-system ()
-	 (make-instance 'system
-			:components (list
-				     (component ((find-transformation ',selector-name)))
-				     (component ((find-transformation ',extractor-name)))))))))
-
-(define-hash-function-selector merkle)
-
-(test select-merkle-hash-function
-  (let* ((data (join (tuple (merkle-hash-function-name :pedersen))
-		     (tuple (hash-functions *hash-functions*))))
-	 (result (solve-for (merkle-hash-function-system)
-			    '(merkle-hash-function-constraints merkle-hash-function-size merkle-hash-function-time merkle-hash-function)
-			    data)))
-    (is (same (tuple (HASH-FUNCTIONS *hash-functions*)
-		     (MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-		     (MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-		     (MERKLE-HASH-FUNCTION-SIZE 32)
-		     (MERKLE-HASH-FUNCTION-TIME 1.7993e-5)
-		     (MERKLE-HASH-FUNCTION (TPL (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS HASH-FUNCTION-SIZE)
-						(:PEDERSEN 0.000017993 1152 32))))
-	      result))))
-
-#+(or)
-(test multiple-hash-function-selectors
-  (let* ((data (join (tuple (kdf-hash-function-name :blake2s)
-			    (merkle-hash-function-name :pedersen))
-		     (tuple (hash-functions *hash-functions*))))
-	 (result (solve-for (make-instance 'system :subsystems (list (merkle-hash-function-system) (kdf-hash-function-system)))
-			    '()
-			    data)))
-    (is (same 
-	 (tuple (HASH-FUNCTIONS *hash-functions*)
-		(KDF-HASH-FUNCTION-NAME :BLAKE2S)
-		(KDF-HASH-FUNCTION (TPL (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS HASH-FUNCTION-SIZE)
-					(:BLAKE2S 1.6055E-7 10324 32)))
-		(KDF-HASH-FUNCTION-NAME :blake2s)
-		(KDF-HASH-FUNCTION-CONSTRAINTS 10324)
-		(KDF-HASH-FUNCTION-SIZE 32)
-		(KDF-HASH-FUNCTION-TIME 1.6055e-7)
-		(MERKLE-HASH-FUNCTION-NAME :PEDERSEN)
-		(MERKLE-HASH-FUNCTION-CONSTRAINTS 1152)
-		(MERKLE-HASH-FUNCTION-SIZE 32)
-		(MERKLE-HASH-FUNCTION-TIME 1.7993e-5)
-		(MERKLE-HASH-FUNCTION (TPL (HASH-FUNCTION-NAME HASH-FUNCTION-TIME HASH-FUNCTION-CONSTRAINTS HASH-FUNCTION-SIZE)
-					   (:PEDERSEN 0.000017993 1152 32))))
-	 result))))
-
 (define-simple-constraint select-hash-function-tuple (hash-function (name hash-functions))
     (extract (join (tuple (hash-function-name name)) hash-functions)))
 
@@ -204,8 +139,8 @@
 	      (solve-for system '() data)))))
 
 (define-system-constraint select-hash-function
-    (-- (select-hash-function name hash-functions%))
-  ((hash-function% (select-hash-function-tuple name hash-functions%)
+    (-- (select-hash-function name% hash-functions%))
+  ((hash-function% (select-hash-function-tuple name% hash-functions%)
 		  :description "Tuple containing the selected hash function's characteristics.")
    (constraints (tref 'hash-function-constraints hash-function%)
 		:description "Number of constraints required to prove *.HASH-FUNCTION in circuit.")
@@ -218,12 +153,13 @@
 	 (pedersen-hash-function (extract (join (tuple (hash-function-name :pedersen)) *hash-functions*)))
 	 (expected (tuple
 		    (hf-name :pedersen)
-		    (hf.name :pedersen)
 		    (hf.constraints 1152)
 		    (hf.time 1.7993e-5)
 		    (hf.size 32)
 		    (hash-functions *hash-functions*)
+		    ;; Attrs ending in % will be omitted from report.
 		    (hf.hash-functions% *hash-functions*)
+		    (hf.name% :pedersen)
 		    (hf.hash-function% pedersen-hash-function)))
 	 (system (constraint-system
 		  ((hf (select-hash-function hf-name hash-functions))))))
@@ -310,9 +246,9 @@
 (defconstraint-system zigzag-constraint-system
     ;; TODO: Make variadic version of + and ==.
     ((sector-size (* sector-GiB #.GiB))
-     (comm-d-size (== merkle-hash-function-size))
-     (comm-r-size (== merkle-hash-function-size))
-     (comm-r-star-size (== merkle-hash-function-size))     
+     (comm-d-size (== merkle-hash-function.size))
+     (comm-r-size (== merkle-hash-function.size))
+     (comm-r-star-size (== merkle-hash-function.size))     
      (comm-rs-size (+ comm-r-size comm-r-star-size))
      (commitments-size (+ comm-rs-size comm-d-size))
      (total-circuit-proof-size (* single-circuit-proof-size partitions))
@@ -324,6 +260,7 @@
 
      (merkle-tree (merkle-tree sector-size node-bytes))
      (kdf-hash-function (select-hash-function kdf-hash-function-name hash-functions))
+     (merkle-hash-function (select-hash-function merkle-hash-function-name hash-functions))
      (alpha-hash-function (select-hash-function alpha-hash-function-name hash-functions))
      (beta-hash-function (select-hash-function beta-hash-function-name hash-functions))
      (single-kdf-hashes (== total-parents))
@@ -343,7 +280,7 @@
      (replication-time-per-byte (/ replication-time sector-size))
      (replication-time-per-GiB (* replication-time-per-byte #.(* 1024 1024 1024)))
 
-     (single-layer-merkle-hashing-time (* merkle-tree.hash-count merkle-hash-function-time))
+     (single-layer-merkle-hashing-time (* merkle-tree.hash-count merkle-hash-function.time))
      (total-merkle-trees (+ layers 1))
      (total-merkle-hashing-time (* total-merkle-trees single-layer-merkle-hashing-time))
      
@@ -352,7 +289,7 @@
 
      (total-zigzag-circuit-inclusion-proofs (* total-challenges single-challenge-inclusion-proofs))
      (total-zigzag-circuit-merkle-hashes (* total-zigzag-circuit-inclusion-proofs merkle-tree.inclusion-proof-hash-length))
-     (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function-constraints))
+     (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function.constraints))
 
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function.constraints))
      (total-zigzag-hashing-constraints (+ total-zigzag-merkle-hashing-constraints total-zigzag-kdf-hashing-constraints))
@@ -419,9 +356,6 @@
 
 (defun zigzag-system ()
   (make-instance 'system
-		 :components (list (component ('select-merkle-hash-function))
-				   (component ('extract-merkle-hash-function-components))
-				   )
 		 :subsystems (list (find-system 'zigzag-constraint-system)
 				   (zigzag-security-system))
 		 :data (list *defaults*
