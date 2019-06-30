@@ -205,17 +205,42 @@
 					   (:PEDERSEN 0.000017993 1152 32))))
 	 result))))
 
-(define-simple-constraint select-hash-function (hash-function (name hash-functions))
+(define-simple-constraint select-hash-function-tuple (hash-function (name hash-functions))
     (extract (join (tuple (hash-function-name name)) hash-functions)))
 
-(test select-hash-function
+(test select-hash-function-tuple
   (let* ((data (tuple (hf-name :pedersen) (hash-functions *hash-functions*)))
 	 (expected (with
 		    (with data 'constraints 1152)
 		    'hf (extract (join (tuple (hash-function-name :pedersen)) *hash-functions*))))
 	 (system (constraint-system
-		  ((hf (select-hash-function hf-name hash-functions))
+		  ((hf (select-hash-function-tuple hf-name hash-functions))
 		   (constraints (tref 'hash-function-constraints hf))))))
+    (is (same expected
+	      (solve-for system '() data)))))
+
+(define-system-constraint select-hash-function
+    (hash-function (select-hash-function name hash-functions))
+  ((hash-function (select-hash-function-tuple name hash-functions))
+   (constraints (tref 'hash-function-constraints hash-function))
+   (size (tref 'hash-function-size hash-function))
+   (time (tref 'hash-function-time hash-function))))
+
+(test select-hash-function
+  (let* ((data (tuple (hf-name :pedersen) (hash-functions *hash-functions*)))
+	 (pedersen-hash-function (extract (join (tuple (hash-function-name :pedersen)) *hash-functions*)))
+	 (expected (tuple
+		    (hf-name :pedersen)
+		    (hf.name :pedersen)
+		    (hf.constraints 1152)
+		    (hf.time 1.7993e-5)
+		    (hf.size 32)
+		    (hash-functions *hash-functions*)
+		    (hf.hash-functions *hash-functions*)
+		    (hf.hash-function pedersen-hash-function)
+		    (hf pedersen-hash-function)))
+	 (system (constraint-system
+		  ((hf (select-hash-function hf-name hash-functions))))))
     (is (same expected
 	      (solve-for system '() data)))))
 
