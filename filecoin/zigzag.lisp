@@ -1,7 +1,6 @@
 (in-package :filecoin)
 (in-suite filecoin-suite)
 
-
 (defparameter *hash-functions* (relation (hash-function-name hash-function-time hash-function-constraints hash-function-size)
 					 (:pedersen 0.000017993 1152 32)
 					 (:blake2s 1.6055e-7 10324 32)))
@@ -35,70 +34,11 @@
 				 (beta-merkle-height 0)
 				 ))
 
-(defschema merkle-tree-schema
-    "PoRep  Merkle Trees"
-  (node-bytes "The number of bytes in a node -- must also be the hash digest size.") ; TODO: Move to more general schema.
-  (merkle-tree-leaves "Number of leaves in the merkle tree.")
-  (merkle-tree-height-raw "Height of the merkle tree. Unit: float which MUST be integer-valued")
-  (merkle-tree-height "Height of the merkle tree, including leaves and root.")
-  (merkle-tree-hash-count "Total number of hashes required to construct the merkle tree (leaves are not hashed).")
-  (merkle-inclusion-proof-hash-length "Number of hashes required for a merkle inclusion proof.")
-  (merkle-inclusion-proof-hash-length-raw "Number of hashes required for a merkle inclusion proof. Unit: float which MUST be integer-valued."))
-
-(defconstraint-system merkle-tree-constraint-system
-    ((merkle-tree-leaves (/ sector-size node-bytes))
-     (merkle-tree-height-raw (log merkle-tree-leaves 2))
-     (merkle-tree-height (integer merkle-tree-height-raw))
-     (merkle-inclusion-proof-hash-length (== merkle-tree-height))
-     (merkle-tree-hash-count (- merkle-tree-leaves 1)))
-  :schema 'merkle-tree-schema)
-
-(test merkle-tree-constraint-system
-  "Test merkle tree constraint system."
-
-  ;; Compute MERKLE-TREE-HEIGHT from SECTOR-SIZE.
-  (is (same
-       (make-relation
-	(list
-	 (tuple (sector-size 32)
-		(node-bytes 4)
-		(merkle-tree-leaves 8)
-		(merkle-inclusion-proof-hash-length 3)
-		(merkle-tree-height-raw 3.0)
-		(merkle-tree-hash-count 7)
-		(merkle-tree-height 3))))
-       (solve-for 'merkle-tree-constraint-system '(merkle-tree-height) (tuple (sector-size 32) (node-bytes 4)))))
-
-  ;; Compute SECTOR-SIZE from MERKLE-TREE-HEIGHT.
-  (is (same
-       (make-relation
-	(list 
-	 (tuple (sector-size 32)
-		(node-bytes 4)
-		(merkle-tree-leaves 8)
-		(merkle-inclusion-proof-hash-length 3)
-		(merkle-tree-height-raw 3)
-		(merkle-tree-hash-count 7)
-		(merkle-tree-height 3))))
-       (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-tree-height 3) (node-bytes 4)))))
-
-  ;; Compute SECTOR-SIZE from MERKLE-INCLUSION-PROOF-HASH-LENGTH.
-  (is (same
-       (make-relation
-	(list 
-	 (tuple (sector-size 32)
-		(node-bytes 4)
-		(merkle-tree-leaves 8)
-		(merkle-inclusion-proof-hash-length 3)
-		(merkle-tree-height-raw 3)
-		(merkle-tree-hash-count 7)
-		(merkle-tree-height 3))))
-       (solve-for 'merkle-tree-constraint-system '(sector-size) (tuple (merkle-inclusion-proof-hash-length 3) (node-bytes 4))))))
-
 ;; -- is not assigned internally, so this constraint will not produce a 'return value'.
 ;; TODO: Consider a more explicit way to do this -- at least a strong convention, if not a syntax
 ;; allowing to explicitly forego a return value.
-(define-system-constraint merkle-tree (-- (merkle-tree sector-size node-bytes))
+(define-system-constraint merkle-tree
+    (-- (merkle-tree sector-size node-bytes))
   ((leaves (/ sector-size node-bytes)
 	   :description "Number of leaves in the merkle tree.")
    (height-raw (log leaves 2)
@@ -167,7 +107,8 @@
 	      (solve-for system '() data)))))
 
 (defschema zigzag-schema
-    "ZigZag"  
+    "ZigZag"
+  (node-bytes "The number of bytes in a node -- must also be the hash digest size.")
   (sector-GiB "Size of one sector. Unit: GiB")
   (sector-size "Size of one sector. Unit: bytes")
   (comm-d-size "Size of the data commitment (CommD). Unit: bytes")
