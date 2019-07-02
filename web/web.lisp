@@ -53,19 +53,19 @@
 (defun report-page (&key vars system initial-data override-data)
   (multiple-value-bind (report solution defaulted-data plan)
       (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data :project-solution t
-			   :return-plan t)
+			   :return-plan t :return-defaulted-data t)
     (let* ((signature (pipeline-signature plan))
-	   (parameters (union (signature-input signature) (signature-output signature))))
+	   (parameters (and signature (union (signature-input signature) (signature-output signature)))))
       (declare (ignore parameters)) ;; TODO: turn parameters into links in solution.
       `(:div
 	,@(when override-data
 	    (list `(:div (:p ,(format nil "Supplied: ~s" override-data))
 			 (:hr))))
 	((:div :style "background-color:lightgrey")
-	 (:p (:h3 "Solution ") ,(present-data :html solution system))
+	 (:p (:h3 "Solution ") ,(present-data :html solution system :alt-bgcolor "white" ))
 	 (:hr))
 	((:div :style "background-color:lightblue")
-	 (:p (:h3 "Initial data ") ,(present-data :html defaulted-data system))
+	 (:p (:h3 "Initial data ") ,(present-data :html defaulted-data system :alt-bgcolor "white"))
 	 (:hr))
 	((:div :style "background-color:lightyellow")
 	 (:p  ,report)
@@ -92,24 +92,29 @@
       `(:html-escape ,(format nil "~S" value))
       `(:html-escape ,(or value "FALSE"))))
 
-(defgeneric present-data (format tuple system)
-  (:method ((format (eql :html)) (tuple wb-map) (system system))
-    (cons ;; Compiler claims the LOOP below is unreachable when using backquote syntax here.
-     :html-escape
-     (loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
-			for desc = (lookup-description attr system)
-			collect `(:div
-				  ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
-				  " = "
-				  ((:font :color "blue") ,(format-value (tref attr tuple)))
-				  ,(aif (and desc (not (equal desc "")))
-					`(:div "     " ((:font :color "green") (:i ,desc)))
+(defgeneric present-data (format tuple system &rest keys)
+  (:method ((format (eql :html)) (null null) (system system) &rest key)
+    "NULL")
+  (:method ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor)
+    `(:html-escape
+      ((:div ,@(when alt-bgcolor
+		 `(:style ,(format nil "background-color:~A" alt-bgcolor))))
+       ,@(loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
+	    for desc = (lookup-description attr system)
+	    collect `(:div
+		      ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
+		      " = "
+		      ((:font :color "blue") ,(format-value (tref attr tuple)))
+		      ,(aif (and desc (not (equal desc "")))
+			    `(:div "     " ((:font :color "green") (:i ,desc)))
 					;'(:span "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
-					)
-				  :hr))))
-  (:method ((format (eql :html)) (relation relation) (system system))
+			    )
+		      :hr)))))
+  (:method ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
     `(:div ,@(loop for tuple in (convert 'list (tuples relation))
-		collect (present-data format tuple system)))))
+		for i from 0
+		collect (present-data format tuple system :alt-bgcolor (when (oddp i) alt-bgcolor))
+		))))
 
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))
@@ -208,7 +213,8 @@
 					     :system (zigzag-security-system :isolated t)
 					     :vars (total-zigzag-challenges
 						    zigzag-layers
-						    zigzag-layer-challenges))
+						    zigzag-layer-challenges
+						    ))
     ()
   "ZigZag security")
 
@@ -227,7 +233,7 @@
   "Filecoin is " ((:a :href "filecoin") "Filecoin") ".")
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
-  (with-page ("Orient to Filecoin")    
+  (with-page ("Orient to Filecoin")
     (:ul
      `(:div
        ,@(loop for calc-page in *calculation-pages*

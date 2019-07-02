@@ -70,8 +70,6 @@
     `(setf (tref ',operator ,constraint-factories)
 	   (constraint (,target (,op ,@inputs)) ,transformations))))
 
-
-
 (defmacro constraint ((target (operator &rest inputs)) transformations)
   `(lambda (,target args &key source-operator source-name source-args)
      (destructuring-bind (,@inputs) args

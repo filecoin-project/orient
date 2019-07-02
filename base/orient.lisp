@@ -166,7 +166,7 @@
     (make-relation (union a b)))
   (:method ((a wb-map) (b relation))
     ;; FIXME: Check that headings are compatible.
-    (make-relation (cons a (tuples b))))
+    (make-relation (with (tuples b) a)))
   (:method ((a relation) (b wb-map))
     (combine-potential-relations b a))
   (:method ((a set) (b relation))
@@ -197,6 +197,7 @@
     (apply-transformation (transformation-implementation transformation) tuple))
   (:method ((transformation t) (relation simple-relation))
     ;; TODO: Can we use GMAP here?
+    (setq *dval* relation)
     (reduce #'combine-potential-relations
 	    (image (lambda (tuple)
 		     (apply-transformation transformation tuple))
@@ -238,7 +239,9 @@
     (subset? (signature-input (transformation-signature transformation)) (signature-input signature)))
   (:method ((signature signature) (component component))
     (some (lambda (transformation) (signature-satisfies-p signature transformation))
-	  (component-transformations component))))
+	  (component-transformations component)))
+  (:method ((signature signature) (null null))
+    nil))
 
 (defvar *trace-plan* nil)
 
@@ -283,6 +286,7 @@
 		  (%plan (remove component component-list) ;; Each component can only be used once.
 			 component signature plan))
 		candidates)
+	  ;; If no component in COMPONENT-LIST leads to a new plan, the current PLAN is complete.
 	  plan)))
   (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
     (debug-plan :planning :component component)
@@ -354,16 +358,17 @@
   (:method ((system system) (signature signature) (initial-data t) &key report override-data)
     (let ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	  (plan (plan system signature)))
-      (and plan
-	   (satisfies-input-p initial-data signature)
-	   (let* ((reducer (make-pipeline-reducer system :report report))
-		  (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
-	     (destructuring-bind (result report-results) reduce-result
-	       (values result plan (synthesize-report-steps report report-results) initial-value)))))))
+      (if (and plan (satisfies-input-p initial-data signature))
+	  (let* ((reducer (make-pipeline-reducer system :report report))
+		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
+	    (destructuring-bind (result report-results) reduce-result
+	      (values result plan (synthesize-report-steps report report-results) initial-value)))
+      (values nil plan nil initial-value)))))
 
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
     (destructuring-bind (tuple-or-relation report-results) acc
+      (setq *dval* (list transformation tuple-or-relation))
       (let* ((transformed (apply-transformation transformation tuple-or-relation))
 	     (new-report (when report
 			   (append report-results (report-step transformed transformation system :format report)))))
@@ -435,8 +440,7 @@
 		  solution)
 	      plan report defaulted-data))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan
-				     return-defaulted-data)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan return-defaulted-data)
   (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
 									:report format
 									:override-data override-data

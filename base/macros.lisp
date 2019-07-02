@@ -114,7 +114,7 @@
 	 (output (remove-if-not #'symbolp output))
 	 (input (process-input-list input-lambda-list)))
     (etypecase arrow
-            ;; -> tlambda
+      ;; -> tlambda
       (tlambda-arrow `(let ((sig (make-signature ',input ',output)))
 			(make-instance 'transformation
 				       :name ',name
@@ -171,16 +171,18 @@
 				       :source (list ',source ,@(remove-if-not #'symbolp input))
 				       :signature sig
 				       :implementation (%xlambda ,input-lambda-list ,output ,implementation))))
-      ;; ~> literal implementation
-      #+(or)
-      (literal-arrow `(let ((sig (make-signature ',input ',output)))
-			(make-instance 'transformation
-				       :name ',name
-				       :signature sig
-				       :implementation ,(make-instance 'implementation
-								       :module (package-name
-										(symbol-package implementation))
-								       :name (symbol-name implementation))))))))
+
+       ;; TODO: (or not)
+       ;; ~> literal implementation
+       #+(or)
+       (literal-arrow `(let ((sig (make-signature ',input ',output)))
+			 (make-instance 'transformation
+					:name ',name
+					:signature sig
+					:implementation ,(make-instance 'implementation
+									:module (package-name
+										 (symbol-package implementation))
+									:name (symbol-name implementation))))))))
 
 (defmacro deftoplevel (name (type) &body body)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -300,6 +302,7 @@
 
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
+;; Essentially, tuple -> tuple
 (defmacro tlambda ((&rest input) (&rest output) &body body)
   (multiple-value-bind (input-attrs all-var) (process-input-list input)
     (let ((tuple (or all-var (gensym "TUPLE")))
@@ -345,6 +348,7 @@
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a list of lists, one for each data map to be added to the resulting relation.
+;; Essentially, tuple -> relation
 (defmacro xlambda ((&rest input) (&rest output) &body body)
   (let ((tuple (gensym "TUPLE"))
 	(out (gensym "OUTPUT")))
@@ -377,6 +381,7 @@
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
 ;; Code in BODY should return a relation -- whose heading must be correct.
+;; Essentially, tuple -> relation
 (defmacro rlambda ((&rest input) (&rest output) &body body)
   (declare (ignore output))
   (multiple-value-bind (input-attrs all-var) (process-input-list input)
