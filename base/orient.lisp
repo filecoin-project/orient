@@ -10,10 +10,14 @@
 
 (defclass signature ()
   ((input :initarg :input :initform (empty-set) :accessor signature-input :type set)
-   (output :initarg :output :initform (empty-set) :accessor signature-output :type set)))
+   (output :initarg :output :initform (empty-set) :accessor signature-output :type set)
+   (reducer? :initarg :reducer? :initform nil :accessor signature-reducer? :type boolean)))
 
-(defun make-signature (input output)
-  (make-instance 'signature :input (convert 'set input) :output (convert 'set output)))
+(defun make-signature (input output &optional reducer?)
+  (make-instance 'signature
+		 :input (convert 'set input)
+		 :output (convert 'set output)
+		 :reducer? reducer?))
 
 (defun pruned-signature (sig)
   "Return a new signature, with output which is also input pruned, since this will be trivially provided."

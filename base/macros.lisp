@@ -111,11 +111,12 @@
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
   (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
+	 (reducer? (not (not (member '&acc input-lambda-list))))
 	 (output (remove-if-not #'symbolp output))
-	 (input (process-input-list input-lambda-list)))
+	 (input (parse-tuple-lambda input-lambda-list)))
     (etypecase arrow
       ;; -> tlambda
-      (tlambda-arrow `(let ((sig (make-signature ',input ',output)))
+      (tlambda-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
 			(make-instance 'transformation
 				       :name ',name
 				       :signature sig
@@ -124,14 +125,14 @@
 							    `(quote ,source)
 							    `(quote ,implementation)))))
       ;; => xlambda
-      (xlambda-arrow `(let ((sig (make-signature ',input ',output)))
+      (xlambda-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
 			(make-instance 'transformation
 				       :name ',name
 				       :signature sig
 				       :source ',source
 				       :implementation (xlambda ,input-lambda-list ,output ,implementation))))
       ;; ~> literal implementation
-      (literal-arrow `(let ((sig (make-signature ',input ',output)))
+      (literal-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
 			(make-instance 'transformation
 				       :name ',name
 				       :signature sig
@@ -147,10 +148,11 @@
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
   (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
-	 (input (process-input-list input-lambda-list)))
+	 (reducer? (not (not (member '&acc input-lambda-list))))
+	 (input (parse-tuple-lambda input-lambda-list)))
     (etypecase arrow
             ;; -> tlambda
-      (tlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)))))
+      (tlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)) ,reducer?)))
 			(make-instance 'transformation
 				       :name ',name
 				       :signature sig
@@ -165,7 +167,7 @@
 						   ((or list symbol) (sublis substitutions effective-source))
 						   (t effective-source))))))
       ;; => xlambda
-       (xlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)))))
+       (xlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)) ,reducer?)))
 			(make-instance 'transformation
 				       :name ',name
 				       :source (list ',source ,@(remove-if-not #'symbolp input))
@@ -264,21 +266,29 @@
 	 (setf (system-schema system) it))
        (deftoplevel ,name (:system) system))))
 
-;; TOOD: rename this to process-tuple-lambda-list
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun process-input-list (input)
-    (let* ((all-pos (position '&all input))
-	   (attrs (if all-pos
-		      (subseq input 0 all-pos)
-		      input))
-	   (all-var (when all-pos
-		      (nth (1+ all-pos) input))))
-      (values attrs all-var))))
+(defun parse-lambda (lambda-list marker-symbols)
+  (let ((result (list (list 'vars))))
+    (loop for sym in lambda-list
+       if (member sym marker-symbols)
+       do (progn (setf (cdar result) (nreverse (cdar result)))
+		 (push (cons sym nil) result))
+       else do (push sym (cdr (car result))))
+    (setf (cdar result) (nreverse (cdar result)))
+    result))
 
-(test process-input-list
-  (multiple-value-bind (attrs all-var) (process-input-list '(a b c &all all))
-    (is (equal '(a b c) attrs))
-    (is (eql 'all all-var))))
+(test parse-lambda
+  (is (equal (parse-lambda '(a b &key c d &optional e f) '(&key &optional))
+	     '((&optional e f) (&key c d) (vars a b)))))
+
+(defun parse-tuple-lambda (lambda-list)
+  (let ((parsed (parse-lambda lambda-list '(&acc &all))))
+    (values (cdr (assoc 'vars parsed))
+	    (cdr (assoc '&acc parsed))
+	    (cdr (assoc '&all parsed)))))
+
+(test parse-tuple-lambda
+  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d e &all f)))
+	     '((a b c) (d e) (f)))))
 
 (defun arg-eval (arg)
   "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
@@ -292,7 +302,8 @@
 
 ;; Convenience function for manipulating tuples.
 (defmacro tfn ((&rest tuple-lambda-list) &body body)
-  (multiple-value-bind (attrs all-var) (process-input-list tuple-lambda-list)
+  (multiple-value-bind (attrs acc-attrs all-var) (parse-tuple-lambda tuple-lambda-list)
+    (check-type acc-attrs null)
     (let ((tuple (or all-var (gensym "TUPLE"))))
       `(lambda (,tuple)
 	 (symbol-macrolet
@@ -304,7 +315,7 @@
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
 ;; Essentially, tuple -> tuple
 (defmacro tlambda ((&rest input) (&rest output) &body body)
-  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+  (multiple-value-bind (input-attrs acc-attrs all-var) (parse-tuple-lambda input)
     (let ((tuple (or all-var (gensym "TUPLE")))
 	  (acc (gensym "ACC"))
 	  (new-tuple (gensym "NEW-TUPLE"))
@@ -313,6 +324,8 @@
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple))))
+	   (,@(loop for acc-attr in acc-attrs
+		 collect `(,acc-attr (tref ',acc ,tuple))))
 	   (let ((,new-tuple ,tuple)
 		 (,out (multiple-value-list (progn ,@body))))
 	     (declare (ignorable ,out))
@@ -322,7 +335,7 @@
 
 ;; Like TLAMBDA but with unquoted attributes. This means input/output names can be supplied at execution time (bound in lexical env).
 (defmacro %tlambda ((&rest input) (&rest output) &body body)
-  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+  (multiple-value-bind (input-attrs all-var) (parse-tuple-lambda input)
     (let ((tuple (or all-var (gensym "TUPLE")))
 	  (acc (gensym "ACC"))
 	  (new-tuple (gensym "NEW-TUPLE"))
@@ -388,7 +401,7 @@
 ;; Essentially, tuple -> relation
 (defmacro rlambda ((&rest input) (&rest output) &body body)
   (declare (ignore output))
-  (multiple-value-bind (input-attrs all-var) (process-input-list input)
+  (multiple-value-bind (input-attrs all-var) (parse-tuple-lambda input)
     (let ((tuple (or all-var (gensym "TUPLE")))
 	  (acc (gensym "ACC")))
       `(lambda (,tuple ,acc)
