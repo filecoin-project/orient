@@ -127,16 +127,19 @@
 		(restrict (tfn (b) (= b 5))
 			  (relation (a b c) (1 2 3) (4 5 6) (7 8 9))))))
 
-(defgeneric project (attributes attributed)
-  (:method ((attributes list) (attributed t))
-    (project (convert 'set attributes) attributed))
-  (:method ((attributes set) (null null))
+(defgeneric project (attributes attributed &key invert)
+  (:method ((attributes list) (attributed t) &key invert)
+    (project (convert 'set attributes) attributed) :invert invert)
+  (:method ((attributes set) (null null) &key invert)
+    (declare (ignore invert))
     nil)
-  (:method ((attributes set) (tuple wb-map))
-    (fset:restrict tuple attributes))
-  (:method ((attributes set) (relation relation))
+  (:method ((attributes set) (tuple wb-map) &key invert)
+    (if invert
+	(fset:restrict-not tuple attributes)
+	(fset:restrict tuple attributes)))
+  (:method ((attributes set) (relation relation) &key invert)
     (make-relation
-     (image (lambda (tuple) (project attributes tuple))
+     (image (lambda (tuple) (project attributes tuple :invert invert))
 	    (tuples relation)))))
 
 (test project-tuple "Test PROJECT on tuple."

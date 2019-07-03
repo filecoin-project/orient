@@ -110,7 +110,10 @@
 (defmacro transformation (((&rest input-lambda-list) arrow (&rest output) &key source name) eqmark implementation)
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
-  (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
+  (let* ((input-lambda-list (remove-if-not (lambda (x) ;; TODO: probably should do this filtering after PARSE-TUPLE-LAMBDA
+					     (or (symbolp x)
+						 (typep x '(cons symbol))))
+					   input-lambda-list))
 	 (reducer? (not (not (member '&acc input-lambda-list))))
 	 (output (remove-if-not #'symbolp output))
 	 (input (parse-tuple-lambda input-lambda-list)))
@@ -287,8 +290,8 @@
 	    (cdr (assoc '&all parsed)))))
 
 (test parse-tuple-lambda
-  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d e &all f)))
-	     '((a b c) (d e) (f)))))
+  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f)))
+	     '((a b c) (d (e 9)) (f)))))
 
 (defun arg-eval (arg)
   "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
@@ -323,9 +326,18 @@
       `(lambda (,tuple ,acc)
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
-		   collect `(,in (tref ',in ,tuple))))
-	   (,@(loop for acc-attr in acc-attrs
-		 collect `(,acc-attr (tref ',acc ,tuple))))
+		   collect `(,in (tref ',in ,tuple)))
+	      ,@(loop for acc-attr in acc-attrs
+		   collect `(,acc-attr ,(etypecase acc-attr
+					  (symbol
+					   `(tref ',acc-attr ,acc))
+					  ((cons symbol)
+					   `(multiple-value-bind (val presentp)
+						(and ,acc
+						     (tref ',(car acc-attr) ,acc))
+					      (if presentp
+						  val
+						  ,(cdr acc-attr))))))))
 	   (let ((,new-tuple ,tuple)
 		 (,out (multiple-value-list (progn ,@body))))
 	     (declare (ignorable ,out))

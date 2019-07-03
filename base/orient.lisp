@@ -13,6 +13,9 @@
    (output :initarg :output :initform (empty-set) :accessor signature-output :type set)
    (reducer? :initarg :reducer? :initform nil :accessor signature-reducer? :type boolean)))
 
+(defmethod reducer? ((transformation transformation))
+  (signature-reducer? (transformation-signature transformation)))
+
 (defun make-signature (input output &optional reducer?)
   (make-instance 'signature
 		 :input (convert 'set input)
@@ -205,18 +208,21 @@
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple acc))
   (:method ((transformation t) (relation simple-relation) &optional acc)
-    acc
-    ;; FIXME: Implement tuple reduction logic.
-    
-    ;; TODO: Can we use GMAP here?
-    (reduce #'combine-potential-relations
-	    (image (lambda (tuple)
-		     (apply-transformation transformation tuple))
-		   (tuples relation))
-	    :initial-value nil)
-    
-
-    )
+    (cond
+      ((reducer? transformation)
+       (let* ((sig (transformation-signature transformation))
+	      (impl (transformation-implementation transformation))
+	      (reduced (reduce (lambda (acc tuple)
+				 (apply-transformation impl tuple acc))
+			       (tuples relation)
+			       :initial-value acc)))
+	 (project (signature-input sig) reduced :invert t)))
+      (t
+       (reduce #'combine-potential-relations
+	       (image (lambda (tuple)
+			(apply-transformation transformation tuple))
+		      (tuples relation))
+	       :initial-value nil))))
   (:method ((pipeline list) (tuple wb-map) &optional acc)
     "Sequentially apply list of transformations, reducing from initial value of TUPLE."
     (check-type pipeline pipeline)
@@ -226,6 +232,13 @@
 	      (apply-transformation transformation tuple))
 	    pipeline
 	    :initial-value tuple)))
+
+(test reducer-transformation
+  (let ((f (transformation ((a &acc (acc 4) (all-a '())) -> (acc all-a)) ==
+			   (values (+ acc a) (cons a all-a))))
+	(data (relation (a) (1) (2) (3))))
+    (is (same (apply-transformation f data nil)
+	      (tuple (acc 10) (all-a '(3 2 1)))))))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
