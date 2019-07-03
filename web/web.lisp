@@ -93,28 +93,29 @@
       `(:html-escape ,(or value "FALSE"))))
 
 (defgeneric present-data (format tuple system &rest keys)
-  (:method ((format (eql :html)) (null null) (system system) &rest key)
+  (:method ((format (eql :html)) (null null) (system system) &key)
     "NULL")
-  (:method ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor)
-    `(:html-escape
-      ((:div ,@(when alt-bgcolor
+  (:method ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor use-alt)
+    (cons
+     :html-escape
+     (cons
+      `(:div ,@(when (and use-alt alt-bgcolor)
 		 `(:style ,(format nil "background-color:~A" alt-bgcolor))))
-       ,@(loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
-	    for desc = (lookup-description attr system)
-	    collect `(:div
-		      ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
-		      " = "
-		      ((:font :color "blue") ,(format-value (tref attr tuple)))
-		      ,(aif (and desc (not (equal desc "")))
-			    `(:div "     " ((:font :color "green") (:i ,desc)))
+      (loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
+	 for desc = (lookup-description attr system)
+	 collect `(:div
+		   ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
+		   " = "
+		   ((:font :color "blue") ,(format-value (tref attr tuple)))
+		   ,(aif (and desc (not (equal desc "")))
+			 `(:div "     " ((:font :color "green") (:i ,desc)))
 					;'(:span "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
-			    )
-		      :hr)))))
+			 )
+		   :hr)))))
   (:method ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
     `(:div ,@(loop for tuple in (convert 'list (tuples relation))
 		for i from 0
-		collect (present-data format tuple system :alt-bgcolor (when (oddp i) alt-bgcolor))
-		))))
+		collect (present-data format tuple system :alt-bgcolor alt-bgcolor :use-alt (oddp i))))))
 
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))

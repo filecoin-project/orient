@@ -175,39 +175,52 @@
     (combine-potential-relations b a)))
 
 (deftype transformation-spec () '(or transformation symbol))
+(deftype pipeline () '(cons transformation-spec))
 
-(defgeneric apply-transformation (transformation attributed)
+(defgeneric apply-transformation (transformation attributed &optional acc)
   (:documentation "Applies a transformation to data, returning strict data, i.e. (RELATION, TUPLE, or NIL)")
-  (:method ((f function) (tuple wb-map))
+  (:method ((f function) (tuple wb-map) &optional acc)
     ;;; All transformation applications need to go through here.
     ;;; TODO: Transformation should fail if any input is removed from output.
     ;;; This is where the real work happens.
-    (let* ((result (funcall f tuple)))
+    ;;; All transformation functions must take a tuple and an optional ACC tuple.
+    ;;; If ACC is a tuple (not NIL), then it is the accumulator value of a reduction.
+    ;;; Transformation functions which do not implement a reduction can ignore this value.
+    (let* ((result (funcall f tuple acc)))
       (join tuple result)))
-  (:method ((impl implementation) (tuple t))
+  (:method ((impl implementation) (tuple t) &optional acc)
     (awhen (implementation-function impl)
-      (apply-transformation it tuple)))
-  (:method ((transformation-name symbol) (tuple t))
-    (awhen (find-transformation transformation-name) (apply-transformation it tuple)))
-  (:method ((transformation t) (null null))
+      (apply-transformation it tuple acc)))
+  (:method ((transformation-name symbol) (tuple t) &optional acc)
+    (awhen (find-transformation transformation-name) (apply-transformation it tuple acc)))
+  (:method ((transformation t) (null null) &optional acc)
+    (declare (ignore acc))
     ;; Everything collapses to NIL. This simplifies uniform handling of tuples/relations, but may need to be revisited.
     nil)
-  (:method ((transformation transformation) (tuple wb-map))
+  (:method ((transformation transformation) (tuple wb-map) &optional acc)
     (assert (satisfies-input-p tuple transformation))
-    (apply-transformation (transformation-implementation transformation) tuple))
-  (:method ((transformation t) (relation simple-relation))
+    (apply-transformation (transformation-implementation transformation) tuple acc))
+  (:method ((transformation t) (relation simple-relation) &optional acc)
+    acc
+    ;; FIXME: Implement tuple reduction logic.
+    
     ;; TODO: Can we use GMAP here?
-    (setq *dval* relation)
     (reduce #'combine-potential-relations
 	    (image (lambda (tuple)
 		     (apply-transformation transformation tuple))
 		   (tuples relation))
-	    :initial-value nil))
-  (:method ((list list) (tuple wb-map))
-    (check-type list (cons transformation-spec))
+	    :initial-value nil)
+    
+
+    )
+  (:method ((pipeline list) (tuple wb-map) &optional acc)
+    "Sequentially apply list of transformations, reducing from initial value of TUPLE."
+    (check-type pipeline pipeline)
+    ;; ACC only applies within a single transformation's processing of multiple tuples (i.e. a relation).
+    (check-type acc null)
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
-	    list
+	    pipeline
 	    :initial-value tuple)))
 
 (defgeneric compose-signatures (a b)
@@ -368,7 +381,6 @@
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
     (destructuring-bind (tuple-or-relation report-results) acc
-      (setq *dval* (list transformation tuple-or-relation))
       (let* ((transformed (apply-transformation transformation tuple-or-relation))
 	     (new-report (when report
 			   (append report-results (report-step transformed transformation system :format report)))))

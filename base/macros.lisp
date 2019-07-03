@@ -306,9 +306,10 @@
 (defmacro tlambda ((&rest input) (&rest output) &body body)
   (multiple-value-bind (input-attrs all-var) (process-input-list input)
     (let ((tuple (or all-var (gensym "TUPLE")))
+	  (acc (gensym "ACC"))
 	  (new-tuple (gensym "NEW-TUPLE"))
 	  (out (gensym "OUTPUT")))
-      `(lambda (,tuple)
+      `(lambda (,tuple ,acc)
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple))))
@@ -323,11 +324,12 @@
 (defmacro %tlambda ((&rest input) (&rest output) &body body)
   (multiple-value-bind (input-attrs all-var) (process-input-list input)
     (let ((tuple (or all-var (gensym "TUPLE")))
+	  (acc (gensym "ACC"))
 	  (new-tuple (gensym "NEW-TUPLE"))
 	  (out (gensym "OUTPUT"))
 	  (var-pairs (loop for v in input
 			collect (cons v (gensym (symbol-name v))))))
-      `(lambda (,tuple)
+      `(lambda (,tuple ,acc)
 	 (let (,@(mapcar (lambda (var-pair)
 			   (list (cdr var-pair) (car var-pair)))
 			 var-pairs))
@@ -351,8 +353,9 @@
 ;; Essentially, tuple -> relation
 (defmacro xlambda ((&rest input) (&rest output) &body body)
   (let ((tuple (gensym "TUPLE"))
+	(acc (gensym "ACC"))
 	(out (gensym "OUTPUT")))
-    `(lambda (,tuple)
+    `(lambda (,tuple ,acc)
        (declare (ignorable ,tuple))
        (symbol-macrolet
 	   (,@(loop for in in input
@@ -364,10 +367,11 @@
 ;; Like XLAMBDA but with unquoted attributes. This means input/output names can be supplied at execution time (bound in lexical env).
 (defmacro %xlambda ((&rest input) (&rest output) &body body)
   (let ((tuple (gensym "TUPLE"))
+	(acc (gensym "ACC"))
 	(out (gensym "OUTPUT"))
 	(var-pairs (loop for v in input
 		      collect (cons v (gensym (symbol-name v))))))
-    `(lambda (,tuple)
+    `(lambda (,tuple ,acc)
        (declare (ignorable ,tuple))
        (let (,@(mapcar (lambda (var-pair)
 			 (list (cdr var-pair) (car var-pair)))
@@ -385,8 +389,9 @@
 (defmacro rlambda ((&rest input) (&rest output) &body body)
   (declare (ignore output))
   (multiple-value-bind (input-attrs all-var) (process-input-list input)
-    (let ((tuple (or all-var (gensym "TUPLE"))))
-      `(lambda (,tuple)
+    (let ((tuple (or all-var (gensym "TUPLE")))
+	  (acc (gensym "ACC")))
+      `(lambda (,tuple ,acc)
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple))))

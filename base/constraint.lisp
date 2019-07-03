@@ -533,7 +533,6 @@
 	   "VALUE = (TREF ATTR TUPLE)"
 	   ((transformation* ((attr tuple) -> (value)) == (tref attr tuple))))))
 
-
 (test tref-constraint
   "TEST CONSTRAINT-SYSTEM with tuple reference constraint."
   (let* ((system (constraint-system

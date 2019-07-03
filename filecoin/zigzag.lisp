@@ -119,19 +119,20 @@
 
 (deftransformation compute-zigzag-tapered-layers
     ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
-     => (layer-index zigzag-layer-challenges;;total-zigzag-challenges
-		     ))
+     => (layer-index zigzag-layer-challenges total-zigzag-challenges))
   (let* ((reduction (- 1 zigzag-taper))
 	 (layer-challenges (loop for i from 0 below layers
 			      collect (max 20
 					   (* zigzag-lambda
 					      (floor (* zigzag-basic-layer-challenge-factor
 							(expt reduction i)))))))
-	 (total (reduce #'+ layer-challenges)))
+	 (total (reduce #'+ layer-challenges))
+	 )
     (loop for lc in layer-challenges
 	 for layer-index from 0
-	 collect (list layer-index lc))))
+	 collect (list layer-index lc total))))
 
+#+(or)
 (deftransformation total-zigzag-tapered-layers
     ((layer-challenges) ==> (total-zigzag-challenges))
   (list (list (loop for tuple in (convert 'list (tuples layer-challenges))
