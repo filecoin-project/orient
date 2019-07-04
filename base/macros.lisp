@@ -284,14 +284,15 @@
 	     '((&optional e f) (&key c d) (vars a b)))))
 
 (defun parse-tuple-lambda (lambda-list)
-  (let ((parsed (parse-lambda lambda-list '(&acc &all))))
+  (let ((parsed (parse-lambda lambda-list '(&acc &all &group))))
     (values (cdr (assoc 'vars parsed))
 	    (cdr (assoc '&acc parsed))
-	    (cdr (assoc '&all parsed)))))
+	    (cdr (assoc '&all parsed))
+	    (cdr (assoc '&group parsed)))))
 
 (test parse-tuple-lambda
-  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f)))
-	     '((a b c) (d (e 9)) (f)))))
+  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f &group x y)))
+	     '((a b c) (d (e 9)) (f) (x y)))))
 
 (defun arg-eval (arg)
   "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
@@ -328,16 +329,17 @@
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple)))
 	      ,@(loop for acc-attr in acc-attrs
-		   collect `(,acc-attr ,(etypecase acc-attr
-					  (symbol
-					   `(tref ',acc-attr ,acc))
-					  ((cons symbol)
-					   `(multiple-value-bind (val presentp)
-						(and ,acc
-						     (tref ',(car acc-attr) ,acc))
-					      (if presentp
-						  val
-						  ,(cdr acc-attr))))))))
+		   collect (etypecase acc-attr
+			     (symbol
+			      `(,acc-attr (tref ',acc-attr ,acc)))
+			     ((cons symbol)
+			      `(,(car acc-attr)
+				 (multiple-value-bind (val presentp)
+				     (and ,acc
+					  (tref ',(car acc-attr) ,acc))
+				   (if presentp
+				       val
+				       ,(cadr acc-attr))))))))
 	   (let ((,new-tuple ,tuple)
 		 (,out (multiple-value-list (progn ,@body))))
 	     (declare (ignorable ,out))
