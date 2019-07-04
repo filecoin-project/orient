@@ -193,6 +193,11 @@
   `(eval-when (:compile-toplevel :load-toplevel :execute)
      (define-toplevel-thing ',name ',type (progn ,@body))))
 
+(defun var-spec-symbol (spec)
+  (typecase spec
+    (symbol spec)
+    ((cons symbol) (car spec))))
+
 (defmacro deftransformation (name ((&rest input) arrow (&rest output)) &body implementation)
   (check-type arrow transformation-arrow)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -269,6 +274,28 @@
 	 (setf (system-schema system) it))
        (deftoplevel ,name (:system) system))))
 
+(defun arg-eval (arg)
+  "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
+  (typecase arg
+    ((cons (eql quote)) (cadr arg))
+    (t arg)))
+
+(defmacro tref (attribute tuple)
+  "Get value of ATTRIBUTE in TUPLE."
+  `(@ ,tuple (arg-eval ,attribute)))
+
+;; Convenience function for manipulating tuples.
+(defmacro tfn ((&rest tuple-lambda-list) &body body)
+  (multiple-value-bind (attrs acc-attrs all-var) (parse-tuple-lambda tuple-lambda-list)
+    (check-type acc-attrs null)
+    (let ((tuple (or all-var (gensym "TUPLE"))))
+      `(lambda (,tuple)
+	 (symbol-macrolet
+	     (,@(loop for in in attrs
+		   collect `(,in (tref ',in ,tuple))))
+	   ,@body)))))
+
+
 (defun parse-lambda (lambda-list marker-symbols)
   (let ((result (list (list 'vars))))
     (loop for sym in lambda-list
@@ -293,27 +320,6 @@
 (test parse-tuple-lambda
   (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f &group x y)))
 	     '((a b c) (d (e 9)) (f) (x y)))))
-
-(defun arg-eval (arg)
-  "Minimal evaluation of constraint args, so we can use literal symbols as values without interpreting them as variables to bind."
-  (typecase arg
-    ((cons (eql quote)) (cadr arg))
-    (t arg)))
-
-(defmacro tref (attribute tuple)
-  "Get value of ATTRIBUTE in TUPLE."
-  `(@ ,tuple (arg-eval ,attribute)))
-
-;; Convenience function for manipulating tuples.
-(defmacro tfn ((&rest tuple-lambda-list) &body body)
-  (multiple-value-bind (attrs acc-attrs all-var) (parse-tuple-lambda tuple-lambda-list)
-    (check-type acc-attrs null)
-    (let ((tuple (or all-var (gensym "TUPLE"))))
-      `(lambda (,tuple)
-	 (symbol-macrolet
-	     (,@(loop for in in attrs
-		   collect `(,in (tref ',in ,tuple))))
-	   ,@body)))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.

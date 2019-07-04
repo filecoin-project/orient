@@ -211,7 +211,6 @@
 				   other-attributes
 				   by-attributes)
 			       relation)))
-      (display by-attributes other-attributes projected)
       (map-relation (lambda (tuple)
 		      (with tuple new-attribute (project (if invert
 							     by-attributes

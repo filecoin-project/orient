@@ -119,18 +119,25 @@
 
 (deftransformation compute-zigzag-tapered-layers
     ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
-     => (layer-index zigzag-layer-challenges total-zigzag-challenges))
+     => (layer-index zigzag-layer-challenges ;;total-zigzag-challenges
+		     ))
   (let* ((reduction (- 1 zigzag-taper))
 	 (layer-challenges (loop for i from 0 below layers
 			      collect (max 20
 					   (* zigzag-lambda
 					      (floor (* zigzag-basic-layer-challenge-factor
 							(expt reduction i)))))))
-	 (total (reduce #'+ layer-challenges))
+	 ;;(total (reduce #'+ layer-challenges))
 	 )
     (loop for lc in layer-challenges
 	 for layer-index from 0
-	 collect (list layer-index lc total))))
+       collect (list layer-index lc
+		     ;;total
+		     ))))
+
+(deftransformation compute-total-zigzag-challenges
+    ((layer-index zigzag-layer-challenges &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
+  (values (+ total-zigzag-challenges zigzag-layer-challenges)))
 
 #+(or)
 (deftransformation total-zigzag-tapered-layers
@@ -299,7 +306,10 @@
   (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
   (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
-  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction"))
+  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
+  (layer-index "Index of layer. Unit: integer")
+  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer")
+  )
 
 (defconstraint-system zigzag-security-constraint-system
     ((zigzag-lambda (log zigzag-soundness #.(/ 1 2)))
@@ -320,7 +330,8 @@
 
 (defun zigzag-security-system (&key isolated)
   (make-instance 'system
-		 :components (list (component ('compute-zigzag-tapered-layers)))
+		 :components (list (component ('compute-zigzag-tapered-layers))
+				   (component ('compute-total-zigzag-challenges)))
 		 :subsystems (list (find-system 'zigzag-security-constraint-system))
 		 :data (if isolated
 			   (list (tuple (layers 10)) *default-zigzag-security*)

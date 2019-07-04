@@ -39,4 +39,4 @@
 	   :tpl :transformation :transformation-implementation :transformation-name :transformation-signature :tref :trem :try-with
 	   :use-construction :use-attribute
 	   :where :with-construction :write-dot-format
-	   :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &all :!>))
+	   :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group :!>))
