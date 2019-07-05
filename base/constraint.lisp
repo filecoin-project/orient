@@ -7,6 +7,9 @@
 
 (defvar *constraint-factories* (tuple))
 
+(defun find-constraint (name &key (constraint-factories *constraint-factories*))
+  (tref name constraint-factories))
+
 (defmacro constraint-system (constraint-definitions)
   `(make-constraint-system ',constraint-definitions))
 
@@ -34,26 +37,36 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun expand-constraint-forms (constraint-forms)
-    (mapcar (lambda (constraint-form) (expand-constraint-form constraint-form))
-	    constraint-forms))
+    (let ((expansions '())
+	  (all-inputs '())
+	  (all-outputs '()))
+      (dolist (constraint-form constraint-forms)
+	(multiple-value-bind (expansion inputs output)
+	    (expand-constraint-form constraint-form)
+	  (push expansion expansions)
+	  (push inputs all-inputs)
+	  (push output all-outputs)))
+      (values (nreverse expansions) (nreverse all-inputs) (nreverse all-outputs))))
 
   (defun expand-constraint-form (constraint-form)
     (destructuring-bind (target (op &rest inputs) &key (constraint-factories '*constraint-factories*) description)
 	constraint-form
       (declare (ignore constraint-factories))
+      (let ((expansion
       ;;; WITH-NAMESPACE must be lexically bound in containing expression.
-      `(let ((namespaced-target (with-namespace ',target)))	 
-	 (prog1
-	     (make-operation-constraint ',op namespaced-target ;(with-namespace ',target)
-					(list ,@(mapcar (lambda (input)
-							  `(with-namespace ',input))
-							inputs)))
-	   ,(when description
-	      `(when *new-schema*
-		 (push (make-instance 'parameter
-				      :name namespaced-target
-				      :description ,description)
-		       (schema-parameters *new-schema*)))))))))
+	     `(let ((namespaced-target (with-namespace ',target)))	 
+		(prog1
+		    (make-operation-constraint ',op namespaced-target
+					       (list ,@(mapcar (lambda (input)
+								 `(with-namespace ',input))
+							       inputs)))
+		  ,(when description
+		     `(when *new-schema*
+			(push (make-instance 'parameter
+					     :name namespaced-target
+					     :description ,description)
+			      (schema-parameters *new-schema*))))))))
+	(values expansion inputs target)))))
 
 (defmacro define-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*)) &rest body)
   ;; TODO: make a macro to reduce this documentation-supporting boilerplate.
@@ -101,27 +114,6 @@
 					  :source-name ,target
 					  :source-args args))))))
 
-#+(or)
-(defmacro define-alias-constraint (operator (target (op &rest inputs) &key (constraint-factories '*constraint-factories*))
-				   &rest body)
-  ;; Define OPERATOR as an alias for another operator but with rearranged target and inputs.
-  ;; This is most commonly used to implement the inverse of a binary operator in terms of that operator.
-  (destructuring-bind (documentation (other-target (other-op &rest other-inputs)))
-      (typecase (first body)
-	(string (destructuring-bind (doc alias-spec)
-		    body
-		  (list doc alias-spec)))
-	(t (destructuring-bind (alias-spec)
-	       body
-	     (list nil alias-spec))))
-    (declare (ignore documentation))
-    (assert (eq operator op))
-    `(setf (tref ',operator ,constraint-factories)	   
-	   (alias-constraint (,target (,op ,@inputs)
-				      :other-op ,other-op
-				      :other-target ,other-target
-				      :other-inputs ,other-inputs)))))
-
 (defmacro alias-constraint ((target (op &rest inputs) &key other-op other-target other-inputs))
     `(lambda (,target args)
 	     (destructuring-bind (,@inputs) args
@@ -147,30 +139,99 @@
 
 (defvar *new-schema*)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun make-input-==-constraint-maker (system-inputs)
+    (lambda (input)
+      (multiple-value-bind (prefix? relative-parts)
+	  (any-prefix input system-inputs)
+	(declare (ignore prefix?))
+	(cond
+	  (relative-parts
+	   (mapcar (lambda (relative-part)
+		     `(make-operation-constraint
+		       '== (with-namespace (symbolconc ',input '\. ',relative-part))
+		       (list (symbolconc ,input '\. ',relative-part))))
+		   relative-parts))
+	  (t (list  `(make-operation-constraint
+		      '== (with-namespace ',input)		 
+		      (list ,input))))))))
+
+  (defun symbol-path (symbol)
+    (string-split #\. (symbol-name symbol)))
+
+  (defun path-prefixes (symbol)
+    "Returns a list of all prefixes of symbol, including the symbol itself. Example: (PATH-PREFIXES 'asdf.fdsa.qwer) => (ASDF.FDSA.QWER ASDF.FDSA ASDF)"
+    (let ((*package* (symbol-package symbol)))
+      (reduce (lambda (acc part)
+		(aif (first acc)
+		     (cons (symbolconc it '\. part) acc)
+		     (list (intern part))))
+	      (symbol-path symbol)
+	      :initial-value '())))
+
+  (test path-prefixes
+    (is (equal (path-prefixes 'asdf.fdsa.qwer)
+	       '(asdf.fdsa.qwer asdf.fdsa asdf))))
+
+  (defun prefixp (prefix symbol)
+    (cond
+      ((eql prefix symbol) (values t nil))
+      (t (let* ((prefix-name (symbol-name prefix))
+		(symbol-name (symbol-name symbol))
+		(prefix-length (length prefix-name))
+		(symbol-length (length symbol-name)))
+	   (awhen (and (eql (symbol-package prefix) (symbol-package symbol))
+		       (> symbol-length prefix-length)
+		       (equal prefix-name (subseq symbol-name 0 prefix-length))
+		       (eql #\. (aref symbol-name prefix-length)))
+	     (values it (intern (subseq symbol-name (1+ prefix-length)) (symbol-package symbol))))))))
+
+  (test prefixp
+    (multiple-value-bind (prefix? relative-part)
+	(prefixp 'asdf 'asdf.fdsa)
+      (is (eql prefix? t))
+      (is (eql relative-part 'fdsa))))
+
+  (defun any-prefix (prefix candidate-symbols)
+    (let ((relative-parts '())
+	  (some-prefix? nil))
+      (dolist (symbol candidate-symbols)
+	(when (symbolp symbol)
+	  (multiple-value-bind (prefix? relative-part)
+	      (prefixp prefix symbol)
+	    (when prefix?
+	      (setq some-prefix? t)
+	      (when relative-part
+		(push relative-part relative-parts))))))
+      (values some-prefix? relative-parts))))
+
 ;; TODO: handle schema.
 ;; Interface: optional string per constraint definition, defining the 'internal target'.
 ;; Create appropriate schema entries.
+;; FIXME: This can only be used from within DEFINE-SYSTEM-CONSTRAINT, because ARGS is used but not bound
+;; in this macroexpansion.
 (defmacro system-constraint ((target (op &rest inputs)) constraint-definitions)
   (declare (ignore op)) ;; Should we record this somewhere? May need.
-  `(flet ((with-namespace (x) (namespaced x ,target)))
-     (destructuring-bind (,@inputs) args
-       (let ((*new-schema* (make-instance 'schema)))
-	 (make-instance 'system
-			:components
-			(remove nil
-				(list
-				 ;; Assign internally-namespaced result to supplied target.
-				 (when ',target
-				   (make-operation-constraint '== ,target (list (with-namespace ',target))))
-				 ;; Assign supplied inputs to internally-namespaced inputs.
-				 ,@(mapcar (lambda (input)
-					     `(make-operation-constraint
-					       '== (with-namespace ',input)
-					       (list ,input)))
-					   inputs)
-				 ,@(expand-constraint-forms constraint-definitions)))
-			:schema (when (schema-parameters *new-schema*)
-				  *new-schema*))))))
+  (multiple-value-bind (expanded-constraint-definitions all-inputs all-outputs)
+      (expand-constraint-forms constraint-definitions)
+    (let* ((system-inputs (set-difference (reduce #'union all-inputs) all-outputs))
+	   (make-input-==-constraint (make-input-==-constraint-maker system-inputs)))
+      `(flet ((with-namespace (x) (namespaced x ,target)))
+	 (destructuring-bind (,@inputs) args
+	   (declare (ignorable ,@inputs))
+	   (let ((*new-schema* (make-instance 'schema)))
+	     (make-instance 'system
+			    :components
+			    (remove nil
+				    (list
+				     ;; Assign internally-namespaced result to supplied target.
+				     (when ',target
+				       (make-operation-constraint '== ,target (list (with-namespace ',target))))
+				     ;; Assign supplied inputs to internally-namespaced inputs.
+				     ,@(mapcan make-input-==-constraint inputs)
+				     ,@expanded-constraint-definitions))
+			    :schema (when (schema-parameters *new-schema*)
+				      *new-schema*))))))))
 
 (define-system-constraint some-complex-constraint (result (some-complex-constraint a b c))
   ((q (+ a b))
@@ -185,6 +246,20 @@
 				      (x.a 1) (x.b 2) (x.c 3) (x.q 3) (x.f 6) (x.g 3) (x.result 9))))
     (is (same satisfying-assignment
 	      (solve-for system '() (tuple (aa 1) (bb 2) (cc 3)))))))
+
+(define-system-constraint more-complex-constraint (result (more-complex-constraint a b c))
+  ((q (+ a.q b))
+   (f (* b c))
+   (g (- f q))
+   (result (* g g))))
+
+(test system-constraint-reference
+  (let ((system (constraint-system
+		 ((x (more-complex-constraint aa bb cc)))))
+	(satisfying-assignment (tuple (aa.q 1) (bb 2) (cc 3) (x 9)
+				      (x.a.q 1) (x.b 2) (x.c 3) (x.q 3) (x.f 6) (x.g 3) (x.result 9))))
+    (is (same satisfying-assignment
+	      (solve-for system '() (tuple (aa.q 1) (bb 2) (cc 3)))))))
 
 
 (defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)

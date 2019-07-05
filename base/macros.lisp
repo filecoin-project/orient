@@ -115,79 +115,123 @@
 						 (typep x '(cons symbol))))
 					   input-lambda-list))
 	 (reducer? (not (not (member '&acc input-lambda-list))))
-	 (output (remove-if-not #'symbolp output))
-	 (input (parse-tuple-lambda input-lambda-list)))
-    (etypecase arrow
-      ;; -> tlambda
-      (tlambda-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
-			(make-instance 'transformation
-				       :name ',name
-				       :signature sig
-				       :implementation (tlambda ,input-lambda-list ,output ,implementation)
-					       :source ,(if source
-							    `(quote ,source)
-							    `(quote ,implementation)))))
-      ;; => xlambda
-      (xlambda-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
-			(make-instance 'transformation
-				       :name ',name
-				       :signature sig
-				       :source ',source
-				       :implementation (xlambda ,input-lambda-list ,output ,implementation))))
-      ;; ~> literal implementation
-      (literal-arrow `(let ((sig (make-signature ',input ',output ,reducer?)))
-			(make-instance 'transformation
-				       :name ',name
-				       :signature sig
-				       :source ',source
-				       :implementation ,(make-instance 'implementation
-								       :module (package-name
-										(symbol-package implementation))
-								       :name (symbol-name implementation))))))))
+	 (output (remove-if-not #'symbolp output)))
+    (multiple-value-bind (input acc all group group-by into)
+	(parse-tuple-lambda input-lambda-list)
+      (declare (ignore acc all))
+      (etypecase arrow
+	;; -> tlambda
+	(tlambda-arrow `(let ((sig (make-signature ',input ',output
+						   :reducer ,reducer?
+						   ,@(when group `(:group ',group))
+						   ,@(when group-by `(:group-by ',group-by))
+						   ,@(when into `(:group-into ',into)))))
+			  (make-instance 'transformation
+					 :name ',name
+					 :signature sig
+					 :implementation (tlambda ,input-lambda-list ,output ,implementation)
+					 :source ,(if source
+						      `(quote ,source)
+						      `(quote ,implementation)))))
+	;; => xlambda
+	(xlambda-arrow `(let ((sig (make-signature ',input ',output
+						   :reducer ,reducer?
+						   ,@(when group `(:group ',group))
+						   ,@(when group-by `(:group-by ',group-by))
+						   ,@(when into `(:group-into ',into)))))
+			  (make-instance 'transformation
+					 :name ',name
+					 :signature sig
+					 :source ',source
+					 :implementation (xlambda ,input-lambda-list ,output ,implementation))))
+	;; ~> literal implementation
+	(literal-arrow `(let ((sig (make-signature ',input ',output
+						   :reducer ,reducer?
+						   ,@(when group `(:group ',group))
+						   ,@(when group-by `(:group-by ',group-by))
+						   ,@(when into `(:group-into ',into)))))
+			  (make-instance 'transformation
+					 :name ',name
+					 :signature sig
+					 :source ',source
+					 :implementation ,(make-instance 'implementation
+									 :module (package-name
+										  (symbol-package implementation))
+									 :name (symbol-name implementation)))))))))
+
+(defun var-symbol-p (x)
+  "True if X is a variable symbol (not things like &acc, &group, etc.)."
+  (when (symbolp x)
+    (not (eql #\& (aref (symbol-name x) 0)))))
 
 ;; Like TRANSFORMATION but don't quote INPUT/OUTPUT, which must be bound in containing scope.
 ;; FIXME: refactor to share code with TRANSFORMATION.
 (defmacro transformation* (((&rest input-lambda-list) arrow (&rest output) &key source name) eqmark implementation)
   (check-type arrow transformation-arrow)
   (check-type eqmark (eql ==))
-  (let* ((input-lambda-list (remove-if-not #'symbolp input-lambda-list))
-	 (reducer? (not (not (member '&acc input-lambda-list))))
-	 (input (parse-tuple-lambda input-lambda-list)))
-    (etypecase arrow
-            ;; -> tlambda
-      (tlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)) ,reducer?)))
-			(make-instance 'transformation
-				       :name ',name
-				       :signature sig
-				       :implementation (%tlambda ,input-lambda-list ,output ,implementation)
-				       :source (let ((substitutions (list ,@(loop for v in (append input output)
-									       collect `(cons ',v ,v))))
-						     (effective-source ,(if source
-									    `(quote ,source)
-									    `(quote ,implementation))))
-						 (typecase effective-source
-						   (list (cons (car effective-source) (sublis substitutions (cdr effective-source))))
-						   ((or list symbol) (sublis substitutions effective-source))
-						   (t effective-source))))))
-      ;; => xlambda
-       (xlambda-arrow `(let ((sig (make-signature (remove-if-not #'symbolp (list ,@input)) (remove-if-not #'symbolp (list ,@output)) ,reducer?)))
-			(make-instance 'transformation
-				       :name ',name
-				       :source (list ',source ,@(remove-if-not #'symbolp input))
-				       :signature sig
-				       :implementation (%xlambda ,input-lambda-list ,output ,implementation))))
+  (let* (;;(input-lambda-list (remove-if-not #'symbolp input-lambda-list))
+	 (reducer? (not (not (member '&acc input-lambda-list))))) ;; FIXME: use parsed value from below (also in TRANSFORMATION)
+    (multiple-value-bind (input acc all group group-by into)
+	(parse-tuple-lambda input-lambda-list)
+      (declare (ignore all))
+      (let ((output-to-eval (remove-if (lambda (x)
+					 (or (eql x into)
+					     (member x acc :key (lambda (acc-spec)
+								  (if (listp acc-spec)
+								      (car acc-spec)
+								      acc-spec)))))
+				       output)))
+	(etypecase arrow
+	  ;; -> tlambda
+	  (tlambda-arrow `(let ((sig (make-signature (remove-if-not #'var-symbol-p (list ,@input))
+						     (remove-if-not #'symbolp
+								    (list ,@output-to-eval
+									  ,@(when into (list into))
+									  ,@(when acc (mapcar (lambda (acc-spec)
+												`',(if (listp acc-spec)
+												       (car acc-spec)
+												       acc-spec))
+											      acc)))
+								    )
+						     :reducer ,reducer?
+						     ,@(when group `(:group (list ,@group)))	
+						     ,@(when group-by `(:group-by (list ,@group-by)))
+						     ,@(when into `(:group-into ,into))
+						     )))
+			    (make-instance 'transformation
+					   :name ',name
+					   :signature sig
+					   :implementation (%tlambda ,input-lambda-list ,output ,implementation)
+					   :source (let ((substitutions (list ,@(loop for v in (append input output-to-eval)
+										   collect `(cons ',v ,v))))
+							 (effective-source ,(if source
+										`(quote ,source)
+										`(quote ,implementation))))
+						     (typecase effective-source
+						       (list (cons (car effective-source) (sublis substitutions (cdr effective-source))))
+						       ((or list symbol) (sublis substitutions effective-source))
+						       (t effective-source))))))
+	  ;; => xlambda
+	  (xlambda-arrow `(let ((sig (make-signature (remove-if-not #'var-symbol-p (list ,@input))
+						     (remove-if-not #'symbolp (list ,@output)) :reducer ,reducer?)))
 
-       ;; TODO: (or not)
-       ;; ~> literal implementation
-       #+(or)
-       (literal-arrow `(let ((sig (make-signature ',input ',output)))
-			 (make-instance 'transformation
-					:name ',name
-					:signature sig
-					:implementation ,(make-instance 'implementation
-									:module (package-name
-										 (symbol-package implementation))
-									:name (symbol-name implementation))))))))
+			    (make-instance 'transformation
+					   :name ',name
+					   :source (list ',source ,@(remove-if-not #'symbolp input))
+					   :signature sig
+					   :implementation (%xlambda ,input-lambda-list ,output ,implementation))))
+
+	  ;; TODO: (or not)
+	  ;; ~> literal implementation
+	  #+(or)
+	  (literal-arrow `(let ((sig (make-signature ',input ',output)))
+			    (make-instance 'transformation
+					   :name ',name
+					   :signature sig
+					   :implementation ,(make-instance 'implementation
+									   :module (package-name
+										    (symbol-package implementation))
+									   :name (symbol-name implementation))))))))))
 
 (defmacro deftoplevel (name (type) &body body)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -311,15 +355,22 @@
 	     '((&optional e f) (&key c d) (vars a b)))))
 
 (defun parse-tuple-lambda (lambda-list)
-  (let ((parsed (parse-lambda lambda-list '(&acc &all &group))))
+  (let* ((parsed (parse-lambda lambda-list '(&acc &all &group &group-by &into)))
+	 (all (assoc '&all parsed))
+	 (into (assoc '&into parsed)))
+    (assert (null (cddr all)))
+    (assert (null (cddr into)))
     (values (cdr (assoc 'vars parsed))
 	    (cdr (assoc '&acc parsed))
-	    (cdr (assoc '&all parsed))
-	    (cdr (assoc '&group parsed)))))
+	    (cadr all)
+	    (cdr (assoc '&group parsed))
+	    (cdr (assoc '&group-by parsed))
+	    (cadr into))))
 
 (test parse-tuple-lambda
-  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f &group x y)))
-	     '((a b c) (d (e 9)) (f) (x y)))))
+  (is (equal (multiple-value-list (parse-tuple-lambda '(a b c &acc d (e 9) &all f &group x y
+							&group-by q z &into grouped)))
+	     '((a b c) (d (e 9)) (f) (x y) (q z) grouped))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a data map of INPUT + OUTPUT attributes.
 ;; Code in BODY should return multiple values corresponding to the attributes of OUTPUT, which will be used to construct the resulting data map.
@@ -331,6 +382,7 @@
 	  (new-tuple (gensym "NEW-TUPLE"))
 	  (out (gensym "OUTPUT")))
       `(lambda (,tuple ,acc)
+	 (declare (ignorable ,acc))
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple)))
@@ -355,30 +407,55 @@
 
 ;; Like TLAMBDA but with unquoted attributes. This means input/output names can be supplied at execution time (bound in lexical env).
 (defmacro %tlambda ((&rest input) (&rest output) &body body)
-  (multiple-value-bind (input-attrs all-var) (parse-tuple-lambda input)
+  (multiple-value-bind (input-attrs acc-attrs all-var group-vars group-by-vars into-var) (parse-tuple-lambda input)
+    (declare (ignore group-vars group-by-vars))
     (let ((tuple (or all-var (gensym "TUPLE")))
 	  (acc (gensym "ACC"))
 	  (new-tuple (gensym "NEW-TUPLE"))
 	  (out (gensym "OUTPUT"))
-	  (var-pairs (loop for v in input
-			collect (cons v (gensym (symbol-name v))))))
+	  (var-pairs (loop for v in input-attrs
+			  when (var-symbol-p v)
+			collect (cons v (gensym (symbol-name v)))))
+	  (actual-acc-vars (mapcar (lambda (x)
+				     (if (listp x)
+					 (car x)
+					 x))
+				   acc-attrs)))
       `(lambda (,tuple ,acc)
+	 (declare (ignorable ,acc))
 	 (let (,@(mapcar (lambda (var-pair)
 			   (list (cdr var-pair) (car var-pair)))
 			 var-pairs))
+	   (declare (ignorable ,@(mapcar #'cdr var-pairs)))
 	   (symbol-macrolet
 	       (,@(loop for in in input-attrs
 		     for v = (assoc in var-pairs)
-		       when (symbolp (cdr v))
+		     when (symbolp (cdr v))
 		     ;collect `(,in (tref ,(cdr (assoc in var-pairs)) ,tuple))))
 		     collect `(,in (if (symbolp ,(cdr v))
 				       (tref ,(cdr v) ,tuple)
-				       ,(cdr v)))))
+				       ,(cdr v))))
+		,@(loop for acc-attr in acc-attrs
+		     collect (etypecase acc-attr
+			       (symbol
+				`(,acc-attr (tref ',acc-attr ,acc)))
+			       ((cons symbol)
+				`(,(car acc-attr)
+				   (multiple-value-bind (val presentp)
+				       (and ,acc
+					    (tref ',(car acc-attr) ,acc))
+				     (if presentp
+					 val
+					 ,(cadr acc-attr))))))))
 	     (let ((,new-tuple ,tuple)
 		   (,out (multiple-value-list (progn ,@body))))
 	       (declare (ignorable ,out))
 	       ,@(loop for attribute in output
-		    collect `(adjoinf ,new-tuple ,attribute (pop ,out)))
+		    collect `(adjoinf ,new-tuple ,(if (or ;;(eql attribute into-var)
+							  (member attribute actual-acc-vars))
+						      `(quote ,attribute)
+						      attribute)
+				      (pop ,out)))
 	       ,new-tuple)))))))
 
 ;; Creates a function which take a data map of INPUT attributes and returns a relation of INPUT + OUTPUT attributes.
@@ -389,7 +466,7 @@
 	(acc (gensym "ACC"))
 	(out (gensym "OUTPUT")))
     `(lambda (,tuple ,acc)
-       (declare (ignorable ,tuple))
+       (declare (ignorable ,tuple ,acc))
        (symbol-macrolet
 	   (,@(loop for in in input
 		 collect `(,in (tref ',in ,tuple))))
@@ -405,7 +482,7 @@
 	(var-pairs (loop for v in input
 		      collect (cons v (gensym (symbol-name v))))))
     `(lambda (,tuple ,acc)
-       (declare (ignorable ,tuple))
+       (declare (ignorable ,tuple ,acc))
        (let (,@(mapcar (lambda (var-pair)
 			 (list (cdr var-pair) (car var-pair)))
 		       var-pairs))
@@ -421,10 +498,12 @@
 ;; Essentially, tuple -> relation
 (defmacro rlambda ((&rest input) (&rest output) &body body)
   (declare (ignore output))
-  (multiple-value-bind (input-attrs all-var) (parse-tuple-lambda input)
+  (multiple-value-bind (input-attrs acc-attrs all-var) (parse-tuple-lambda input)
+    (declare (ignore acc-attrs)) ;; FIXME: Implement?
     (let ((tuple (or all-var (gensym "TUPLE")))
 	  (acc (gensym "ACC")))
       `(lambda (,tuple ,acc)
+	 (declare (ignorable ,acc))
 	 (symbol-macrolet
 	     (,@(loop for in in input-attrs
 		   collect `(,in (tref ',in ,tuple))))

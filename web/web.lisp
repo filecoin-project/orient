@@ -150,7 +150,7 @@
     `(eval-when
 	 (:compile-toplevel :load-toplevel :execute)
        (register-calc-page ',base-name  ,title ,uri)
-       
+
        (hunchentoot:define-easy-handler (,base-name :uri ,uri) ,parameters
 	 (with-report-page (,title
 			    :vars ,vars
@@ -162,7 +162,7 @@
 	    (:p ,@body)
 	    (:p ((:a :href ,graph-uri) "See a Graph"))
 	    )))
-       
+
        (hunchentoot:define-easy-handler (,graph-name :uri ,graph-uri) ()
 	 (serve-graph (plan-for ,system ',vars ,initial-data)
 		      ,graph-namestring
@@ -202,10 +202,15 @@
 
 (define-calculation-pages (zigzag :uri "/filecoin/zigzag"
 				  :title "ZigZag Proof of Replication"
-				  :vars (sector-GiB seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
-						    )
+				  :vars (sector-GiB
+					 replication-time
+					 replication-time-per-gib
+					 seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
+					 total-zigzag-constraints
+					 )
 				  :system (zigzag-system)
-				  :override-parameters (sector-GiB))
+				  :override-parameters (sector-GiB)
+				  )
     ((sector-GiB :parameter-type 'integer))
   (format nil "ZigZag is how Filecoin replicates. ~@[sector-GiB: ~W~]" sector-GiB))
 

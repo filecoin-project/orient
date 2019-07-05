@@ -20,8 +20,6 @@
 				 (base-degree 5)
 				 (expansion-degree 8)
 
-;				 (total-challenges 8000)
-
 				 ;; TODO: account for other constraint sources.
 				 (total-zigzag-other-constraints 0)
 
@@ -31,14 +29,18 @@
 				 (bench-circuit-proving-time (* 2.785 60))
 				 (bench-circuit-constraints 16e6)
 
-				 (beta-merkle-height 0)
-				 ))
+				 (max-beta-merkle-height 10)))
+
+(defparameter *zigzag-bench-data* (tuple (hash-functions *hash-functions*)))
+
+(defparameter *zigzag-hypotheticals* nil)
 
 ;; -- is not assigned internally, so this constraint will not produce a 'return value'.
 ;; TODO: Consider a more explicit way to do this -- at least a strong convention, if not a syntax
 ;; allowing to explicitly forego a return value.
 (define-system-constraint merkle-tree
     (-- (merkle-tree sector-size node-bytes))
+  ;; Calculate LEAVES outside and take that as input.
   ((leaves (/ sector-size node-bytes)
 	   :description "Number of leaves in the merkle tree.")
    (height-raw (log leaves 2)
@@ -61,6 +63,50 @@
                                (MT.NODE-BYTES 32)
                                (MT.SECTOR-SIZE 1024)
                                (MT.INCLUSION-PROOF-HASH-LENGTH 5)))))
+    (is (same expected
+	      (solve-for cs '() (tuple (sector-size 1024) (node-bytes 32)))))))
+
+(define-system-constraint hybrid-merkle-tree
+    (-- (hybrid-merkle-tree sector-size node-bytes beta-height))
+  ((leaves (/ sector-size node-bytes)
+	   :description "Number of leaves in the merkle tree.")
+   (height-raw (log leaves 2)
+	       :description "Height of the merkle tree. Unit: float which MUST be integer-valued")
+   (height (integer height-raw)
+	   :description "Height of the merkle tree, including leaves and root.")
+   (alpha-height (- height beta-height))
+   (total-inclusion-proof-hash-length (== height)
+				:description "Number of hashes required for a merkle inclusion proof.")
+   (total-hash-count (- leaves 1)
+		     :description "Total number of hashes required to construct the merkle tree (leaves are not hashed).")
+   (alpha-leaves (expt 2 alpha-height))
+
+   
+   (alpha-hash-count (- alpha-leaves 1))
+   (alpha-inclusion-proof-hash-length (== alpha-height))
+
+   (beta-hash-count (- total-hash-count alpha-hash-count))
+   (beta-inclusion-proof-hash-length (== beta-height))))
+
+(test hybrid-merkle-tree-system-constraint
+  (let* ((cs (constraint-system ((mt (hybrid-merkle-tree sector-size node-bytes 0)))))
+	 (expected (rel (tuple (MT.HEIGHT 5)
+                               (MT.LEAVES 32)
+                               (NODE-BYTES 32)
+                               (SECTOR-SIZE 1024)			       
+			       (MT.ALPHA-HEIGHT 5)
+			       (MT.BETA-HEIGHT 0)
+			       (MT.ALPHA-LEAVES 32)
+                               (MT.TOTAL-HASH-COUNT 31)
+                               (MT.ALPHA-HASH-COUNT 31)
+			       (MT.BETA-HASH-COUNT 0)
+                               (MT.HEIGHT-RAW 5.0)
+                               (MT.NODE-BYTES 32)
+                               (MT.SECTOR-SIZE 1024)
+                               (MT.TOTAL-INCLUSION-PROOF-HASH-LENGTH 5)
+                               (MT.ALPHA-INCLUSION-PROOF-HASH-LENGTH 5)
+                               (MT.BETA-INCLUSION-PROOF-HASH-LENGTH 0)
+			       ))))
     (is (same expected
 	      (solve-for cs '() (tuple (sector-size 1024) (node-bytes 32)))))))
 
@@ -119,40 +165,118 @@
 
 (deftransformation compute-zigzag-tapered-layers
     ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
-     => (layer-index zigzag-layer-challenges ;;total-zigzag-challenges
-		     ))
+     => (layer-index zigzag-layer-challenges))
   (let* ((reduction (- 1 zigzag-taper))
 	 (layer-challenges (loop for i from 0 below layers
-			      collect (max 20
-					   (* zigzag-lambda
+			      collect (* zigzag-lambda
+					 (max 20
 					      (floor (* zigzag-basic-layer-challenge-factor
-							(expt reduction i)))))))
-	 ;;(total (reduce #'+ layer-challenges))
-	 )
-    (loop for lc in layer-challenges
-	 for layer-index from 0
-       collect (list layer-index lc
-		     ;;total
-		     ))))
+							(expt reduction i))))))))
+    (cons (list 0 0) ;; First layer is for CommD, with 0 challenges.
+	  (loop for lc in layer-challenges
+	     for layer-index downfrom layers
+	     collect (list layer-index lc)))))
 
 (deftransformation compute-total-zigzag-challenges
-    ((layer-index zigzag-layer-challenges &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
+    ((layer-performance.layer-index zigzag-layer-challenges &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
   (values (+ total-zigzag-challenges zigzag-layer-challenges)))
 
+(define-constraint beta-merkle-heights
+    (beta-merkle-height (beta-merkle-heights max-beta-merkle-height))
+  "Provide BETA-MERKLE-HEIGHT values from 0 to MAX-BETA-MERKLE-HEIGHT."
+  ((transformation* ((max-beta-merkle-height) => (beta-merkle-height)) ==
+		    (loop for i from 0 to max-beta-merkle-height collect (list i)))))
+
+(test beta-merkle-heights
+  (let ((system (constraint-system
+		 ((bmh (beta-merkle-heights x))))))
+    (is (same (relation (bmh) (0) (1) (2) (3) (4))
+	      (ask system '(bmh) (tuple (x 4))))))
+
+  
+  ;; FIXME: Make this test work. In general, we should be able to pass constaints to defined constraints. (This is a general constraints issue.)
+  #+(or)
+  (let ((system (constraint-system
+		 ((bmh (beta-merkle-heights 4))))))
+    (is (same (relation (bmh) (0) (1) (2) (3) (4))
+	      (ask system '(bmh) (tuple))))))
+
+
+(define-system-constraint zigzag-layer-performance
+    (-- (zigzag-layer-performance layer-index layer-challenges
+				  sector-size node-bytes
+				  max-beta-merkle-height
+				  circuit-proving-time-per-constraint
+				  ;; FIXME: Account for one inclusion (the unencoded data) actually being
+				  ;; in previous layer (which matters if hybrid merkle trees differ by layer).
+				  single-challenge-inclusion-proofs 
+				  alpha-hash-function
+				  beta-hash-function))
+  ((beta-merkle-height (beta-merkle-heights max-beta-merkle-height))
+   (merkle-tree (hybrid-merkle-tree sector-size node-bytes beta-merkle-height))
+   (alpha-hashing-time (* merkle-tree.alpha-hash-count alpha-hash-function.time))
+   (beta-hashing-time (* merkle-tree.beta-hash-count beta-hash-function.time))
+   
+   (alpha-inclusion-proof-constraints (* merkle-tree.alpha-inclusion-proof-hash-length alpha-hash-function.constraints))
+   (beta-inclusion-proof-constraints (* merkle-tree.beta-inclusion-proof-hash-length beta-hash-function.constraints))
+   
+   (inclusion-proof-constraints (+ alpha-inclusion-proof-constraints beta-inclusion-proof-constraints))
+   (challenge-constraints (* inclusion-proof-constraints single-challenge-inclusion-proofs))
+   (constraints (* challenge-constraints layer-challenges))
+   (circuit-time (* constraints circuit-proving-time-per-constraint))
+   (hashing-time (+ alpha-hashing-time beta-hashing-time))
+   (proving-time (+ circuit-time hashing-time))   
+   ))
+
 #+(or)
-(deftransformation total-zigzag-tapered-layers
-    ((layer-challenges) ==> (total-zigzag-challenges))
-  (list (list (loop for tuple in (convert 'list (tuples layer-challenges))
-		 sum (tref 'layer-challenges tuple)))))
+	(defschema zigzag-layer-performance-schema
+    "Single ZigZag Layer Performance"
+  )
+
+#+(or)
+(deftransformation compute-total-zigzag-performance
+    ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
+    ((layer-performance.constraints layer-performance.hashing-time layer-performance.proving-time
+				    circuit-proving-time-per-constraint
+				    &acc
+				    (total-zigzag-constraints 0)
+				    (total-zigzag-hashing-time 0)
+				    (total-constraint-time 0)
+				    (total-proving-time 0))
+     -> (total-zigzag-constraints total-zigzag-hashing-time total-constraint-time total-proving-time))
+  ;; TODO: Capture layer data as relation-valued attribute along with the aggregates.
+  (let* ((layer-constraint-time (* layer-performance.constraints circuit-proving-time-per-constraint)))
+    (values (+ total-zigzag-constraints layer-performance.constraints)
+	    (+ total-zigzag-hashing-time layer-performance.hashing-time)
+	    (+ total-constraint-time layer-constraint-time)
+	    (+ total-proving-time layer-performance.proving-time))))
+
+(deftransformation compute-total-zigzag-performance
+    ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
+    ((lowest-time
+      optimal-constraints
+      optimal-beta-merkle-height
+      layer-index 
+      &acc
+      (total-proving-time 0)
+      (total-zigzag-constraints 0)
+      (optimal-heights (fset:set)))
+     -> (total-proving-time
+	 total-zigzag-constraints
+	 optimal-heights))
+  ;; TODO: Capture layer data as relation-valued attribute along with the aggregates.
+  (values (+ total-proving-time lowest-time)
+	  (+ total-zigzag-constraints optimal-constraints)
+	  (with optimal-heights (tuple (layer-index layer-index) (optimal-beta-merkle-height optimal-beta-merkle-height)))))
 
 ;; TODO: Can we use this instead of COMPUTE-ZIGZAG-TAPERED-LAYERS?
 ;; Problem: the latter 'returns' two values. General solution may be to support exactly that (multiple return values in 'operator'-like call-by-order constraints.
-(define-simple-constraint zigzag-tapered-layers
-    (zigzag-tapered-layers (zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper))
-    (let* ((reduction (- 1 zigzag-taper))
-	   (layer-challenges (loop for i from 0 below layers
-				collect (* zigzag-lambda (max 20 (floor (* zigzag-basic-layer-challenge-factor (expt reduction i))))))))
-      (values (apply #'vector layer-challenges) (reduce #'+ layer-challenges))))
+;; (define-simple-constraint zigzag-tapered-layers
+;;     (zigzag-tapered-layers (zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper))
+;;     (let* ((reduction (- 1 zigzag-taper))
+;; 	   (layer-challenges (loop for i from 0 below layers
+;; 				collect (* zigzag-lambda (max 20 (floor (* zigzag-basic-layer-challenge-factor (expt reduction i))))))))
+;;       (values (apply #'vector layer-challenges) (reduce #'+ layer-challenges))))
 
 (defschema zigzag-schema
     "ZigZag"
@@ -175,10 +299,9 @@
   (replication-time-per-byte "Time to replicate one byte. Unit: seconds / byte")
   (replication-time-per-GiB "Time to replicate one GiB. Unit: seconds / GiB")
   (sealing-time "Total CPU time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
-  (non-circuit-proving-time "Time to generate a non-circuit proof of replication. Unit: seconds")
+  (non-circuit-proving-time "Time (including replication) to generate a non-circuit proof of replication. Unit: seconds")
   (vector-commitment-time "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds")
   (circuit-proving-time-per-constraint "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds")
-  (circuit-proving-time "Time to generate a circuit proof of replication using Groth16. Unit: seconds")
   (zigzag-total-proving-time "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds")
   (seal-time "Total time to seal (replication + proving) one sector. Unit: seconds")
   (sector-GiB "Number of GiB in one sector. Unit: GiB")
@@ -200,15 +323,13 @@
   (single-challenge-kdf-hashes "Number of KDF hashes which must be verified for a single challenge.")
   (single-challenge-sloth-verifications "Number of sloth iterations which must be verified for a single challenge.")
   (total-kdf-hashes "Total number of KDF (key-derivation function) required during replication.")
-  (total-zigzag-merkle-hashing-constraints "Total number of merkle hashing constraints in a ZigZag circuit.")
   (total-zigzag-kdf-hashing-constraints "Total number of kdf hashing constraints in a ZigZag circuit.")
-  (total-zigzag-hashing-constraints "Total number of hashing constraints in a ZigZag circuit.")
   (total-zigzag-non-hashing-constraints "Total number of hashes which must be verified in a ZigZag circuit.")
-  (total-zigzag-circuit-merkle-hashes "Total number of merkle hashes which must be verified in a ZigZag circuit.")
   (total-zigzag-circuit-kdf-hashes "Total number of KDF hashes which must be verified in a ZigZag circuit.")
 
   (total-zigzag-sloth-constraints "Total number of constraints due to sloth verification.")
   (total-zigzag-constraints "Total number of constraints which must be verified in a ZigZag circuit.")
+  (layer-index "Index of layer. Unit: integer")
   (layer-replication-time "Time to replicate one layer. Unit: seconds")
 
   (storage-to-proof-size-ratio "Ratio of sealed sector size to on-chain PoRep size.")
@@ -230,11 +351,74 @@
 
   (total-challenges "")
   (partition-challenges "")
+
   )
+
+(define-constraint group-layer-performance
+    (lowest-time (group-layer-performance layer-index beta-merkle-height proving-time constraints))
+  ((transformation* ((layer-index beta-merkle-height proving-time constraints
+				  &group-by layer-index
+
+				  ;; TODO: Document this pattern (or unsupport it) before deleting this dead code.
+				  ;; &group-by 'layer-performance.layer-index
+				  ;; &group 'layer-performance.*
+
+				  &acc
+				  (alternate-layers (make-relation nil))
+				  (lowest-time -1)
+				  (optimal-beta-merkle-height 0)
+				  (optimal-constraints -1))
+		     -> (alternate-layers lowest-time optimal-beta-merkle-height optimal-constraints))
+		    ==
+		    (let ((alts
+			   ;; TODO: convenience-function for adding tuple to relation.
+			   (make-relation		      
+			    (with (tuples alternate-layers)
+				  (tuple (beta-merkle-height beta-merkle-height)
+					 (proving-time proving-time))))))
+		     (cond
+		       ((and (= lowest-time -1) (= optimal-constraints -1))
+			 ;; Take first PROVING-TIME seen when LOWEST-TIME still has initial value of -1.
+			(values alts proving-time beta-merkle-height constraints))
+		       (t
+			(let ((better? (< proving-time lowest-time)))
+			  (if better?
+			      (values alts proving-time beta-merkle-height constraints)
+			      (values alts lowest-time optimal-beta-merkle-height optimal-constraints)))))))))
+
+(test group-layer-performance
+  (let ((system (constraint-system
+		 ((grouped (group-layer-performance
+			    layer-performance.layer-index
+			    layer-performance.beta-merkle-height
+			    layer-performance.proving-time
+			    layer-performance.constraints))))))
+    (is (same (relation (layer-performance.layer-index
+			 lowest-time
+			 optimal-constraints
+			 optimal-beta-merkle-height
+			 alternate-layers)
+			(0 1 9 0 (relation (beta-merkle-height proving-time)
+					 (0 1)
+					 (1 2)
+					 (2 3)))
+			(1 4 6 0 (relation (beta-merkle-height proving-time)
+					 (0 4)
+					 (1 5)
+					 (2 6))))
+	      (solve-for system '()
+			 (relation (layer-performance.layer-index layer-performance.beta-merkle-height layer-performance.proving-time layer-performance.constraints)
+				   (0 0 1 9)
+				   (0 1 2 8)
+				   (0 2 3 7 )
+				   (1 0 4 6 )
+				   (1 1 5 5)
+				   (1 2 6 4)))))))
 
 (defconstraint-system zigzag-constraint-system
     ;; TODO: Make variadic version of + and ==.
     ((sector-size (* sector-GiB #.GiB))
+     (nodes (/ sector-size node-bytes))
      (comm-d-size (== merkle-hash-function.size))
      (comm-r-size (== merkle-hash-function.size))
      (comm-r-star-size (== merkle-hash-function.size))     
@@ -250,14 +434,13 @@
      (degree (+ base-degree expansion-degree))
      (total-parents (== degree))
 
-     (merkle-tree (merkle-tree sector-size node-bytes))
      (kdf-hash-function (select-hash-function kdf-hash-function-name hash-functions))
      (merkle-hash-function (select-hash-function merkle-hash-function-name hash-functions))
      (alpha-hash-function (select-hash-function alpha-hash-function-name hash-functions))
      (beta-hash-function (select-hash-function beta-hash-function-name hash-functions))
      (single-kdf-hashes (== total-parents))
      (single-kdf-time (* single-kdf-hashes kdf-hash-function.time))
-     (total-nodes-to-encode (* merkle-tree.leaves layers))
+     (total-nodes-to-encode (* nodes layers))
      (single-node-sloth-time (* sloth-iter single-sloth-iteration-time))
      (single-node-encoding-time (+ single-kdf-time single-node-sloth-time)) ;; Excludes parent loading time.
      
@@ -267,37 +450,104 @@
      
      (total-zigzag-circuit-kdf-hashes (* single-challenge-kdf-hashes total-challenges))
      
-     (layer-replication-time (* single-node-encoding-time merkle-tree.leaves))
+     (layer-replication-time (* single-node-encoding-time nodes))
      (replication-time (* layers layer-replication-time))
      (replication-time-per-byte (/ replication-time sector-size))
      (replication-time-per-GiB (* replication-time-per-byte #.(* 1024 1024 1024)))
 
      (single-layer-merkle-hashing-time (* merkle-tree.hash-count merkle-hash-function.time))
-     (total-merkle-trees (+ layers 1))
-     (total-merkle-hashing-time (* total-merkle-trees single-layer-merkle-hashing-time))
-     
+          
      (non-circuit-proving-time (+ replication-time total-merkle-hashing-time))
+     
      (circuit-proving-time-per-constraint (/ bench-circuit-proving-time bench-circuit-constraints))
 
-     (total-zigzag-circuit-inclusion-proofs (* total-challenges single-challenge-inclusion-proofs))
-     (total-zigzag-circuit-merkle-hashes (* total-zigzag-circuit-inclusion-proofs merkle-tree.inclusion-proof-hash-length))
-     (total-zigzag-merkle-hashing-constraints (* total-zigzag-circuit-merkle-hashes merkle-hash-function.constraints))
-
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function.constraints))
-     (total-zigzag-hashing-constraints (+ total-zigzag-merkle-hashing-constraints total-zigzag-kdf-hashing-constraints))
-
      (total-zigzag-sloth-constraints (* total-challenges single-sloth-iteration-constraints))
      
      (total-zigzag-non-hashing-constraints (+ total-zigzag-sloth-constraints total-zigzag-other-constraints))
      
-     (total-zigzag-constraints (+ total-zigzag-hashing-constraints total-zigzag-non-hashing-constraints))
-     (circuit-proving-time (* total-zigzag-constraints circuit-proving-time-per-constraint))
-     (seal-time (+ non-circuit-proving-time circuit-proving-time))
+     (total-zigzag-constraints-z (+ total-zigzag-hashing-constraints total-zigzag-non-hashing-constraints))
+
+     (seal-time (+ replication-time total-proving-time))
      (sector-GiB (/ sector-size #.GiB))
      (GiB-seal-time (/ seal-time sector-GiB))
      (storage-to-proof-size-ratio (/ sector-size on-chain-porep-size))
-     (storage-to-proof-size-float (* 1.0 storage-to-proof-size-ratio)))
+     (storage-to-proof-size-float (* 1.0 storage-to-proof-size-ratio))
+
+     (layer-performance (zigzag-layer-performance layer-index
+						  zigzag-layer-challenges
+						  sector-size node-bytes
+						  max-beta-merkle-height
+						  circuit-proving-time-per-constraint
+						  single-challenge-inclusion-proofs
+						  alpha-hash-function
+						  beta-hash-function))
+     (grouped (group-layer-performance layer-performance.layer-index layer-performance.beta-merkle-height layer-performance.proving-time
+				       layer-performance.constraints)))
   :schema 'zigzag-schema)
+
+(test zigzag-layer-performance
+  (let* ((system (zigzag-system :no-aggregate t))
+	 (result (ask system
+		      '(
+			layer-performance.layer-index		     
+			layer-performance.layer-challenges
+			layer-performance.beta-merkle-height
+			layer-performance.merkle-tree.alpha-inclusion-proof-hash-length
+			layer-performance.merkle-tree.alpha-hash-count		     
+			layer-performance.alpha-hash-function.time		     
+			layer-performance.alpha-hash-function.constraints
+			layer-performance.alpha-inclusion-proof-constraints
+			layer-performance.merkle-tree.beta-inclusion-proof-hash-length
+			
+			layer-performance.beta-hash-function.time		     
+			layer-performance.beta-hash-function.constraints
+			layer-performance.beta-inclusion-proof-constraints
+			
+			layer-performance.challenge-constraints
+			layer-performance.hashing-time
+			layer-performance.circuit-time
+			layer-performance.proving-time
+
+			;; TODO: Group/capture these values when aggregating, for audit purposes.
+			
+			;;layer-performance.constraints
+			;;layer-performance.merkle-hashing-time
+			))))
+    (is (fset:contains? (tuples result)
+			(tuple
+			 (LAYER-PERFORMANCE.LAYER-INDEX 10)
+			 (LAYER-PERFORMANCE.CIRCUIT-TIME 52700.715)
+			 (LAYER-PERFORMANCE.HASHING-TIME 191.0879)
+			 (LAYER-PERFORMANCE.LAYER-CHALLENGES 2664)
+			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 1894200)
+			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.TIME 1.6055e-7)
+			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.TIME 1.7993e-5)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 1048575)
+			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.CONSTRAINTS 10324)
+			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.CONSTRAINTS 1152)
+			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 103240)
+			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 23040)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 10)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 20))
+			))
+    (is (fset:contains? (tuples result)
+			(tuple
+			 (LAYER-PERFORMANCE.LAYER-INDEX 1)
+			 (LAYER-PERFORMANCE.CIRCUIT-TIME 3165.2083)
+			 (LAYER-PERFORMANCE.HASHING-TIME 191.0879)
+			 (LAYER-PERFORMANCE.LAYER-CHALLENGES 160)
+			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 1894200)
+			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.TIME 1.6055e-7)
+			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.TIME 1.7993e-5)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 1048575)
+			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.CONSTRAINTS 10324)
+			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.CONSTRAINTS 1152)
+			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 103240)
+			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 23040)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 10)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 20))))
+    (is (= (cardinality result) 11))))
 
 (defschema zigzag-security-schema
     "ZigZag Security"
@@ -306,18 +556,23 @@
   (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
   (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
+  (zigzag-basic-layer-challenge-factor "Number of challenges which, when multiplied by lambda, yields the number of challenges per layer without tapering optimization.")
   (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
-  (layer-index "Index of layer. Unit: integer")
-  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer")
-  )
+  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer"))
 
 (defconstraint-system zigzag-security-constraint-system
     ((zigzag-lambda (log zigzag-soundness #.(/ 1 2)))
      (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
      (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
      (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
-     (total-untapered-challenges (* layers zigzag-basic-layer-challenges)) ;; TODO: TOTAL-CHALLENGES and LAYERS should have zigzag-specific names.
+     (total-untapered-challenges (* layers zigzag-basic-layer-challenges))
      (zigzag-layers (compute-zigzag-layers zigzag-epsilon zigzag-delta))
+
+     #+(or) ;; TODO: Allow specifying like this.
+     (zigzag-layers (+ (log (/ 1
+			       (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
+			    2)
+		       4))
      (total-challenges (== total-zigzag-challenges)))
   :schema 'zigzag-security-schema)
 
@@ -328,19 +583,24 @@
    (zigzag-epsilon 0.007)
    (zigzag-delta 0.003)))
 
-(defun zigzag-security-system (&key isolated)
+(defun zigzag-security-system (&key isolated no-aggregate)
   (make-instance 'system
-		 :components (list (component ('compute-zigzag-tapered-layers))
-				   (component ('compute-total-zigzag-challenges)))
+		 :components `(,(component ('compute-zigzag-tapered-layers))
+				,@(when (not no-aggregate)
+				    (list (component ('compute-total-zigzag-challenges)))))
 		 :subsystems (list (find-system 'zigzag-security-constraint-system))
 		 :data (if isolated
 			   (list (tuple (layers 10)) *default-zigzag-security*)
 			   (list *default-zigzag-security*))))
 
-(defun zigzag-system ()
+(defun zigzag-system (&key no-aggregate)
   (make-instance 'system
+		 :components (when (not no-aggregate)
+			       (list (component ('compute-total-zigzag-performance))))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
-				   (zigzag-security-system))
-		 :data (list *defaults*
-			     *zigzag-defaults*
-			     (tuple (hash-functions *hash-functions*)))))
+				   (zigzag-security-system :no-aggregate no-aggregate))
+		 :data (list* *defaults*
+			      *zigzag-defaults*
+			      *zigzag-bench-data*
+			      *zigzag-hypotheticals*)))
+
