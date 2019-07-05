@@ -64,6 +64,8 @@
     (is (same expected
 	      (solve-for cs '() (tuple (sector-size 1024) (node-bytes 32)))))))
 
+;; TODO: It would be nice to be able to define a simple constraint within the system constraint which uses it
+;; if used only there.
 (define-simple-constraint select-hash-function-tuple (hash-function (name hash-functions))
     (extract (join (tuple (hash-function-name name)) hash-functions)))
 
@@ -78,6 +80,7 @@
     (is (same expected
 	      (solve-for system '() data)))))
 
+;; TODO: With the right abstraction, this would be much simpler. Think about it.
 (define-system-constraint select-hash-function
     (-- (select-hash-function name% hash-functions%))
   ((hash-function% (select-hash-function-tuple name% hash-functions%)
@@ -105,6 +108,51 @@
 		  ((hf (select-hash-function hf-name hash-functions))))))
     (is (same expected
 	      (solve-for system '() data)))))
+
+;; TODO: Add support for (schema) description.
+(define-simple-constraint compute-zigzag-layers
+    (zigzag-layers (zigzag-epsilon zigzag-delta))
+    (+ (log (/ 1
+	     (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
+	  2)
+       4))
+
+(deftransformation compute-zigzag-tapered-layers
+    ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
+     => (layer-index zigzag-layer-challenges ;;total-zigzag-challenges
+		     ))
+  (let* ((reduction (- 1 zigzag-taper))
+	 (layer-challenges (loop for i from 0 below layers
+			      collect (max 20
+					   (* zigzag-lambda
+					      (floor (* zigzag-basic-layer-challenge-factor
+							(expt reduction i)))))))
+	 ;;(total (reduce #'+ layer-challenges))
+	 )
+    (loop for lc in layer-challenges
+	 for layer-index from 0
+       collect (list layer-index lc
+		     ;;total
+		     ))))
+
+(deftransformation compute-total-zigzag-challenges
+    ((layer-index zigzag-layer-challenges &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
+  (values (+ total-zigzag-challenges zigzag-layer-challenges)))
+
+#+(or)
+(deftransformation total-zigzag-tapered-layers
+    ((layer-challenges) ==> (total-zigzag-challenges))
+  (list (list (loop for tuple in (convert 'list (tuples layer-challenges))
+		 sum (tref 'layer-challenges tuple)))))
+
+;; TODO: Can we use this instead of COMPUTE-ZIGZAG-TAPERED-LAYERS?
+;; Problem: the latter 'returns' two values. General solution may be to support exactly that (multiple return values in 'operator'-like call-by-order constraints.
+(define-simple-constraint zigzag-tapered-layers
+    (zigzag-tapered-layers (zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper))
+    (let* ((reduction (- 1 zigzag-taper))
+	   (layer-challenges (loop for i from 0 below layers
+				collect (* zigzag-lambda (max 20 (floor (* zigzag-basic-layer-challenge-factor (expt reduction i))))))))
+      (values (apply #'vector layer-challenges) (reduce #'+ layer-challenges))))
 
 (defschema zigzag-schema
     "ZigZag"
@@ -196,6 +244,9 @@
      (on-chain-porep-size (+ commitments-size total-circuit-proof-size))
      (total-challenges (* partitions partition-challenges))
 
+     ;; TODO: There should be a syntax allowing keyword/call-by-name semantics for use cases like this.
+     ;;(zigzag-tapered-layers (compute-zigzag-tapered-layers zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper))
+
      (degree (+ base-degree expansion-degree))
      (total-parents (== degree))
 
@@ -255,7 +306,10 @@
   (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
   (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
-  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction"))
+  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
+  (layer-index "Index of layer. Unit: integer")
+  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer")
+  )
 
 (defconstraint-system zigzag-security-constraint-system
     ((zigzag-lambda (log zigzag-soundness #.(/ 1 2)))
@@ -263,21 +317,9 @@
      (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
      (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
      (total-untapered-challenges (* layers zigzag-basic-layer-challenges)) ;; TODO: TOTAL-CHALLENGES and LAYERS should have zigzag-specific names.
+     (zigzag-layers (compute-zigzag-layers zigzag-epsilon zigzag-delta))
      (total-challenges (== total-zigzag-challenges)))
   :schema 'zigzag-security-schema)
-
-(deftransformation compute-zigzag-layers ((zigzag-delta zigzag-epsilon) -> (zigzag-layers))
-  (+ (log (/ 1
-	     (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
-	  2)
-     4))
-
-(deftransformation compute-zigzag-tapered-layers ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
-						  -> (zigzag-layer-challenges total-zigzag-challenges))
-  (let* ((reduction (- 1 zigzag-taper))
-	 (layer-challenges (loop for i from 0 below layers
-			      collect (* zigzag-lambda (max 20 (floor (* zigzag-basic-layer-challenge-factor (expt reduction i))))))))
-    (values (apply #'vector layer-challenges) (reduce #'+ layer-challenges))))
 
 (defparameter *default-zigzag-security*
   (tuple
@@ -288,8 +330,8 @@
 
 (defun zigzag-security-system (&key isolated)
   (make-instance 'system
-		 :components (list (component ('compute-zigzag-layers))
-				   (component ('compute-zigzag-tapered-layers)))
+		 :components (list (component ('compute-zigzag-tapered-layers))
+				   (component ('compute-total-zigzag-challenges)))
 		 :subsystems (list (find-system 'zigzag-security-constraint-system))
 		 :data (if isolated
 			   (list (tuple (layers 10)) *default-zigzag-security*)

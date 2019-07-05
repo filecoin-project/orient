@@ -70,8 +70,6 @@
     `(setf (tref ',operator ,constraint-factories)
 	   (constraint (,target (,op ,@inputs)) ,transformations))))
 
-
-
 (defmacro constraint ((target (operator &rest inputs)) transformations)
   `(lambda (,target args &key source-operator source-name source-args)
      (destructuring-bind (,@inputs) args
@@ -534,7 +532,6 @@
 	 '(define-constraint tref (value (tref attr tuple))
 	   "VALUE = (TREF ATTR TUPLE)"
 	   ((transformation* ((attr tuple) -> (value)) == (tref attr tuple))))))
-
 
 (test tref-constraint
   "TEST CONSTRAINT-SYSTEM with tuple reference constraint."

@@ -47,7 +47,7 @@
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (289372.25))
+    (is (same (tuple (seal-time 288281.2))
 	      result))))
 
 (defun filecoin-system (&key no-zigzag)
@@ -60,7 +60,7 @@
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (SEAL-COST SEAL-TIME) (108.01221 289372.25))))
+	  (tuple (seal-cost 107.60495) (seal-time 288281.2))))
     (is (same expected result))))
 
 

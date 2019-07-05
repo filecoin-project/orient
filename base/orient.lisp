@@ -10,10 +10,17 @@
 
 (defclass signature ()
   ((input :initarg :input :initform (empty-set) :accessor signature-input :type set)
-   (output :initarg :output :initform (empty-set) :accessor signature-output :type set)))
+   (output :initarg :output :initform (empty-set) :accessor signature-output :type set)
+   (reducer? :initarg :reducer? :initform nil :accessor signature-reducer? :type boolean)))
 
-(defun make-signature (input output)
-  (make-instance 'signature :input (convert 'set input) :output (convert 'set output)))
+(defmethod reducer? ((transformation transformation))
+  (signature-reducer? (transformation-signature transformation)))
+
+(defun make-signature (input output &optional reducer?)
+  (make-instance 'signature
+		 :input (convert 'set input)
+		 :output (convert 'set output)
+		 :reducer? reducer?))
 
 (defun pruned-signature (sig)
   "Return a new signature, with output which is also input pruned, since this will be trivially provided."
@@ -166,7 +173,7 @@
     (make-relation (union a b)))
   (:method ((a wb-map) (b relation))
     ;; FIXME: Check that headings are compatible.
-    (make-relation (cons a (tuples b))))
+    (make-relation (with (tuples b) a)))
   (:method ((a relation) (b wb-map))
     (combine-potential-relations b a))
   (:method ((a set) (b relation))
@@ -175,39 +182,63 @@
     (combine-potential-relations b a)))
 
 (deftype transformation-spec () '(or transformation symbol))
+(deftype pipeline () '(cons transformation-spec))
 
-(defgeneric apply-transformation (transformation attributed)
+(defgeneric apply-transformation (transformation attributed &optional acc)
   (:documentation "Applies a transformation to data, returning strict data, i.e. (RELATION, TUPLE, or NIL)")
-  (:method ((f function) (tuple wb-map))
+  (:method ((f function) (tuple wb-map) &optional acc)
     ;;; All transformation applications need to go through here.
     ;;; TODO: Transformation should fail if any input is removed from output.
     ;;; This is where the real work happens.
-    (let* ((result (funcall f tuple)))
+    ;;; All transformation functions must take a tuple and an optional ACC tuple.
+    ;;; If ACC is a tuple (not NIL), then it is the accumulator value of a reduction.
+    ;;; Transformation functions which do not implement a reduction can ignore this value.
+    (let* ((result (funcall f tuple acc)))
       (join tuple result)))
-  (:method ((impl implementation) (tuple t))
+  (:method ((impl implementation) (tuple t) &optional acc)
     (awhen (implementation-function impl)
-      (apply-transformation it tuple)))
-  (:method ((transformation-name symbol) (tuple t))
-    (awhen (find-transformation transformation-name) (apply-transformation it tuple)))
-  (:method ((transformation t) (null null))
+      (apply-transformation it tuple acc)))
+  (:method ((transformation-name symbol) (tuple t) &optional acc)
+    (awhen (find-transformation transformation-name) (apply-transformation it tuple acc)))
+  (:method ((transformation t) (null null) &optional acc)
+    (declare (ignore acc))
     ;; Everything collapses to NIL. This simplifies uniform handling of tuples/relations, but may need to be revisited.
     nil)
-  (:method ((transformation transformation) (tuple wb-map))
+  (:method ((transformation transformation) (tuple wb-map) &optional acc)
     (assert (satisfies-input-p tuple transformation))
-    (apply-transformation (transformation-implementation transformation) tuple))
-  (:method ((transformation t) (relation simple-relation))
-    ;; TODO: Can we use GMAP here?
-    (reduce #'combine-potential-relations
-	    (image (lambda (tuple)
-		     (apply-transformation transformation tuple))
-		   (tuples relation))
-	    :initial-value nil))
-  (:method ((list list) (tuple wb-map))
-    (check-type list (cons transformation-spec))
+    (apply-transformation (transformation-implementation transformation) tuple acc))
+  (:method ((transformation t) (relation simple-relation) &optional acc)
+    (cond
+      ((reducer? transformation)
+       (let* ((sig (transformation-signature transformation))
+	      (impl (transformation-implementation transformation))
+	      (reduced (reduce (lambda (acc tuple)
+				 (apply-transformation impl tuple acc))
+			       (tuples relation)
+			       :initial-value acc)))
+	 (project (signature-input sig) reduced :invert t)))
+      (t
+       (reduce #'combine-potential-relations
+	       (image (lambda (tuple)
+			(apply-transformation transformation tuple))
+		      (tuples relation))
+	       :initial-value nil))))
+  (:method ((pipeline list) (tuple wb-map) &optional acc)
+    "Sequentially apply list of transformations, reducing from initial value of TUPLE."
+    (check-type pipeline pipeline)
+    ;; ACC only applies within a single transformation's processing of multiple tuples (i.e. a relation).
+    (check-type acc null)
     (reduce (lambda (tuple transformation)
 	      (apply-transformation transformation tuple))
-	    list
+	    pipeline
 	    :initial-value tuple)))
+
+(test reducer-transformation
+  (let ((f (transformation ((a &acc (acc 4) (all-a '())) -> (acc all-a)) ==
+			   (values (+ acc a) (cons a all-a))))
+	(data (relation (a) (1) (2) (3))))
+    (is (same (apply-transformation f data nil)
+	      (tuple (acc 10) (all-a '(3 2 1)))))))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
@@ -238,7 +269,9 @@
     (subset? (signature-input (transformation-signature transformation)) (signature-input signature)))
   (:method ((signature signature) (component component))
     (some (lambda (transformation) (signature-satisfies-p signature transformation))
-	  (component-transformations component))))
+	  (component-transformations component)))
+  (:method ((signature signature) (null null))
+    nil))
 
 (defvar *trace-plan* nil)
 
@@ -283,6 +316,7 @@
 		  (%plan (remove component component-list) ;; Each component can only be used once.
 			 component signature plan))
 		candidates)
+	  ;; If no component in COMPONENT-LIST leads to a new plan, the current PLAN is complete.
 	  plan)))
   (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
     (debug-plan :planning :component component)
@@ -354,12 +388,12 @@
   (:method ((system system) (signature signature) (initial-data t) &key report override-data)
     (let ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	  (plan (plan system signature)))
-      (and plan
-	   (satisfies-input-p initial-data signature)
-	   (let* ((reducer (make-pipeline-reducer system :report report))
-		  (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
-	     (destructuring-bind (result report-results) reduce-result
-	       (values result plan (synthesize-report-steps report report-results) initial-value)))))))
+      (if (and plan (satisfies-input-p initial-data signature))
+	  (let* ((reducer (make-pipeline-reducer system :report report))
+		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
+	    (destructuring-bind (result report-results) reduce-result
+	      (values result plan (synthesize-report-steps report report-results) initial-value)))
+      (values nil plan nil initial-value)))))
 
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
@@ -435,8 +469,7 @@
 		  solution)
 	      plan report defaulted-data))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan
-				     return-defaulted-data)
+(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan return-defaulted-data)
   (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
 									:report format
 									:override-data override-data

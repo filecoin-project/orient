@@ -30,12 +30,6 @@
 (defclass simple-relation (relation)
   ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
 
-(defgeneric ensure-tuples (thing)
-  (:method ((tuple wb-map))
-    (list tuple))
-  (:method ((relation relation))
-    (tuples relation)))
-
 (defmethod print-object ((relation relation) (stream t))
   (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
@@ -133,16 +127,19 @@
 		(restrict (tfn (b) (= b 5))
 			  (relation (a b c) (1 2 3) (4 5 6) (7 8 9))))))
 
-(defgeneric project (attributes attributed)
-  (:method ((attributes list) (attributed t))
-    (project (convert 'set attributes) attributed))
-  (:method ((attributes set) (null null))
+(defgeneric project (attributes attributed &key invert)
+  (:method ((attributes list) (attributed t) &key invert)
+    (project (convert 'set attributes) attributed :invert invert))
+  (:method ((attributes set) (null null) &key invert)
+    (declare (ignore invert))
     nil)
-  (:method ((attributes set) (tuple wb-map))
-    (fset:restrict tuple attributes))
-  (:method ((attributes set) (relation relation))
+  (:method ((attributes set) (tuple wb-map) &key invert)
+    (if invert
+	(fset:restrict-not tuple attributes)
+	(fset:restrict tuple attributes)))
+  (:method ((attributes set) (relation relation) &key invert)
     (make-relation
-     (image (lambda (tuple) (project attributes tuple))
+     (image (lambda (tuple) (project attributes tuple :invert invert))
 	    (tuples relation)))))
 
 (test project-tuple "Test PROJECT on tuple."
@@ -187,3 +184,65 @@
 		    (relation (a b c) (1 2 3)))
 	    (relation (f g c) (1 2 3)))))
 
+(defgeneric map-relation (f relation)
+  (:method ((f function) (r relation))
+    (make-relation (image f (tuples r)))))
+
+(test map-relation
+  (let ((r (relation (a b c)
+		     (1 2 3)
+		     (1 2 4)
+		     (3 4 5)
+		     (4 5 6))))
+    (is (same (map-relation (tfn (a b c)
+			      (tuple (a (1+ a))
+				     (b (1+ b))
+				     (c 3)))
+			    r)
+	      (relation (a b c)
+			(2 3 3)
+			(4 5 3)
+			(5 6 3))))))
+
+(defgeneric group (relation by-attributes new-attribute &key invert)
+  (:method ((relation relation) (by-attributes set) (new-attribute symbol) &key invert)
+    (let* ((other-attributes (set-difference (attributes relation) by-attributes))
+	   (projected (project (if invert
+				   other-attributes
+				   by-attributes)
+			       relation)))
+      (map-relation (lambda (tuple)
+		      (with tuple new-attribute (project (if invert
+							     by-attributes
+							     other-attributes)
+							 (join tuple relation))))
+		    projected)))
+  (:method ((relation relation) (by-attributes list) (new-attribute symbol) &key invert)
+    (group relation (convert 'set by-attributes) new-attribute :invert invert)))
+
+(test group
+  (let* ((r (relation (a b c)
+		      (1 2 3)
+		      (4 5 6)
+		      (7 8 3)
+		      (1 2 4))))
+    
+    (is (same (relation (c g)
+			(3 (relation (a b)
+				     (1 2)
+				     (7 8)))
+			(4 (relation (a b)
+				     (1 2)))
+			(6 (relation (a b)
+				     (4 5))))
+	      (group r '(c) 'g)))
+
+    (is (same (relation (a b g)
+			(1 2 (relation (c)
+				       (3)
+				       (4)))
+			(4 5 (relation (c)
+				       (6)))
+			(7 8 (relation (c)
+				       (3))))
+	      (group r '(c) 'g :invert t)))))
