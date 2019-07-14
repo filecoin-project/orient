@@ -109,6 +109,8 @@
 (defmethod encode-json ((set set) &optional stream)
   (encode-json (convert 'list set) stream))
 
+;; FIXME: Need to add support for &acc, &group, &group-by, and &into --
+;; here and in canonical printed representations.
 (defun signature-plist (signature)
   `(:input ,(convert 'list (signature-input signature)) :output ,(convert 'list (signature-output signature))))
 

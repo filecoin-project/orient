@@ -4,9 +4,11 @@
   (:nicknames :fc)
   (:export
    :GiB-seal-cycles :sector-GiB
+   :replication-time :replication-time-per-GiB
    :roi-months
    :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers
-   :total-challenges :total-zigzag-challenges :storage-to-proof-size-ratio :storage-to-proof-size-float
+   :total-challenges :total-zigzag-challenges :total-zigzag-constraints :total-zigzag-constraints-x
+   :storage-to-proof-size-ratio :storage-to-proof-size-float
    :zigzag-layers :zigzag-layer-challenges :one-year-roi :two-year-roi :three-year-roi
    :zigzag-soundness
    :filecoin-system :performance-system :zigzag-system :zigzag-security-system

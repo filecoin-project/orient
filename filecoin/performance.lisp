@@ -61,7 +61,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (seal-cycles-per-hour "CPU required to seal at required rate for one hour. Unit: cycles")
   (seal-cycles-per-minute "CPU required to seal at required rate for one minute. Unit: cycles")
   (seal-cycles-per-second "CPU required to seal at required rate for one second. Unit: cycles")
-  (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB. Unit: Giga-cycles")
+  (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB. Unit: cycles")
   (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
 
   (up-front-drive-cost "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars.")
@@ -88,7 +88,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (three-year-profit "Profit after three years of operation: Unit: dollars")
   (three-year-roi "ROI after three years of operation: Unit: fraction")
   (seal-Hz "Cycles per second at which the sealing machine operates. Unit: Hz")
-  (sealGHz "Cycles per second at which the sealing machine operates. Unit: GHz")
+  (seal-GHz "Cycles per second at which the sealing machine operates. Unit: GHz")
   )
 
 (defconstraint-system performance-constraint-system    

@@ -11,16 +11,53 @@
 (defclass signature ()
   ((input :initarg :input :initform (empty-set) :accessor signature-input :type set)
    (output :initarg :output :initform (empty-set) :accessor signature-output :type set)
-   (reducer? :initarg :reducer? :initform nil :accessor signature-reducer? :type boolean)))
+   ;; GROUP groups the specified attributes.
+   ;; GROUP-BY groups the unspecified attributes, 'grouping by' those specified.
+   (group :initarg :group :initform (empty-set) :accessor signature-group :type set)
+   (group-by :initarg :group-by :initform (empty-set) :accessor signature-group-by :type set)
+   (group-into :initarg :group-into :initform nil :accessor signature-group-into :type symbol)
+   (reducer? :initarg :reducer :initform nil :accessor signature-reducer? :type boolean)))
 
-(defmethod reducer? ((transformation transformation))
-  (signature-reducer? (transformation-signature transformation)))
+(defgeneric reducer? (transformation)
+  (:method ((transformation t))
+    nil)
+  (:method ((transformation transformation))
+    (signature-reducer? (transformation-signature transformation))))
 
-(defun make-signature (input output &optional reducer?)
+(defgeneric grouper? (thing)
+  (:method ((thing t))
+    nil)
+  (:method ((signature signature))
+    (or (not (empty? (signature-group signature)))
+	(not (empty? (signature-group-by signature)))))
+  (:method ((transformation transformation))
+    (grouper? (transformation-signature transformation))))
+
+(deftype reducer () '(satisfies reducer?))
+(deftype grouper () '(satisfies grouper?))
+(deftype aggregator () '(satisfies aggregator?))
+
+(defun make-signature (input output &key reducer group group-by group-into)
+  ;; GROUP and GROUP-BY are mutually exclusive (and complementary) ways of specifying the shape of grouping.
+  (assert (not (and group group-by)))
+
+  ;; Grouping without reducing requires specification of an attribute into which to group.
+  (when (and (or group group-by) (not reducer)) (assert group-into))
+
+  (when reducer
+    ;; No new attribute will be added to group into when reducing.
+    (assert (not group-into))
+
+    ;; But current implementation does require a temporary attribute in which to store the grouped relation before reducing.
+    (setq group-into (intern "into")))
+
   (make-instance 'signature
 		 :input (convert 'set input)
 		 :output (convert 'set output)
-		 :reducer? reducer?))
+		 :reducer reducer
+		 :group group
+		 :group-by group-by
+		 :group-into group-into))
 
 (defun pruned-signature (sig)
   "Return a new signature, with output which is also input pruned, since this will be trivially provided."
@@ -52,12 +89,13 @@
 (defmethod print-object ((comp component) (stream t))
   (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
-(defclass problem ()
-  ((signature :initarg :signature :initform (make-signature '() '()) :accessor problem-signature)))
-
 (defgeneric all-system-components (system)
   (:method ((system system))
-    (reduce #'append (cons (system-components system)
+    (reduce #'append (cons (mapcan (lambda (maybe-component)
+				     (typecase maybe-component
+				       (component (list maybe-component))
+				       (system (all-system-components maybe-component))))
+				   (system-components system))
 			   (mapcar #'all-system-components (system-subsystems system))))))
 
 (defgeneric all-system-schemas (system)
@@ -147,12 +185,14 @@
 	    (tuple (r (relation ()))))))
 
 (defgeneric satisfies-input-p (attributed b)
+  ;; TODO: Extend to handle wildcards with WILDCARD-MATCHES, etc.
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")
   ;; FIXME: Make type of A ensure ATTRIBUTES.
   (:method ((a t) (b t)) nil)
   (:method ((a t) (b transformation)) (satisfies-input-p a (transformation-signature b)))
-  (:method ((a t) (b signature)) (subset? (signature-input b) (attributes a))) ;; FIXME: new superclass of types with attributes.
-  )
+  (:method ((a t) (b signature))
+    (or (empty? (signature-input b)) ;; FIXME: avoid special case here.
+	(subset? (signature-input b) (attributes a)))))
 
 (defgeneric combine-potential-relations (a b)
   (:method ((a list) (b t))
@@ -208,15 +248,11 @@
     (assert (satisfies-input-p tuple transformation))
     (apply-transformation (transformation-implementation transformation) tuple acc))
   (:method ((transformation t) (relation simple-relation) &optional acc)
+    (check-type acc null)
     (cond
-      ((reducer? transformation)
-       (let* ((sig (transformation-signature transformation))
-	      (impl (transformation-implementation transformation))
-	      (reduced (reduce (lambda (acc tuple)
-				 (apply-transformation impl tuple acc))
-			       (tuples relation)
-			       :initial-value acc)))
-	 (project (signature-input sig) reduced :invert t)))
+      ((or (reducer? transformation)
+	   (grouper? transformation))
+       (group-reduce-relation transformation relation))
       (t
        (reduce #'combine-potential-relations
 	       (image (lambda (tuple)
@@ -233,12 +269,88 @@
 	    pipeline
 	    :initial-value tuple)))
 
+(defgeneric group-reduce-relation (transformation relation)
+  (:method ((transformation t) (relation simple-relation))
+    (cond
+      ((grouper? transformation)
+       (let* ((signature (transformation-signature transformation))
+	      (into-attr (signature-group-into signature))
+	      (grouped (group-with-signature relation signature)))
+	 (cond
+	   ((reducer? transformation)
+	    ;; TODO: Can we avoid the conceptually clear but somewhat wasteful process of reducing into a tuple attribute then unwrapping?
+	    (map-relation (lambda (tuple)
+			    (setf (tref into-attr tuple)
+				  (reduce-relation transformation (tref into-attr tuple)))
+			    (unwrap tuple into-attr))
+			  grouped))
+	   (t grouped))))
+      (t (reduce-relation transformation relation)))))
+
+(defun group-with-signature (relation signature)
+  (multiple-value-bind (by-attributes invert)
+      (aif (signature-group-by signature)
+	   (values it nil)
+	   (values (signature-group signature) t))
+    (group relation by-attributes (signature-group-into signature) :invert invert)))		
+
+(defgeneric reduce-relation (transformation relation)
+  (:method ((transformation t) (relation simple-relation))
+    (assert (reducer? transformation))
+    (let* ((sig (transformation-signature transformation))
+	   (impl (transformation-implementation transformation))
+	   (reduced (reduce (lambda (acc tuple)
+			      (apply-transformation impl tuple acc))
+			    (tuples relation)
+			    :initial-value nil)))
+      (project (signature-input sig) reduced :invert t))))
+
 (test reducer-transformation
   (let ((f (transformation ((a &acc (acc 4) (all-a '())) -> (acc all-a)) ==
 			   (values (+ acc a) (cons a all-a))))
 	(data (relation (a) (1) (2) (3))))
     (is (same (apply-transformation f data nil)
 	      (tuple (acc 10) (all-a '(3 2 1)))))))
+
+(test group-transformation
+  ;;; FIXME: We should probably not blindly ignore the actual transformation,
+  ;;; but rather either require an 'identity transformation' or some other intentional signal.
+  (let ((f (transformation ((a b &group a &into x) -> (x)) == :ignored))
+	(data (relation (a b) (1 2) (2 2) (3 3))))
+    (is (same (relation (b x)
+			(2 (relation (a) (1) (2)))
+			(3 (relation (a) (3))))
+	      (apply-transformation f data)))))
+
+(test group-by-transformation
+  ;;; FIXME: We should probably not blindly ignore the actual transformation,
+  ;;; but rather either require an 'identity transformation' or some other intentional signal.
+  (let ((f (transformation ((a b c &group-by a &into x) -> (x)) == :ignored))
+	(data (relation (a b c) (1 2 3) (2 2 4) (2 3 5))))
+    (is (same (relation (a x)
+			(1 (relation (b c) (2 3)))
+			(2 (relation (b c) (2 4) (3 5))))
+	      (apply-transformation f data)))))
+
+#+(or)
+(test group-and-group-by-transformation
+  ;;; FIXME: We should probably not blindly ignore the actual transformation,
+  ;;; but rather either require an 'identity transformation' or some other intentional signal.
+  (let ((f (transformation ((a b c d &group b &group-by a &into x) -> (x)) == :ignored))
+	(data (relation (a b c d) (1 2 3 5) (2 2 4 5) (2 3 5 5))))
+    (is (same (relation (a d x)
+			(1 5 (relation (b c) (2 3)))
+			(2 5 (relation (b c) (2 4) (3 5))))
+	      (apply-transformation f data)))))
+
+(test grouper-reducer-transformation
+  (let ((f (transformation ((a b &group a &acc (sum 0) (all-a (set))) -> (sum all-a))
+			   == (values (+ sum a) (with all-a a))))
+	(data (relation (a b) (5 2) (6 2) (7 3))))
+    (is (same (relation (b sum all-a)
+			(2 11 (set 5 6))
+			(3 7 (set 7)))
+	      (apply-transformation f data)))))
 
 (defgeneric compose-signatures (a b)
   ;; TODO: Make type of TUPLE ensure signature.
@@ -279,7 +391,13 @@
   (when *trace-plan*
     (print args)))
 
+(defclass problem ()
+  ((input :initarg :input :initform (empty-set) :accessor problem-input :type set)
+   (output :initarg :output :initform (empty-set) :accessor problem-output :type set)))
+
+;; TODO: Use PROBLEM rather than SIGNATURE in PLAN/SOLVE.
 (defgeneric plan (system signature)
+  (:documentation "Find a plan for system which meets signature. That is, the plan takes signatures inputs and produces its outputs.")
   (:method ((system system) (signature signature))
     (let* ((*plan-profile* (make-instance 'plan-profile))
 	   (plan (%plan :system system (pruned-signature signature) '())))
@@ -305,18 +423,18 @@
       (debug-plan :signature-output (signature-output signature))
       ;; TODO: prune extraneous transformations from the plan.
       (let ((needed-output (set-difference (signature-output signature) (signature-input signature))))
+	;; If the plan's signature provides output which is a superset of that which is needed, return the plan.
 	(and plan-signature (subset? needed-output (signature-output plan-signature))
 	     plan))))
   (:method ((selector (eql :component-list)) (component-list list) (signature signature) (plan list))
-    (let* ((candidates (remove-if-not (lambda (c) (signature-satisfies-p signature c)) component-list)
-
-	     ))
+    (let* ((candidates (remove-if-not (lambda (component) (signature-satisfies-p signature component))
+				      component-list)))
       (debug-plan :signature signature :component-list component-list :candidates candidates :plan plan)
       (or (some (lambda (component)
 		  (%plan (remove component component-list) ;; Each component can only be used once.
 			 component signature plan))
 		candidates)
-	  ;; If no component in COMPONENT-LIST leads to a new plan, the current PLAN is complete.
+	  ;; If no component in COMPONENT-LIST leads to a new plan, the current PLAN is exhaustive (whether successful or not).
 	  plan)))
   (:method ((remaining-component-list list) (component component) (signature signature) (plan list))
     (debug-plan :planning :component component)
@@ -327,15 +445,30 @@
   (:method ((remaining-component-list list) (transformation transformation) (signature signature) (plan list))
     (debug-plan :transformation transformation :signature signature :plan plan)    
     (incf (transformations-tried *plan-profile*))
-    (let* ((tran-sig (transformation-signature transformation)))
+    (let* ((tran-sig (transformation-signature transformation))
+	   (new-plan (cons transformation plan))
+	   (new-signature (make-signature (union (signature-input signature) (signature-output tran-sig))
+					  (signature-output signature))))
+
       ;; TODO: Under what circumstances, if any, can we skip following a branch forward?
       
       ;; Add the transformation to the plan and update the signature to satisfy.
-      (let* ((new-plan (cons transformation plan))
-	     (new-signature (make-signature (union (signature-input signature) (signature-output tran-sig))
-					    (signature-output signature))))
-	(debug-plan :new-plan new-plan :new-signature new-signature)
-	(%plan :component-list remaining-component-list new-signature new-plan)))))
+      (debug-plan :new-plan new-plan :new-signature new-signature)
+      (%plan :component-list remaining-component-list new-signature new-plan))))
+
+(defgeneric apply-signature (signature problem)
+  (:method ((signature signature) (to-signature signature))
+    (etypecase signature
+      (grouper
+       ;; A signature can only be applied to one which satisfies its inputs.
+       (assert (subset? (signature-input signature) (signature-input to-signature)))
+       (let ((new-inputs (compute-group-attributes (signature-input to-signature)
+						   (signature-group-by signature)
+						   (signature-group-into signature))))
+	 (make-signature new-inputs (signature-output to-signature))))
+      (t
+       (make-signature (union (signature-input signature) (signature-output to-signature))
+		       (signature-output to-signature))))))
 
 (defmethod defaulted-initial-data ((system system) (provided t) &key override-data)
   ;; TODO: allow merging of provided data.
@@ -393,7 +526,7 @@
 		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
 	    (destructuring-bind (result report-results) reduce-result
 	      (values result plan (synthesize-report-steps report report-results) initial-value)))
-      (values nil plan nil initial-value)))))
+	  (values nil plan nil initial-value)))))
 
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
@@ -460,6 +593,7 @@
 (defun solve-for (system output &optional initial-data &key report override-data project-solution)
   "Returns four values: solution, plan, report, and defaulted-data."
   (let* ((system (find-system system))
+	 ;; We need to fill defaults here (somewhat redundantly) in order to calculate SIG below.
 	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (attributes defaulted) output)))
     (multiple-value-bind (solution plan report defaulted-data)
