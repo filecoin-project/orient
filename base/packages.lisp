@@ -38,7 +38,8 @@
    :implementation :implementation-module :implementation-name
    :tref :join :lookup-description :make-relation
    :make-signature :make-tuple :operation
-   :orient-tests :parameter :parameter-name :parameter-description :parameter-type
+   :orient-tests :optimal-heights
+   :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p
    :rel :relation :remove-attributes :rename :report-data :report-solution-for
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for

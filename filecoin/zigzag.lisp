@@ -178,7 +178,9 @@
 	     collect (list layer-index lc)))))
 
 (deftransformation compute-total-zigzag-challenges
-    ((layer-performance.layer-index zigzag-layer-challenges &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
+    ((layer-performance.layer-index zigzag-layer-challenges
+				    &group-by sector-size
+				    &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
   (values (+ total-zigzag-challenges zigzag-layer-challenges)))
 
 (define-constraint beta-merkle-heights
@@ -228,46 +230,39 @@
    (proving-time (+ circuit-time hashing-time))   
    ))
 
-#+(or)
-	(defschema zigzag-layer-performance-schema
-    "Single ZigZag Layer Performance"
-  )
-
-#+(or)
-(deftransformation compute-total-zigzag-performance
-    ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
-    ((layer-performance.constraints layer-performance.hashing-time layer-performance.proving-time
-				    circuit-proving-time-per-constraint
-				    &acc
-				    (total-zigzag-constraints 0)
-				    (total-zigzag-hashing-time 0)
-				    (total-constraint-time 0)
-				    (total-proving-time 0))
-     -> (total-zigzag-constraints total-zigzag-hashing-time total-constraint-time total-proving-time))
-  ;; TODO: Capture layer data as relation-valued attribute along with the aggregates.
-  (let* ((layer-constraint-time (* layer-performance.constraints circuit-proving-time-per-constraint)))
-    (values (+ total-zigzag-constraints layer-performance.constraints)
-	    (+ total-zigzag-hashing-time layer-performance.hashing-time)
-	    (+ total-constraint-time layer-constraint-time)
-	    (+ total-proving-time layer-performance.proving-time))))
+(defschema zigzag-layer-performance-schema "Single ZigZag Layer Performance")
 
 (deftransformation compute-total-zigzag-performance
     ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
     ((lowest-time
       optimal-constraints
       optimal-beta-merkle-height
-      layer-index 
+      layer-index
+      &group-by sector-size
       &acc
       (total-proving-time 0)
       (total-zigzag-constraints 0)
-      (optimal-heights (fset:set)))
+      ;; TODO: Uncomment and use a real relation (after improving output for legibility in report).
+      ;; (optimal-heights (make-relation nil))
+      (optimal-heights (fset:set))
+      )
      -> (total-proving-time
 	 total-zigzag-constraints
 	 optimal-heights))
   ;; TODO: Capture layer data as relation-valued attribute along with the aggregates.
   (values (+ total-proving-time lowest-time)
 	  (+ total-zigzag-constraints optimal-constraints)
-	  (with optimal-heights (tuple (layer-index layer-index) (optimal-beta-merkle-height optimal-beta-merkle-height)))))
+	  (with optimal-heights
+		(tuple (layer-index layer-index)
+		       (lowest-time lowest-time)
+		       (optimal-beta-merkle-height optimal-beta-merkle-height)))
+	  ;; TODO: Uncomment and use a real relation (after improving output for legibility in report).
+	  ;; (make-relation
+	  ;;  (with (tuples optimal-heights)
+	  ;; 	 (tuple (layer-index layer-index)
+	  ;; 		(lowest-time lowest-time)
+	  ;; 		(optimal-beta-merkle-height optimal-beta-merkle-height))))
+	  ))
 
 ;; TODO: Can we use this instead of COMPUTE-ZIGZAG-TAPERED-LAYERS?
 ;; Problem: the latter 'returns' two values. General solution may be to support exactly that (multiple return values in 'operator'-like call-by-order constraints.
@@ -361,7 +356,7 @@
 
 				  ;; TODO: Document this pattern (or unsupport it) before deleting this dead code.
 				  ;; &group-by 'layer-performance.layer-index
-				  ;; &group 'layer-performance.*
+				  ;&group 'layer-performance.*
 
 				  &acc
 				  (alternate-layers (make-relation nil))
@@ -397,23 +392,28 @@
 			 lowest-time
 			 optimal-constraints
 			 optimal-beta-merkle-height
+			 other
 			 alternate-layers)
-			(0 1 9 0 (relation (beta-merkle-height proving-time)
+			(0 1 9 0 5 (relation (beta-merkle-height proving-time)
 					 (0 1)
 					 (1 2)
 					 (2 3)))
-			(1 4 6 0 (relation (beta-merkle-height proving-time)
+			(1 4 6 0 3 (relation (beta-merkle-height proving-time)
 					 (0 4)
 					 (1 5)
 					 (2 6))))
 	      (solve-for system '()
-			 (relation (layer-performance.layer-index layer-performance.beta-merkle-height layer-performance.proving-time layer-performance.constraints)
-				   (0 0 1 9)
-				   (0 1 2 8)
-				   (0 2 3 7 )
-				   (1 0 4 6 )
-				   (1 1 5 5)
-				   (1 2 6 4)))))))
+			 (relation (layer-performance.layer-index
+				    layer-performance.beta-merkle-height
+				    layer-performance.proving-time
+				    layer-performance.constraints
+				    other)
+				   (0 0 1 9 5)
+				   (0 1 2 8 5)
+				   (0 2 3 7 5)
+				   (1 0 4 6 3)
+				   (1 1 5 5 3)
+				   (1 2 6 4 3)))))))
 
 (defconstraint-system zigzag-constraint-system
     ;; TODO: Make variadic version of + and ==.
@@ -598,9 +598,50 @@
 		 :components (when (not no-aggregate)
 			       (list (component ('compute-total-zigzag-performance))))
 		 :subsystems (list (find-system 'zigzag-constraint-system)
+				   ;; FIXME: If these subsystems are provided in the opposite order,
+				   ;; something breaks.
 				   (zigzag-security-system :no-aggregate no-aggregate))
 		 :data (list* *defaults*
 			      *zigzag-defaults*
 			      *zigzag-bench-data*
 			      *zigzag-hypotheticals*)))
 
+(test optimal-heights
+  (is (same
+       (relation (optimal-heights)
+		 ((fset:set (tuple (LAYER-INDEX 0)
+				   (LOWEST-TIME 191.0879)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 10))
+			    (tuple (LAYER-INDEX 1)
+				   (LOWEST-TIME 2717.1917)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
+			    (tuple (LAYER-INDEX 2)
+				   (LOWEST-TIME 2717.1917)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
+			    (tuple (LAYER-INDEX 3)
+				   (LOWEST-TIME 2717.1917)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
+			    (tuple (LAYER-INDEX 4)
+				   (LOWEST-TIME 3693.5518)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
+			    (tuple (LAYER-INDEX 5)
+				   (LOWEST-TIME 5104.561)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
+			    (tuple (LAYER-INDEX 6)
+				   (LOWEST-TIME 7173.0557)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
+			    (tuple (LAYER-INDEX 7)
+				   (LOWEST-TIME 10119.678)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
+			    (tuple (LAYER-INDEX 8)
+				   (LOWEST-TIME 14079.739)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 3))
+			    (tuple (LAYER-INDEX 9)
+				   (LOWEST-TIME 19678.281)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 2))
+			    (tuple (LAYER-INDEX 10)
+				   (LOWEST-TIME 27037.797)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 2)))))
+       (ask (zigzag-system) '(optimal-heights))))
+  )
+		

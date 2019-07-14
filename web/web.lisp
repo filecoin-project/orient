@@ -207,6 +207,7 @@
 					 replication-time-per-gib
 					 seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
 					 total-zigzag-constraints
+					 optimal-heights
 					 )
 				  :system (zigzag-system)
 				  :override-parameters (sector-GiB)

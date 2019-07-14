@@ -254,43 +254,6 @@
   (is (equal? (set 'a 'b 'c)
 	      (wildcard-matches '(a b c) (set 'a 'b 'c 'd)))))
 
-(defgeneric compute-group-attributes (input-attributes by-attributes new-attribute &key invert group)
-  (:method ((input-attributes set) (by-attributes set) (new-attribute symbol) &key invert group)
-    (assert (not (and invert group)))
-    (let* ((by-attributes (wildcard-matches by-attributes input-attributes))
-	   (group-attributes (set-difference (wildcard-matches group input-attributes) by-attributes))
-	   (other-attributes (if (and by-attributes group)
-				 group-attributes
-				 (set-difference input-attributes by-attributes)))
-	   (project-attributes (cond
-				 (invert other-attributes)
-				 (group (set-difference input-attributes group-attributes))
-				 (t by-attributes)))
-	   (inner-attributes (if invert
-				 by-attributes
-				 other-attributes))
-	   (outer-attributes (if new-attribute
-				 (with project-attributes new-attribute)
-				 project-attributes)))
-      (values outer-attributes inner-attributes)))
-  (:method ((input-attributes t) (by-attributes t) (new-attribute symbol) &key invert group)
-    (compute-group-attributes (convert 'set input-attributes) (convert 'set by-attributes) new-attribute :invert invert :group group)))
-
-(defgeneric compute-group-attributes (input-attributes by-attributes new-attribute &key invert)
-  (:method ((input-attributes set) (by-attributes set) (new-attribute symbol) &key invert)
-    (let* ((by-attributes (wildcard-matches by-attributes input-attributes))
-	   (other-attributes (set-difference input-attributes by-attributes)))
-      (multiple-value-bind (project-attributes inner-attributes)
-	  (if invert
-	      (values other-attributes by-attributes)
-	      (values by-attributes other-attributes))
-	(let ((outer-attributes (if new-attribute
-				    (with project-attributes new-attribute)
-				    project-attributes)))
-	  (values outer-attributes inner-attributes)))))
-  (:method ((input-attributes t) (by-attributes t) (new-attribute symbol) &key invert)
-    (compute-group-attributes (convert 'set input-attributes) (convert 'set by-attributes) new-attribute :invert invert)))
-
 (defgeneric compute-group-attributes (input-attributes by-attributes new-attribute &key invert)
   (:method ((input-attributes set) (by-attributes set) (new-attribute symbol) &key invert)
     (let* ((by-attributes (wildcard-matches by-attributes input-attributes))
@@ -325,51 +288,16 @@
     (test-case '((a b c d) (a b) nil :invert t)
 	       :expected-outer '(c d)
 	       :expected-inner '(a b))
-    ;; (test-case '((a b c d) (a b) x :group (c))
-    ;; 	       :expected-outer '(a b d x)
-    ;; 	       :expected-inner '(c))
-    ;; ;; Any GROUP attributes specified but which are also in GROUP-BY will not be included in inner attributes. (Should they be?)
-    ;; (test-case '((a b c d) (a b c) nil :group (c d))
-    ;; 	       :expected-outer '(a b c)
-    ;; 	       :expected-inner '(d))
-    ;; (test-case '((a b c d) (a b c) nil :group (c b d))
-    ;; 	       :expected-outer '(a b c)
-    ;; 	       :expected-inner '(d))
     ))
-
-#+(or)
-(defgeneric group (relation by-attributes new-attribute &key invert group)
-  (:method ((relation relation) (by-attributes set) (new-attribute symbol) &key invert group)
-    (assert (not (and invert group)))
-    (let* ((by-attributes (wildcard-matches by-attributes relation))
-	   (x (wildcard-matches group relation))
-	   (group-attributes (set-difference x;(wildcard-matches group relation)
-					     by-attributes))
-	   (other-attributes (if (and by-attributes group)
-				 group-attributes
-				 (set-difference (attributes relation) by-attributes)))
-	   (projected (project (cond
-				 (invert other-attributes)
-				 (group (set-difference (attributes relation) group-attributes))
-				 (t by-attributes))
-			       relation)))
-      (map-relation (lambda (tuple)
-		      (with tuple new-attribute (project (if invert
-							     by-attributes
-							     other-attributes)
-							 (join tuple relation))))
-		    projected)))
-  (:method ((relation relation) (by-attributes list) (new-attribute symbol) &key invert group)
-    (group relation (convert 'set by-attributes) new-attribute :invert invert :group group)))
 
 (defgeneric group (relation by-attributes new-attribute &key invert)
   (:method ((relation relation) (by-attributes set) (new-attribute symbol) &key invert)
     (multiple-value-bind (outer-attributes inner-attributes)
 	(compute-group-attributes (attributes relation) by-attributes new-attribute :invert invert)
       (let* ((projected (project outer-attributes relation)))
-      (map-relation (lambda (tuple)
-		      (with tuple new-attribute (project inner-attributes (join tuple relation))))
-		    projected))))
+	(map-relation (lambda (tuple)
+			(with tuple new-attribute (project inner-attributes (join tuple relation))))
+		      projected))))
   (:method ((relation relation) (by-attributes list) (new-attribute symbol) &key invert)
     (group relation (convert 'set by-attributes) new-attribute :invert invert)))
 
