@@ -29,7 +29,7 @@
 				 (bench-circuit-proving-time (* 2.785 60))
 				 (bench-circuit-constraints 16e6)
 
-				 (max-beta-merkle-height 10)))
+				 (max-beta-merkle-height 30)))
 
 (defparameter *zigzag-bench-data* (tuple (hash-functions *hash-functions*)))
 
@@ -203,14 +203,29 @@
     (is (same (relation (bmh) (0) (1) (2) (3) (4))
 	      (ask system '(bmh) (tuple))))))
 
+(define-simple-constraint layer-challenge-inclusion-proofs (num-proofs (layer-index total-layers single-challenge-proofs))
+    (let ((shifted-proofs 1))
+      (cond ((zerop layer-index) shifted-proofs)
+	    ((= layer-index total-layers) (- single-challenge-proofs shifted-proofs))
+	    (t single-challenge-proofs))))
+
+(test layer-challenge-inclusion-proofs
+  (let ((system (constraint-system
+		 ((layer-proofs (layer-challenge-inclusion-proofs layer-index total-layers single-challenge-proofs))))))
+    (setf (system-data system) (list (relation (layer-index) (0) (1) (2) (10))
+				      (tuple (total-layers 10) (single-challenge-proofs 123))))
+    (is (same (relation (layer-index layer-proofs)
+			(0 1)
+			(1 123)
+			(2 123)
+			(10 122))
+	      (ask system '(layer-index layer-proofs) nil)))))
 
 (define-system-constraint zigzag-layer-performance
-    (-- (zigzag-layer-performance layer-index layer-challenges
+    (-- (zigzag-layer-performance layers layer-index layer-challenges
 				  sector-size node-bytes
 				  max-beta-merkle-height
 				  circuit-proving-time-per-constraint
-				  ;; FIXME: Account for one inclusion (the unencoded data) actually being
-				  ;; in previous layer (which matters if hybrid merkle trees differ by layer).
 				  single-challenge-inclusion-proofs 
 				  alpha-hash-function
 				  beta-hash-function))
@@ -221,9 +236,9 @@
    
    (alpha-inclusion-proof-constraints (* merkle-tree.alpha-inclusion-proof-hash-length alpha-hash-function.constraints))
    (beta-inclusion-proof-constraints (* merkle-tree.beta-inclusion-proof-hash-length beta-hash-function.constraints))
-   
    (inclusion-proof-constraints (+ alpha-inclusion-proof-constraints beta-inclusion-proof-constraints))
-   (challenge-constraints (* inclusion-proof-constraints single-challenge-inclusion-proofs))
+   (layer-challenge-proofs (layer-challenge-inclusion-proofs layer-index layers single-challenge-inclusion-proofs))
+   (challenge-constraints (* inclusion-proof-constraints layer-challenge-proofs))
    (constraints (* challenge-constraints layer-challenges))
    (circuit-time (* constraints circuit-proving-time-per-constraint))
    (hashing-time (+ alpha-hashing-time beta-hashing-time))
@@ -235,6 +250,7 @@
 (deftransformation compute-total-zigzag-performance
     ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
     ((lowest-time
+      optimal-hashing-time
       optimal-constraints
       optimal-beta-merkle-height
       layer-index
@@ -255,6 +271,7 @@
 	  (with optimal-heights
 		(tuple (layer-index layer-index)
 		       (lowest-time lowest-time)
+		       (hashing-time optimal-hashing-time)
 		       (optimal-beta-merkle-height optimal-beta-merkle-height)))
 	  ;; TODO: Uncomment and use a real relation (after improving output for legibility in report).
 	  ;; (make-relation
@@ -345,13 +362,11 @@
   (total-circuit-proof-size "Total size of a single circuit proof. Unit: bytes")
 
   (total-challenges "")
-  (partition-challenges "")
-
-  )
+  (partition-challenges ""))
 
 (define-constraint group-layer-performance
-    (lowest-time (group-layer-performance layer-index beta-merkle-height proving-time constraints))
-  ((transformation* ((layer-index beta-merkle-height proving-time constraints
+    (lowest-time (group-layer-performance layer-index beta-merkle-height proving-time constraints hashing-time))
+  ((transformation* ((layer-index beta-merkle-height proving-time constraints hashing-time
 				  &group-by layer-index
 
 				  ;; TODO: Document this pattern (or unsupport it) before deleting this dead code.
@@ -362,8 +377,10 @@
 				  (alternate-layers (make-relation nil))
 				  (lowest-time -1)
 				  (optimal-beta-merkle-height 0)
-				  (optimal-constraints -1))
-		     -> (alternate-layers lowest-time optimal-beta-merkle-height optimal-constraints))
+				  (optimal-constraints -1)
+				  (optimal-hashing-time -1)
+				  )
+		     -> (alternate-layers lowest-time optimal-beta-merkle-height optimal-constraints optimal-hashing-time))
 		    ==
 		    (let ((alts
 			   ;; TODO: convenience-function for adding tuple to relation.
@@ -372,14 +389,15 @@
 				  (tuple (beta-merkle-height beta-merkle-height)
 					 (proving-time proving-time))))))
 		     (cond
-		       ((and (= lowest-time -1) (= optimal-constraints -1))
+		       ((and (= lowest-time -1) (= optimal-constraints -1) (= optimal-hashing-time -1))
 			 ;; Take first PROVING-TIME seen when LOWEST-TIME still has initial value of -1.
-			(values alts proving-time beta-merkle-height constraints))
+			(values alts proving-time beta-merkle-height constraints hashing-time))
 		       (t
 			(let ((better? (< proving-time lowest-time)))
+			  ;; If proving-time is less than lowest-time, this is the best combination.
 			  (if better?
-			      (values alts proving-time beta-merkle-height constraints)
-			      (values alts lowest-time optimal-beta-merkle-height optimal-constraints)))))))))
+			      (values alts proving-time beta-merkle-height constraints hashing-time)
+			      (values alts lowest-time optimal-beta-merkle-height optimal-constraints optimal-hashing-time)))))))))
 
 (test group-layer-performance
   (let ((system (constraint-system
@@ -387,18 +405,21 @@
 			    layer-performance.layer-index
 			    layer-performance.beta-merkle-height
 			    layer-performance.proving-time
-			    layer-performance.constraints))))))
+			    layer-performance.constraints
+			    layer-performance.hashing-time
+			    ))))))
     (is (same (relation (layer-performance.layer-index
 			 lowest-time
 			 optimal-constraints
 			 optimal-beta-merkle-height
+			 optimal-hashing-time
 			 other
 			 alternate-layers)
-			(0 1 9 0 5 (relation (beta-merkle-height proving-time)
+			(0 1 9 0 3 5 (relation (beta-merkle-height proving-time)
 					 (0 1)
 					 (1 2)
 					 (2 3)))
-			(1 4 6 0 3 (relation (beta-merkle-height proving-time)
+			(1 4 6 0 7 3 (relation (beta-merkle-height proving-time)
 					 (0 4)
 					 (1 5)
 					 (2 6))))
@@ -407,13 +428,14 @@
 				    layer-performance.beta-merkle-height
 				    layer-performance.proving-time
 				    layer-performance.constraints
+				    layer-performance.hashing-time
 				    other)
-				   (0 0 1 9 5)
-				   (0 1 2 8 5)
-				   (0 2 3 7 5)
-				   (1 0 4 6 3)
-				   (1 1 5 5 3)
-				   (1 2 6 4 3)))))))
+				   (0 0 1 9 3 5)
+				   (0 1 2 8 2 5)
+				   (0 2 3 7 4 5)
+				   (1 0 4 6 7 3)
+				   (1 1 5 5 5 3)
+				   (1 2 6 4 6 3)))))))
 
 (defconstraint-system zigzag-constraint-system
     ;; TODO: Make variadic version of + and ==.
@@ -474,7 +496,8 @@
      (storage-to-proof-size-ratio (/ sector-size on-chain-porep-size))
      (storage-to-proof-size-float (* 1.0 storage-to-proof-size-ratio))
 
-     (layer-performance (zigzag-layer-performance layer-index
+     (layer-performance (zigzag-layer-performance layers
+						  layer-index
 						  zigzag-layer-challenges
 						  sector-size node-bytes
 						  max-beta-merkle-height
@@ -483,14 +506,13 @@
 						  alpha-hash-function
 						  beta-hash-function))
      (grouped (group-layer-performance layer-performance.layer-index layer-performance.beta-merkle-height layer-performance.proving-time
-				       layer-performance.constraints)))
+				       layer-performance.constraints layer-performance.hashing-time)))
   :schema 'zigzag-schema)
 
 (test zigzag-layer-performance
   (let* ((system (zigzag-system :no-aggregate t))
 	 (result (ask system
-		      '(
-			layer-performance.layer-index		     
+		      '(layer-performance.layer-index		     
 			layer-performance.layer-challenges
 			layer-performance.beta-merkle-height
 			layer-performance.merkle-tree.alpha-inclusion-proof-hash-length
@@ -517,36 +539,34 @@
     (is (fset:contains? (tuples result)
 			(tuple
 			 (LAYER-PERFORMANCE.LAYER-INDEX 10)
-			 (LAYER-PERFORMANCE.CIRCUIT-TIME 52700.715)
-			 (LAYER-PERFORMANCE.HASHING-TIME 191.0879)
+			 (LAYER-PERFORMANCE.CIRCUIT-TIME 120639.07)
 			 (LAYER-PERFORMANCE.LAYER-CHALLENGES 2664)
-			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 1894200)
+			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 4336080)
 			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.TIME 1.6055e-7)
 			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.TIME 1.7993e-5)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 1048575)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 0)
 			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.CONSTRAINTS 10324)
 			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.CONSTRAINTS 1152)
-			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 103240)
-			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 23040)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 10)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 20))
+			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 309720)
+			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 0)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 30)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 0))
 			))
     (is (fset:contains? (tuples result)
 			(tuple
 			 (LAYER-PERFORMANCE.LAYER-INDEX 1)
-			 (LAYER-PERFORMANCE.CIRCUIT-TIME 3165.2083)
-			 (LAYER-PERFORMANCE.HASHING-TIME 191.0879)
+			 (LAYER-PERFORMANCE.CIRCUIT-TIME 7763.1323)
 			 (LAYER-PERFORMANCE.LAYER-CHALLENGES 160)
-			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 1894200)
+			 (LAYER-PERFORMANCE.CHALLENGE-CONSTRAINTS 4645800)
 			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.TIME 1.6055e-7)
 			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.TIME 1.7993e-5)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 1048575)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-HASH-COUNT 0)
 			 (LAYER-PERFORMANCE.BETA-HASH-FUNCTION.CONSTRAINTS 10324)
 			 (LAYER-PERFORMANCE.ALPHA-HASH-FUNCTION.CONSTRAINTS 1152)
-			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 103240)
-			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 23040)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 10)
-			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 20))))
+			 (LAYER-PERFORMANCE.BETA-INCLUSION-PROOF-CONSTRAINTS 309720)
+			 (LAYER-PERFORMANCE.ALPHA-INCLUSION-PROOF-CONSTRAINTS 0)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.BETA-INCLUSION-PROOF-HASH-LENGTH 30)
+			 (LAYER-PERFORMANCE.MERKLE-TREE.ALPHA-INCLUSION-PROOF-HASH-LENGTH 0))))
     (is (= (cardinality result) 11))))
 
 (defschema zigzag-security-schema
@@ -610,38 +630,46 @@
   (is (same
        (relation (optimal-heights)
 		 ((fset:set (tuple (LAYER-INDEX 0)
-				   (LOWEST-TIME 191.0879)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 10))
+				   (LOWEST-TIME 172.38925)(HASHING-TIME 172.38925)
+				   (OPTIMAL-BETA-MERKLE-HEIGHT 30))
 			    (tuple (LAYER-INDEX 1)
 				   (LOWEST-TIME 2717.1917)
+				   (HASHING-TIME 471.56805)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
 			    (tuple (LAYER-INDEX 2)
 				   (LOWEST-TIME 2717.1917)
+				   (HASHING-TIME 471.56805)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
 			    (tuple (LAYER-INDEX 3)
 				   (LOWEST-TIME 2717.1917)
+				   (HASHING-TIME 471.56805)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
 			    (tuple (LAYER-INDEX 4)
 				   (LOWEST-TIME 3693.5518)
+				   (HASHING-TIME 770.74695)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
 			    (tuple (LAYER-INDEX 5)
 				   (LOWEST-TIME 5104.561)
+				   (HASHING-TIME 770.74695)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
 			    (tuple (LAYER-INDEX 6)
 				   (LOWEST-TIME 7173.0557)
+				   (HASHING-TIME 1369.1047)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
 			    (tuple (LAYER-INDEX 7)
 				   (LOWEST-TIME 10119.678)
+				   (HASHING-TIME 1369.1047)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
 			    (tuple (LAYER-INDEX 8)
 				   (LOWEST-TIME 14079.739)
+				   (HASHING-TIME 2565.82)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 3))
 			    (tuple (LAYER-INDEX 9)
 				   (LOWEST-TIME 19678.281)
+				   (HASHING-TIME 4959.251)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 2))
 			    (tuple (LAYER-INDEX 10)
-				   (LOWEST-TIME 27037.797)
+				   (LOWEST-TIME 25565.895)
+				   (HASHING-TIME 4959.251)
 				   (OPTIMAL-BETA-MERKLE-HEIGHT 2)))))
-       (ask (zigzag-system) '(optimal-heights))))
-  )
-		
+       (ask (zigzag-system) '(optimal-heights)))))
