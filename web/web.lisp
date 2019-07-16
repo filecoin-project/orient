@@ -95,6 +95,8 @@
 (defgeneric present-data (format tuple system &rest keys)
   (:method ((format (eql :html)) (null null) (system system) &key)
     "NULL")
+  (:method ((format (eql :html)) (thing t) (null null) &key)
+    (format-value thing))
   (:method ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor use-alt)
     (cons
      :html-escape
@@ -106,16 +108,30 @@
 	 collect `(:div
 		   ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
 		   " = "
-		   ((:font :color "blue") ,(format-value (tref attr tuple)))
+		   ((:font :color "blue") ,(present-data format (tref attr tuple) nil))
 		   ,(aif (and desc (not (equal desc "")))
 			 `(:div "     " ((:font :color "green") (:i ,desc)))
 					;'(:span "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
 			 )
 		   :hr)))))
+  (:method ((format (eql :html)) (list list) (system null) &key)
+    (loop for elt in list collect (present-data format elt nil)))
+  (:method ((format (eql :html)) (set fset:set) (system null) &key)
+    (present-data format (convert 'list set) system)
+    )
   (:method ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
     `(:div ,@(loop for tuple in (convert 'list (tuples relation))
 		for i from 0
-		collect (present-data format tuple system :alt-bgcolor alt-bgcolor :use-alt (oddp i))))))
+		collect (present-data format tuple system :alt-bgcolor alt-bgcolor :use-alt (oddp i)))))
+  (:method ((format (eql :html)) (relation relation) (system null) &key alt-bgcolor)
+    (let ((columns (convert 'list (attributes relation))))
+    `(:div
+      ((:table :border 1)
+       (:tr ,@(loop for attr in columns
+		 collect `(:th ',attr))
+	    ,@(loop for tuple in (convert 'list (tuples relation))
+		 collect `(:tr ,@(loop for attr in columns
+				    collect `(:td ,(present-data format (tref attr tuple) nil)))))))))))
 
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))
@@ -190,7 +206,7 @@
      :format format
      :output-file image-file)
     (hunchentoot:handle-static-file image-file)))
-
+ 
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
 						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost
@@ -218,9 +234,20 @@
 (define-calculation-pages (filecoin-security :uri "/filecoin/zigzag-security"
 					     :title "ZigZag Security"
 					     :system (zigzag-security-system :isolated t)
-					     :vars (total-zigzag-challenges
+					     :vars (;total-zigzag-challenges
 						    zigzag-layers
-						    zigzag-layer-challenges
+						    zigzag-soundness
+						    zigzag-basic-layer-challenges
+						    zigzag-basic-layer-challenge-factor
+						    zigzag-lambda
+						    zigzag-delta
+						    zigzag-epsilon
+						    zigzag-space-gap
+						    zigzag-taper
+						    total-untapered-challenges
+						    layers
+						    ;;total-zigzag-challenges
+						    ;;zigzag-layer-challenges
 						    ))
     ()
   "ZigZag security")

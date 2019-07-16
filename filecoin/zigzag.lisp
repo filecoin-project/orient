@@ -158,10 +158,10 @@
 ;; TODO: Add support for (schema) description.
 (define-simple-constraint compute-zigzag-layers
     (zigzag-layers (zigzag-epsilon zigzag-delta))
-    (+ (log (/ 1
-	     (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
-	  2)
-       4))
+    (floor (+ (log (/ 1
+		      (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
+		   2)
+	      4)))
 
 (deftransformation compute-zigzag-tapered-layers
     ((zigzag-basic-layer-challenge-factor zigzag-lambda layers zigzag-taper)
@@ -180,7 +180,8 @@
 (deftransformation compute-total-zigzag-challenges
     ((layer-performance.layer-index zigzag-layer-challenges
 				    &group-by sector-size
-				    &acc (total-zigzag-challenges 0)) -> (total-zigzag-challenges))
+				    &acc (total-zigzag-challenges 0))
+     -> (total-zigzag-challenges))
   (values (+ total-zigzag-challenges zigzag-layer-challenges)))
 
 (define-constraint beta-merkle-heights
@@ -259,8 +260,8 @@
       (total-proving-time 0)
       (total-zigzag-constraints 0)
       ;; TODO: Uncomment and use a real relation (after improving output for legibility in report).
-      ;; (optimal-heights (make-relation nil))
-      (optimal-heights (fset:set))
+      (optimal-heights (make-relation nil))
+      ;;(optimal-heights (fset:set))
       )
      -> (total-proving-time
 	 total-zigzag-constraints
@@ -268,17 +269,19 @@
   ;; TODO: Capture layer data as relation-valued attribute along with the aggregates.
   (values (+ total-proving-time lowest-time)
 	  (+ total-zigzag-constraints optimal-constraints)
+	  #+(or)
 	  (with optimal-heights
 		(tuple (layer-index layer-index)
 		       (lowest-time lowest-time)
 		       (hashing-time optimal-hashing-time)
 		       (optimal-beta-merkle-height optimal-beta-merkle-height)))
 	  ;; TODO: Uncomment and use a real relation (after improving output for legibility in report).
-	  ;; (make-relation
-	  ;;  (with (tuples optimal-heights)
-	  ;; 	 (tuple (layer-index layer-index)
-	  ;; 		(lowest-time lowest-time)
-	  ;; 		(optimal-beta-merkle-height optimal-beta-merkle-height))))
+	  (make-relation
+	   (with (tuples optimal-heights)
+	  	 (tuple (layer-index layer-index)
+	  		(lowest-time lowest-time)
+			(hashing-time optimal-hashing-time)
+	  		(optimal-beta-merkle-height optimal-beta-merkle-height))))
 	  ))
 
 ;; TODO: Can we use this instead of COMPUTE-ZIGZAG-TAPERED-LAYERS?
@@ -362,7 +365,8 @@
   (total-circuit-proof-size "Total size of a single circuit proof. Unit: bytes")
 
   (total-challenges "")
-  (partition-challenges ""))
+  (partition-challenges "")
+  )
 
 (define-constraint group-layer-performance
     (lowest-time (group-layer-performance layer-index beta-merkle-height proving-time constraints hashing-time))
@@ -578,15 +582,18 @@
   (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
   (zigzag-basic-layer-challenge-factor "Number of challenges which, when multiplied by lambda, yields the number of challenges per layer without tapering optimization.")
   (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
-  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer"))
+  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer")
+
+  (layers "Number of layers specified for this construction (not necessarily same as calculated from security parameters).")
+  )
 
 (defconstraint-system zigzag-security-constraint-system
-    ((zigzag-lambda (log zigzag-soundness #.(/ 1 2)))
+    ((zigzag-lambda (log zigzag-soundness 0.5))
      (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
      (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
      (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
-     (total-untapered-challenges (* layers zigzag-basic-layer-challenges))
      (zigzag-layers (compute-zigzag-layers zigzag-epsilon zigzag-delta))
+     (total-untapered-challenges (* zigzag-layers zigzag-basic-layer-challenges))
 
      #+(or) ;; TODO: Allow specifying like this.
      (zigzag-layers (+ (log (/ 1
@@ -629,47 +636,16 @@
 (test optimal-heights
   (is (same
        (relation (optimal-heights)
-		 ((fset:set (tuple (LAYER-INDEX 0)
-				   (LOWEST-TIME 172.38925)(HASHING-TIME 172.38925)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 30))
-			    (tuple (LAYER-INDEX 1)
-				   (LOWEST-TIME 2717.1917)
-				   (HASHING-TIME 471.56805)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
-			    (tuple (LAYER-INDEX 2)
-				   (LOWEST-TIME 2717.1917)
-				   (HASHING-TIME 471.56805)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
-			    (tuple (LAYER-INDEX 3)
-				   (LOWEST-TIME 2717.1917)
-				   (HASHING-TIME 471.56805)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 6))
-			    (tuple (LAYER-INDEX 4)
-				   (LOWEST-TIME 3693.5518)
-				   (HASHING-TIME 770.74695)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
-			    (tuple (LAYER-INDEX 5)
-				   (LOWEST-TIME 5104.561)
-				   (HASHING-TIME 770.74695)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 5))
-			    (tuple (LAYER-INDEX 6)
-				   (LOWEST-TIME 7173.0557)
-				   (HASHING-TIME 1369.1047)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
-			    (tuple (LAYER-INDEX 7)
-				   (LOWEST-TIME 10119.678)
-				   (HASHING-TIME 1369.1047)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 4))
-			    (tuple (LAYER-INDEX 8)
-				   (LOWEST-TIME 14079.739)
-				   (HASHING-TIME 2565.82)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 3))
-			    (tuple (LAYER-INDEX 9)
-				   (LOWEST-TIME 19678.281)
-				   (HASHING-TIME 4959.251)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 2))
-			    (tuple (LAYER-INDEX 10)
-				   (LOWEST-TIME 25565.895)
-				   (HASHING-TIME 4959.251)
-				   (OPTIMAL-BETA-MERKLE-HEIGHT 2)))))
+		 ((relation (layer-index lowest-time hashing-time optimal-beta-merkle-height)
+			    (0 172.38925 172.38925 30)
+			    (1 2717.1917 471.56805 6)
+			    (2 2717.1917 471.56805 6)
+			    (3 2717.1917 471.56805 6)
+			    (4 3693.5518 770.74695 5)
+			    (5 5104.561 770.74695 5)
+			    (6 7173.0557 1369.1047 4)
+			    (7 10119.678 1369.1047 4)
+			    (8 14079.739 2565.82 3)
+			    (9 19678.281 4959.251 2)
+			    (10 25565.895 4959.251 2))))
        (ask (zigzag-system) '(optimal-heights)))))
