@@ -48,7 +48,16 @@
   (:method ((tuples set))
     (let ((attributes (awhen (arb tuples) (attributes it))))
       (and (every (lambda (tuple) (equal? (attributes tuple) attributes)) tuples)
-	   (make-instance 'simple-relation :tuples tuples)))))
+       (make-instance 'simple-relation :tuples tuples)))))
+
+(defgeneric %make-relation (tuples)
+  (:documentation
+   "Create relation from tuples, removing duplicates. TUPLES must all have same attributes. This is not checked.")
+  ;; Rather than return NIL, should mismatch be an error?
+  (:method ((tuples list)) (make-relation (convert 'set tuples)))
+  (:method ((tuples set))
+    (let ((attributes (awhen (arb tuples) (attributes it))))
+      (make-instance 'simple-relation :tuples tuples))))
 
 (defgeneric cardinality (relation)
   (:method ((r relation))
