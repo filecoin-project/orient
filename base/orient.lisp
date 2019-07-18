@@ -184,6 +184,39 @@
   (is (same (tuple (r (relation ())))
 	    (tuple (r (relation ()))))))
 
+(defgeneric representation (thing)
+  (:method ((thing t))
+    thing)
+  (:method ((tuple wb-map))
+    `(tuple ,@(loop for attr in (convert 'list (attributes tuple))
+		 collect (list attr (representation (tref attr tuple))))))
+  (:method ((relation relation))
+    (let ((attributes (convert 'list (attributes relation))))
+    `(relation ,attributes
+	       ,@(loop for tuple in (convert 'list (tuples relation))
+		    collect (loop for attr in attributes
+			       collect (representation (tref attr tuple))))))))
+
+(test representation
+  (flet ((roundtrip (x)
+	   (is (same x (eval (representation x))))))
+    (let* ((tuple (tuple (a 1) (b 2) (c 3)))
+	   (r1 (relation (a b c) (1 2 3) (4 5 6)))
+	   (r2 (relation (x t) (9 tuple) (8 (tuple (a 9) (b 8) (c 7))))))
+      (roundtrip tuple)
+      (roundtrip r1)
+      (roundtrip r2)
+
+      (is (equalp '(tuple (a 1) (b 2) (c 3)) (representation tuple)))
+      (is (equalp '(relation (a b c)
+		    (1 2 3)
+		    (4 5 6))
+		  (representation r1)))
+      (is (equalp '(relation (x t)
+		    (8 (tuple (a 9) (b 8) (c 7)))
+		    (9 (tuple (a 1) (b 2) (c 3))))
+		  (representation r2))))))
+
 (defgeneric satisfies-input-p (attributed b)
   ;; TODO: Extend to handle wildcards with WILDCARD-MATCHES, etc.
   (:documentation "True if all inputs to B are attributes of ATTRIBUTED.")
@@ -533,16 +566,17 @@
     (destructuring-bind (tuple-or-relation report-results) acc
       (let* ((transformed (apply-transformation transformation tuple-or-relation))
 	     (new-report (when report
-			   (append report-results (report-step transformed transformation system :format report)))))
+			   (append report-results (list (report-step transformed transformation system :format report))))))
 	(list transformed new-report)))))
 
 (defun report-step (step transformation system &key format)
   (let* ((tuples (ensure-tuples step))
 	 (multiple (> (size tuples) 1)))
-    (reduce #'append (gmap:gmap :list
-				(lambda (i tuple)
-				  (create-tuple-report-step format tuple transformation system :n (and multiple i)))
-				(:index 0) (:set tuples)))))
+    (reduce #'append
+	    (gmap:gmap :list
+		       (lambda (i tuple)
+			 (create-tuple-report-step format tuple transformation system :n (and multiple i)))
+		       (:index 0) (:set tuples)))))
 
 (defgeneric synthesize-report-steps (format steps)
   (:method ((format t) (steps list))

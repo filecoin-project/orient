@@ -59,6 +59,7 @@
     (let ((attributes (awhen (arb tuples) (attributes it))))
       (make-instance 'simple-relation :tuples tuples))))
 
+
 (defgeneric cardinality (relation)
   (:method ((r relation))
     (size (tuples r))))

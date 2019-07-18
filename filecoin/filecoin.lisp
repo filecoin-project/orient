@@ -47,7 +47,7 @@
 (test zigzag-system
   "Test ZigZag constraint system."
   (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (116149.32))
+    (is (same (relation (seal-time) (843044.06))
 	      result))))
 
 (defun filecoin-system (&key no-zigzag)
@@ -60,9 +60,8 @@
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (seal-cost seal-time) (43.354347 116149.32))))
+	  (relation (seal-cost seal-time) (314.67792 843044.06))))
     (is (same expected result))))
-
 
 ;; FIXME: Get JSON working again.
 #+(or)

@@ -41,7 +41,7 @@
    :orient-tests :optimal-heights
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p
-   :rel :relation :remove-attributes :rename :report-data :report-solution-for
+   :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system
    :system-components :system-data :system-name :system-schema :system-subsystems

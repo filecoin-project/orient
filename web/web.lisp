@@ -82,10 +82,39 @@
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
     (html-print
+     (if (and (cdr steps) (car steps) steps)
+	 `((:table :border 1)
+	   "xxx"
+	   ,@(loop for step in steps
+		collect '(:tr (:td "yyy"))
+		collect `(:tr (:td (:div ,@(loop for s in step collect s collect :hr))))
+		collect '(:tr (:td))))
+	 `(:div
+	   ,@(loop for step in (car steps)
+		collect step))))))
+
+(defmethod synthesize-report-steps ((format (eql :html)) (steps list))
+  (with-output-to-string (*html-output-stream*)
+    (html-print
+     `(:div
+       ,@(loop for step in steps
+	    if (cdr step)
+	    collect `((:table :border 1) (:tr (:td (:div ,@(loop for s in step collect s collect :hr)))))
+
+	    else
+	    collect `(:div
+		      ,@(loop for step in (car steps)
+			   collect step
+			     collect :hr)))))))
+
+#+(or)
+(defmethod synthesize-report-steps ((format (eql :html)) (steps list))
+  (with-output-to-string (*html-output-stream*)
+    (html-print
      `(:div
        ,@(loop for step in steps
 	    collect step
-	    collect '(:hr))))))
+	    collect :hr)))))
 
 (defun format-value (value)
   (if (keywordp value)
@@ -108,6 +137,7 @@
 	 collect `(:div
 		   ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
 		   " = "
+		   ,(format nil "type: ~a " (type-of (tref attr tuple)))
 		   ((:font :color "blue") ,(present-data format (tref attr tuple) nil))
 		   ,(aif (and desc (not (equal desc "")))
 			 `(:div "     " ((:font :color "green") (:i ,desc)))
@@ -117,8 +147,7 @@
   (:method ((format (eql :html)) (list list) (system null) &key)
     (loop for elt in list collect (present-data format elt nil)))
   (:method ((format (eql :html)) (set fset:set) (system null) &key)
-    (present-data format (convert 'list set) system)
-    )
+    (present-data format (convert 'list set) system))
   (:method ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
     `(:div ,@(loop for tuple in (convert 'list (tuples relation))
 		for i from 0
@@ -144,7 +173,7 @@
 			,(awhen (describe-transformation-calculation transformation)
 			   `((:font :color "red") ,it))
 			" = "
-			((:font :color "blue") ,(format-value val))
+			((:font :color "blue") ,(present-data format (format-value val) nil))
 			,(let ((desc (and system (lookup-description attr system))))
 			   (aif (and desc (not (equal desc "")))
 				`(:div "     " ((:font :color "green") (:i ,desc)))
@@ -223,12 +252,18 @@
 					 replication-time-per-gib
 					 seal-time GiB-seal-time storage-to-proof-size-float ;GiB-seal-cycles
 					 total-zigzag-constraints
+					 total-zigzag-challenges
 					 optimal-heights
-					 )
+					 max-beta-merkle-height
+					 total-hashing-time
+					 total-circuit-time
+					 wall-clock-seal-time
+					 seal-parallelism)
 				  :system (zigzag-system)
-				  :override-parameters (sector-GiB)
+				  :override-parameters (sector-GiB max-beta-merkle-height)
 				  )
-    ((sector-GiB :parameter-type 'integer))
+    ((sector-GiB :parameter-type 'integer)
+     (max-beta-merkle-height :parameter-type 'integer))
   (format nil "ZigZag is how Filecoin replicates. ~@[sector-GiB: ~W~]" sector-GiB))
 
 (define-calculation-pages (filecoin-security :uri "/filecoin/zigzag-security"
@@ -246,7 +281,7 @@
 						    zigzag-taper
 						    total-untapered-challenges
 						    layers
-						    ;;total-zigzag-challenges
+						    total-zigzag-challenges
 						    ;;zigzag-layer-challenges
 						    ))
     ()
