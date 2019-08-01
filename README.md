@@ -3,19 +3,52 @@
 
 This is a proof-of-concept reference implementation intended as a lightweight way to explore and clarify the [Orientable specification](https://docs.google.com/document/d/1zjWHegvZwTgvU4fOAjUbIwMwQyfPzHoXJVTX8iR--2E/edit#heading=h.2jf8rxk263pw).
 
+## Installation
+
+### sbcl
+
 Code is in Common Lisp, developed and (to the extent it is) tested with SBCL.
 ```bash
 > brew install sbcl
 ```
 
-or 
+or
 ```bash
 > apt-get install sbcl
 ```
 
-Uses ASDF and [QuickLisp](https://www.quicklisp.org/).
+### QuickLisp & ASDF
 
-Follow all [QuickLisp installation instructions](https://www.quicklisp.org/beta/#installation).
+Install [QuickLisp](https://www.quicklisp.org):
+
+- Download the file for installation. (https://beta.quicklisp.org/quicklisp.lisp)
+- Then run sbcl with that file loaded by this command.
+
+```sh
+sbcl --load path/of/quicklisp.lisp
+```
+
+After sbcl launched, type in the command below.
+
+```lisp
+(quicklisp-quickstart:install)
+```
+
+At this moment, Quicklisp has already been installed. To load Quicklisp every time you start Lisp (which is recommended), type in command below.
+
+```lisp
+(ql:add-to-init-file)
+```
+
+### Optional for Emacs Users
+
+Type in the command which will create a file you can load in Emacs that configures the right load-path for loading Quicklisp's installation of SLIME.
+
+```lisp
+(ql:quickload "quicklisp-slime-helper")
+```
+
+### Integrate the project with quicklisp
 
 QuickLisp needs to find the project, so add a symlink:
 
@@ -24,9 +57,12 @@ QuickLisp needs to find the project, so add a symlink:
 > ln -s ~/<installdir>/orient/orient.asd orient.asd
 ```
 
+### Test the Setup
+
 When configured correctly, this should work and show no failures:
+
 ```bash
-(base) ➜  orient git:(master) sbcl
+> sbcl
 This is SBCL 1.4.14, an implementation of ANSI Common Lisp.
 More information about SBCL is available at <http://www.sbcl.org/>.
 
@@ -140,7 +176,7 @@ There are severals ways to run the CLI.
 
 ### Development Mode
 
-- Install [cl-launch](https://www.cliki.net/cl-launch), so `/usr/local/bin/cl` 
+- Install [cl-launch](https://www.cliki.net/cl-launch), so `/usr/local/bin/cl`
 
 For example, you may need to create a symlink:
 ```bash
