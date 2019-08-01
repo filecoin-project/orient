@@ -3,14 +3,17 @@
   (:import-from :fset :with)
   (:nicknames :fc)
   (:export
+   :constraints
    :GiB-seal-cycles :sector-GiB
    :replication-time :replication-time-per-GiB
    :roi-months
-   :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income :layers
-
+   :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income
+   :layers :layer-index :lowest-time :circuit-time :hashing-time
+   :optimal-beta-merkle-height
+   
    :total-challenges :total-zigzag-challenges :total-zigzag-constraints :total-zigzag-constraints-x
    :storage-to-proof-size-ratio :storage-to-proof-size-float
-   :total-hashing-time :total-circuit-time :wall-clock-seal-time :seal-parallelism
+   :total-hashing-time :total-circuit-time :wall-clock-seal-time :wall-clock-seal-time-per-gib :seal-parallelism
    
    ;;Security
    :zigzag-delta :zigzag-lambda :zigzag-epsilon :zigzag-taper :zigzag-soundness
@@ -19,9 +22,10 @@
 
    :zigzag-layers :zigzag-layer-challenges :one-year-roi :two-year-roi :three-year-roi
    :filecoin-system :performance-system :zigzag-system :zigzag-security-system
-   :*performance-defaults*
-
    :max-beta-merkle-height
+
+   :*performance-defaults* :*spedersen* :*gpu-speedup* :*blake2s-speedup*
+
    ))
 
 (in-package :filecoin)

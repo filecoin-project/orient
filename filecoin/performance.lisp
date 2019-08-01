@@ -28,8 +28,8 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   (tuple
    (annual-income 50000.0)
    (aws-glacier-price 0.004)
-   (commodity-storage-discount 0.9)
-   (miner-months-to-capacity 6)
+   (commodity-storage-discount 10)
+   (miner-months-to-capacity 3)
    (TiB-drive-cost 30.0)
    (cpu-ghz-cost 10.0)
    (up-front-memory-cost 0.0) ;; FIXME: Incorporate.
@@ -37,7 +37,7 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   )
 
 (defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles (* 4.3e9 9042.883))))
-(defparameter *integrated-performance-defaults* (tuple (seal-GHz 4.3)))
+(defparameter *integrated-performance-defaults* (tuple (seal-GHz 5)))
 
 (defschema filecoin-price-performance
     "Filecoin price performance."  
@@ -139,5 +139,5 @@ TODO: block reward profitability can/should be folded into this as an incrementa
 
 (test performance-test
   "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 108.01221))
+  (is (same (tuple (seal-cost 108.01223))
 	    (ask (performance-system :isolated t) '(seal-cost)))))

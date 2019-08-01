@@ -95,6 +95,8 @@
 
 (defgeneric join- (a b)
   (:documentation "Binary JOIN. Returns a relation, a single tuple, or NIL.")
+  (:method ((a t) (b null)) a)
+  (:method ((a null) (b t)) b)
   (:method ((a wb-map) (b wb-map))
     (%join a b))
   (:method ((a wb-map) (b relation))

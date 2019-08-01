@@ -60,7 +60,7 @@
   "Test and assert results of solving with defaults."
   (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
 	 (expected
-	  (relation (seal-cost seal-time) (314.67792 843044.06))))
+	  (relation (seal-cost seal-time) (365.90454 843044.06))))
     (is (same expected result))))
 
 ;; FIXME: Get JSON working again.

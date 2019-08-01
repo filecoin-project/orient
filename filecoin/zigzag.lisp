@@ -410,16 +410,12 @@
   (storage-to-proof-size-ratio "Ratio of sealed sector size to on-chain PoRep size.")
   (storage-to-proof-size-float "Ratio of sealed sector size to on-chain PoRep size -- expressed as a float.")
 
-  (replication-cycles "")
-  (sealing-cycles "")
-  (zigzag-vanilla-proving-cycles "")
-  (zigzag-groth-proving-cycles "")
-  (zigzag-total-proving-cycles "")
-  (total-seal-cycles "")
-  
-  (zigzag-constraints "")
-  (zigzag-hashing-constraints "")
-  (zigzag-non-hashing-constraints "")
+  ;; (replication-cycles "")
+  ;; (sealing-cycles "")
+  ;; (zigzag-vanilla-proving-cycles "")
+  ;; (zigzag-groth-proving-cycles "")
+  ;; (zigzag-total-proving-cycles "")
+  ;; (total-seal-cycles "")  
 
   (single-circuit-proof-size "Size of a single Groth16 Proof. Unit: bytes")
   (total-circuit-proof-size "Total size of a single circuit proof. Unit: bytes")
@@ -554,6 +550,8 @@
 
      (seal-time (+ replication-time total-proving-time))
      (wall-clock-seal-time (/ total-proving-time seal-parallelism))
+     (wall-clock-seal-time-per-byte (/ wall-clock-seal-time sector-size))
+     (wall-clock-seal-time-per-gib (* wall-clock-seal-time-per-byte #.(* 1024 1024 1024 )))
      (total-circuit-time (- total-proving-time total-hashing-time))
      (sector-GiB (/ sector-size #.GiB))
      (GiB-seal-time (/ seal-time sector-GiB))

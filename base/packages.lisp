@@ -23,6 +23,7 @@
 			  #:some #:every #:notany #:notevery)
   (:export
 
+   :all-system-schemas
    :dbg :display :aif :apply-transformation :ask :attributes :awhen
    :dbreak :*dval*
    :cardinality
@@ -33,14 +34,16 @@
    ::tuple :tuples :create-tuple-report-step
    :describe-transformation-calculation :defschema
    :deftransformation :deftransformation= :extract
-   :find-component :find-constraint :find-schema :find-system :find-transformation
+   :find-component :find-constraint :find-schema :find-system :find-transformation :format-value
    :forget :generate-directed-graph :it
    :implementation :implementation-module :implementation-name
    :tref :join :lookup-description :make-relation
    :make-signature :make-tuple :operation
    :orient-tests :optimal-heights
+   :org-present
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p
+   :present-data :project
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system

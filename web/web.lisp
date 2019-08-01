@@ -116,51 +116,61 @@
 	    collect step
 	    collect :hr)))))
 
-(defun format-value (value)
+(defmethod format-value ((format (eql :html)) (value t))
   (if (keywordp value)
       `(:html-escape ,(format nil "~S" value))
       `(:html-escape ,(or value "FALSE"))))
 
-(defgeneric present-data (format tuple system &rest keys)
-  (:method ((format (eql :html)) (null null) (system system) &key)
-    "NULL")
-  (:method ((format (eql :html)) (thing t) (null null) &key)
-    (format-value thing))
-  (:method ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor use-alt)
-    (cons
-     :html-escape
-     (cons
-      `(:div ,@(when (and use-alt alt-bgcolor)
-		 `(:style ,(format nil "background-color:~A" alt-bgcolor))))
-      (loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
-	 for desc = (lookup-description attr system)
-	 collect `(:div
-		   ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
-		   " = "
-		   ,(format nil "type: ~a " (type-of (tref attr tuple)))
-		   ((:font :color "blue") ,(present-data format (tref attr tuple) nil))
-		   ,(aif (and desc (not (equal desc "")))
-			 `(:div "     " ((:font :color "green") (:i ,desc)))
+;; (defmethod present-data ((format (eql :html)) (null null) (system system) &key)
+;;   "NULL")
+
+;; (defmethod present-data ((format (eql :html)) (thing t) (null null) &key)
+;;   (format-value format thing))
+
+(defmethod present-data ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor use-alt)
+  (cons
+   :html-escape
+   (cons
+    `(:div ,@(when (and use-alt alt-bgcolor)
+	       `(:style ,(format nil "background-color:~A" alt-bgcolor))))
+    (loop for attr in (sort (convert 'list (attributes tuple)) #'string-lessp)
+       for desc = (lookup-description attr system)
+       collect `(:div
+		 ((:a :name ,(symbol-name attr)) (:b ,(symbol-name attr)))
+		 " = "
+		 ,(format nil "type: ~a " (type-of (tref attr tuple)))
+		 ((:font :color "blue") ,(present-data format (tref attr tuple) nil))
+		 ,(aif (and desc (not (equal desc "")))
+		       `(:div "     " ((:font :color "green") (:i ,desc)))
 					;'(:span "     XXXXXXXXXXXXX-DESCRIPTION MISSING-XXXXXXXXXXXXX")
-			 )
-		   :hr)))))
-  (:method ((format (eql :html)) (list list) (system null) &key)
-    (loop for elt in list collect (present-data format elt nil)))
-  (:method ((format (eql :html)) (set fset:set) (system null) &key)
-    (present-data format (convert 'list set) system))
-  (:method ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
-    `(:div ,@(loop for tuple in (convert 'list (tuples relation))
-		for i from 0
-		collect (present-data format tuple system :alt-bgcolor alt-bgcolor :use-alt (oddp i)))))
-  (:method ((format (eql :html)) (relation relation) (system null) &key alt-bgcolor)
-    (let ((columns (convert 'list (attributes relation))))
+		       )
+		 :hr)))))
+
+(defmethod present-data ((format (eql :html)) (list list) (system null) &key)
+  (loop for elt in list
+     collect (present-data format elt nil)))
+
+(defmethod present-data ((format (eql :html)) (set fset:set) (system null) &key)
+  (present-data format
+		(convert 'list set) system))
+
+(defmethod present-data ((format (eql :html)) (relation relation) (system system) &key alt-bgcolor)
+  `(:div ,@(loop for
+	      tuple in (convert 'list (tuples relation))
+	      for i from 0
+	      collect (present-data format tuple system :alt-bgcolor alt-bgcolor :use-alt (oddp i)))))
+
+
+(defmethod present-data ((format (eql :html)) (relation relation) (system null) &key alt-bgcolor)
+  (let ((columns (convert
+		  'list (attributes relation))))
     `(:div
       ((:table :border 1)
        (:tr ,@(loop for attr in columns
 		 collect `(:th ',attr))
 	    ,@(loop for tuple in (convert 'list (tuples relation))
 		 collect `(:tr ,@(loop for attr in columns
-				    collect `(:td ,(present-data format (tref attr tuple) nil)))))))))))
+				    collect `(:td ,(present-data format (tref attr tuple) nil))))))))))
 
 (defmethod create-tuple-report-step ((format (eql :html)) (tuple wb-map) (transformation transformation) (system system) &key n)
   (declare (ignore n))
@@ -173,7 +183,7 @@
 			,(awhen (describe-transformation-calculation transformation)
 			   `((:font :color "red") ,it))
 			" = "
-			((:font :color "blue") ,(present-data format (format-value val) nil))
+			((:font :color "blue") ,(present-data format (format-value format val) nil))
 			,(let ((desc (and system (lookup-description attr system))))
 			   (aif (and desc (not (equal desc "")))
 				`(:div "     " ((:font :color "green") (:i ,desc)))
