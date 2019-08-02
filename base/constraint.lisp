@@ -205,11 +205,6 @@
 		(push relative-part relative-parts))))))
       (values some-prefix? relative-parts))))
 
-(defclass component-system (system)
-  ((operation :initarg :operation :initform nil :accessor component-operation)
-   (target :initarg :target :initform nil :accessor component-target)
-   (args :initarg :args :initform nil :accessor component-args)))
-
 ;; TODO: handle schema.
 ;; Interface: optional string per constraint definition, defining the 'internal target'.
 ;; Create appropriate schema entries.
@@ -225,9 +220,7 @@
 	 (destructuring-bind (,@inputs) args
 	   (declare (ignorable ,@inputs))
 	   (let ((*new-schema* (make-instance 'schema)))
-	     (make-instance 'component-system
-			    :target ',target
-			    ;; TODO: Do we need to provide :operation and :args? Need to look at reports.
+	     (make-instance 'system
 			    :components
 			    (remove nil
 				    (list

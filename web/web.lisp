@@ -248,8 +248,8 @@
  
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
-						:vars (seal-cost roi-months total-up-front-cost up-front-compute-cost
-								 one-year-roi two-year-roi three-year-roi)
+						:vars (seal-cost fgr-months total-up-front-cost up-front-compute-cost
+								 one-year-fgr two-year-fgr three-year-fgr)
 						:override-parameters (GiB-seal-cycles)
 						:system (performance-system :isolated t))
     ((gib-seal-cycles :parameter-type 'integer))
@@ -299,8 +299,8 @@
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
-				    :vars (seal-cost seal-time roi-months total-up-front-cost fc::filecoin-requirements-satisfied
-						     one-year-roi two-year-roi three-year-roi
+				    :vars (seal-cost seal-time fgr-months total-up-front-cost fc::filecoin-requirements-satisfied
+						     one-year-fgr two-year-fgr three-year-fgr
 					;storage-to-proof-size-float
 						     )
 				    :override-parameters (annual-income layers total-challenges sector-size)

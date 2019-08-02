@@ -8,20 +8,21 @@ Performance: for every $10 spent (at scale), it must be possible to seal 1GiB/ho
 
 Notes on how this is derived:
 
-Miner needs a reasonable return, say $50k/yr for investment.
+We assume that miners will not participate in the network unless doing so
+is competitive with other potential uses of capital.
 Compare with pure storage service business.
-Upper bound on storage pricing is AWS S3.
+Upper bound on storage pricing is AWS Glacier.
 S3 = ~$23/TiB-month = $276 / TiB-year [Tune this variable down to something more realistic.]
 $50k / $276 = ~181TiB
 Miner should be at capacity in ‘3 months’.
 So must seal 181TiB/3months = 60TiB/month = ~2TiB/day = ~85GiB/hr
-Pick some ROI interval: say 6 months.
+Pick some FGR interval: say 6 months.
 Assume $10 / GiB/hr sealing: then sealing 85GiB/hr costs $850 up-front.
 18 10TiB drives at $300 = $5400 up-front.
-Should amortize costs over 6 months. Compare with profits.
-Express up-front investment in terms of number of months of profit.
+Should amortize costs over 6 months. Compare with revenue.
+Express up-front investment in terms of number of months since costs and revenue have balanced.
 This is one of the variables we can tune.
-TODO: block reward profitability can/should be folded into this as an incremental improvement, but ignoring block reward is the right way to get best long-term numbers.
+TODO: block reward growth rate can/should be folded into this as an incremental improvement, but ignoring block reward is the right way to get best long-term numbers.
 |#
 
 (defparameter *performance-defaults*
@@ -72,21 +73,21 @@ TODO: block reward profitability can/should be folded into this as an incrementa
   
   (average-monthly-income-during-ramp-up "Average monthly income before miner reaches capacity (assuming linear growth). Unit: dollars")
   (income-during-ramp-up "Total income during ramp-up period (before reaching capacity). Unit: dollars")
-  (income-to-roi-at-capacity "Income still required to reach return on investment after reaching capacity. Unit: dollars")
-  (roi-months-at-capacity "Months needed after reaching capacity before return on investment.")
-  (roi-months "Months over which a miner should see return on investment.")
+  (income-to-fgr-at-capacity "Income still required to reach filecoin growth rate equilibrium after reaching capacity. Unit: dollars")
+  (fgr-months-at-capacity "Months needed after reaching capacity before filecoin growth rate equilibrium.")
+  (fgr-months "Months after which a miner should reach filecoin growth rate equilibrium.")
 
-  (one-year-profit-months "Months from ROI to one year of profit. Unit: months")
+  (one-year-profit-months "Months from FGR to one year of profit. Unit: months")
   (one-year-profit "Profit after one year of operation: Unit: dollars")
-  (one-year-roi "ROI after one year of operation: Unit: fraction")
+  (one-year-fgr "FGR after one year of operation: Unit: fraction")
   
-  (two-year-profit-months "Months from ROI to two years of profit. Unit: months")
+  (two-year-profit-months "Months from FGR to two years of profit. Unit: months")
   (two-year-profit "Profit after two years of operation: Unit: dollars")
-  (two-year-roi "ROI after two years of operation: Unit: fraction")
+  (two-year-fgr "FGR after two years of operation: Unit: fraction")
   
-  (three-year-profit-months "Months from ROI to three years of profit. Unit: months")
+  (three-year-profit-months "Months from FGR to three years of profit. Unit: months")
   (three-year-profit "Profit after three years of operation: Unit: dollars")
-  (three-year-roi "ROI after three years of operation: Unit: fraction")
+  (three-year-fgr "FGR after three years of operation: Unit: fraction")
   (seal-Hz "Cycles per second at which the sealing machine operates. Unit: Hz")
   (seal-GHz "Cycles per second at which the sealing machine operates. Unit: GHz")
   )
@@ -113,21 +114,21 @@ TODO: block reward profitability can/should be folded into this as an incrementa
      (seal-cost (/ up-front-sealing-cost hourly-GiB))
      (average-monthly-income-during-ramp-up (/ monthly-income 2))
      (income-during-ramp-up (* average-monthly-income-during-ramp-up miner-months-to-capacity))
-     (income-to-roi-at-capacity (- total-up-front-cost income-during-ramp-up))
-     (roi-months-at-capacity (/ income-to-roi-at-capacity monthly-income))
-     (roi-months (+ roi-months-at-capacity miner-months-to-capacity))
+     (income-to-fgr-at-capacity (- total-up-front-cost income-during-ramp-up))
+     (fgr-months-at-capacity (/ income-to-fgr-at-capacity monthly-income))
+     (fgr-months (+ fgr-months-at-capacity miner-months-to-capacity))
 
-     (one-year-profit-months (- 12 roi-months))
+     (one-year-profit-months (- 12 fgr-months))
      (one-year-profit (* one-year-profit-months monthly-income))
-     (one-year-roi (/ one-year-profit total-up-front-cost))
+     (one-year-fgr (/ one-year-profit total-up-front-cost))
 
-     (two-year-profit-months (- 24 roi-months))
+     (two-year-profit-months (- 24 fgr-months))
      (two-year-profit (* two-year-profit-months monthly-income))
-     (two-year-roi (/ two-year-profit total-up-front-cost))
+     (two-year-fgr (/ two-year-profit total-up-front-cost))
 
-     (three-year-profit-months (- 36 roi-months))
+     (three-year-profit-months (- 36 fgr-months))
      (three-year-profit (* three-year-profit-months monthly-income))
-     (three-year-roi (/ three-year-profit total-up-front-cost)))
+     (three-year-fgr (/ three-year-profit total-up-front-cost)))
   :schema 'filecoin-price-performance)
 
 (defun performance-system (&key isolated)

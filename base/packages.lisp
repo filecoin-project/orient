@@ -1,7 +1,7 @@
 (defpackage :orient.base.util
   (:use :common-lisp)
   (:nicknames :util)
-  (:export :comma-list :string-split :project-commit :project-sha1))
+  (:export :comma-list :string-split))
 
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util)
@@ -43,7 +43,7 @@
    :org-present
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p
-   :present-data :project :project-commit-link
+   :present-data :project
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system

@@ -6,7 +6,7 @@
    :constraints
    :GiB-seal-cycles :sector-GiB
    :replication-time :replication-time-per-GiB
-   :roi-months
+   :fgr-months
    :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income
    :layers :layer-index :lowest-time :circuit-time :hashing-time
    :optimal-beta-merkle-height
@@ -20,7 +20,7 @@
    :zigzag-basic-layer-challenges :zigzag-basic-layer-challenge-factor
    :zigzag-space-gap :total-untapered-challenges
 
-   :zigzag-layers :zigzag-layer-challenges :one-year-roi :two-year-roi :three-year-roi
+   :zigzag-layers :zigzag-layer-challenges :one-year-fgr :two-year-fgr :three-year-fgr
    :filecoin-system :performance-system :zigzag-system :zigzag-security-system
    :max-beta-merkle-height
 
