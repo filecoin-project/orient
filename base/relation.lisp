@@ -164,11 +164,13 @@
 					  (1 2 3)
 					  (9 2 3))))))
 
-(defgeneric extract (relation)
-  (:documentation "Extract the sole tuple of a RELATION of cardinality 1.")
-  (:method ((relation relation))
-    (and (= (cardinality relation) 1)
-	 (arb (tuples relation)))))
+(defgeneric extract (relation &key error)
+  (:documentation "Extract the sole tuple of a RELATION of cardinality 1. If ERROR is true, raises an error if RELATION does not contain exactly one tuple. Otherwise, returns NIL in that situation.")
+  (:method ((relation relation) &key (error nil))
+    (if (= (cardinality relation) 1)
+	(arb (tuples relation))
+	(when error
+	  (error "Cannot extract tuple from relation with cardinality of exactly 1.")))))
 
 
 (defgeneric ensure-relation (potential-relation)

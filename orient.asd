@@ -1,6 +1,6 @@
 (defsystem "orient"
   :description "orient: Orientable Lisp."
-  :version "0.1.1"
+  :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
   :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre")
@@ -15,8 +15,7 @@
 			 (:file "orient")
 			 (:file "constraint")
 			 (:file "interface")
-			 (:file "presentation")
-			 )
+			 (:file "presentation"))			
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
 	       (:module "filecoin"
 			:depends-on ("base")
@@ -25,7 +24,9 @@
 			 (:file "performance")
 			 (:file "zigzag")
 			 (:file "post")
-			 (:file "filecoin")))
+			 (:file "filecoin")
+			 (:file "publish")
+			 ))
 	       (:module "web"
 			:depends-on ("base" "filecoin")
 			:serial t
@@ -48,7 +49,7 @@
 			    (interface (run-suite :interface-suite :orient.interface))
 			    (filecoin (run-suite :filecoin-suite :filecoin))			    
 			    (web (run-suite :web-suite :orient.web)))
-		      (unless (and orient-relation orient-constraint orient interface filecoin web)
-			(error "Some tests failed.")
-			       ;; TODO: report which suites failed.
-			      )))))
+			(unless (and orient-relation orient-constraint orient interface filecoin web)
+			  (error "Some tests failed.")
+			  ;; TODO: report which suites failed.
+			  )))))

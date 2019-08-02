@@ -187,11 +187,13 @@
 (defgeneric representation (thing)
   (:method ((thing t))
     thing)
+  (:method ((list list))
+    (mapcar #'representation list))
   (:method ((tuple wb-map))
     `(tuple ,@(loop for attr in (convert 'list (attributes tuple))
 		 collect (list attr (representation (tref attr tuple))))))
   (:method ((relation relation))
-    (let ((attributes (convert 'list (attributes relation))))
+    (let ((attributes (convert 'list (fset:sort (attributes relation) #'fset:compare))))
     `(relation ,attributes
 	       ,@(loop for tuple in (convert 'list (tuples relation))
 		    collect (loop for attr in attributes

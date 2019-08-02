@@ -682,26 +682,6 @@
 			      (zigzag-bench-data)
 			      *zigzag-hypotheticals*)))
 
-(test optimal-heights
-  (is (same
-       (RELATION (OPTIMAL-HEIGHTS)
-          ((RELATION
-            (CONSTRAINTS LAYER-INDEX LOWEST-TIME CIRCUIT-TIME HASHING-TIME
-             OPTIMAL-BETA-MERKLE-HEIGHT)
-            (0 0 97.94244 0.0 97.94244 30)
-            (171690880 1 24432.822 20836.523 3596.2986 3)
-            (171690880 2 24432.822 20836.523 3596.2986 3)
-            (171690880 3 24432.822 20836.523 3596.2986 3)
-            (225136320 4 34205.582 27110.928 7094.655 2)
-            (330199936 5 46857.348 39762.69 7094.655 2)
-            (424019904 6 64618.906 50527.54 14091.367 1)
-            (636029856 7 89882.68 75791.31 14091.367 1)
-            (796337056 8 121573.375 93488.586 28084.791 0)
-            (1191833312 9 168003.95 139919.16 28084.791 0)
-            (1785077696 10 237649.81 209565.02 28084.791 0))))
-       
-       (ask (zigzag-system) '(optimal-heights)))))
-
 #+(or) ;; FIXME
 (test query-for-grouped-attributes
   ;; ZIGZAG-LAYER-CHALLENGES is not available in the final result because it has been grouped,

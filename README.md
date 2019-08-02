@@ -42,7 +42,7 @@ At this moment, Quicklisp has already been installed. To load Quicklisp every ti
 
 ### Optional for Emacs Users
 
-Type in the command which will create a file you can load in Emacs that configures the right load-path for loading Quicklisp's installation of SLIME.
+Type in the command which will create a file you can load in Emacs to configure the right load-path for loading Quicklisp's installation of SLIME.
 
 ```lisp
 (ql:quickload "quicklisp-slime-helper")
@@ -198,7 +198,7 @@ Now you can run the CLI and source changes will be immediately reflected, but st
 If you just want to *use* the CLI, first dump an image:
 
 ```bash
-> make ubercacl
+> make ubercalc
 ```
 
 Now startup should be very fast:

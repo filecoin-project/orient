@@ -38,7 +38,7 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
   )
 
 (defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles (* 4.3e9 9042.883))))
-(defparameter *integrated-performance-defaults* (tuple (seal-GHz 5)))
+(defparameter *integrated-performance-defaults* (tuple (seal-GHz 5.0)))
 
 (defschema filecoin-price-performance
     "Filecoin price performance."  
@@ -46,7 +46,8 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
   (annual-income "Annual income from selling storage on the storage market. Unit: dollars")
   (monthly-income "Monthly income from selling storage on the storage market. Unit: dollars")
   (comparable-monthly-cost "Expected cost of purchasing monthly storage from commodity provider. Unit: dollars")
-  (seal-cost "Cost of investment required to seal one GiB in one hour at scale. Unit: dollars")
+  (gib-hour-seal-investment "Cost of investment required to seal one GiB in one hour at scale. Unit: dollars")
+  (gib-seal-cost "Cost of sealing one GiB. Unit: dollars")
   (commodity-storage-discount "Fraction of commodity storage pricing expected as income from storage market. Unit: decimal fraction")
   (miner-months-to-capacity "Months it should take a miner to reach full storage capacity. Unit: months")
 
@@ -63,7 +64,7 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
   (seal-cycles-per-minute "CPU required to seal at required rate for one minute. Unit: cycles")
   (seal-cycles-per-second "CPU required to seal at required rate for one second. Unit: cycles")
   (GiB-seal-cycles "Total CPU cycles required to seal 1 GiB. Unit: cycles")
-  (needed-ghz "Total GhZ capacity needed to seal at the required rate.")
+  (needed-ghz "Total GHz capacity needed to seal at the required rate.")
 
   (up-front-drive-cost "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars.")
   (up-front-memory-cost "Up-front investment in memory (RAM) required to seal at necessary rate. Unit: dollars")
@@ -99,7 +100,7 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
      (monthly-income (* comparable-monthly-cost commodity-storage-discount)) 
      (GiB-capacity (/ comparable-monthly-cost aws-glacier-price))
      (TiB-capacity (/ GiB-capacity 1024))
-     (monthly-TiB (/ TiB-capacity miner-months-to-capacity)) 
+     (monthly-TiB (/ TiB-capacity miner-months-to-capacity))
      (daily-TiB (/ monthly-TiB #.(/ 365 12)))
      (hourly-TiB (/ daily-Tib 24))
      (hourly-GiB (* hourly-TiB 1024)) 
@@ -108,10 +109,11 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
      (seal-cycles-per-minute (/ seal-cycles-per-hour 60))
      (seal-cycles-per-second (/ seal-cycles-per-minute 60))
      (needed-GHz (/ seal-cycles-per-second 1e9))
-     (up-front-sealing-cost (+ up-front-compute-cost up-front-memory-cost))
      (total-up-front-cost (+ up-front-sealing-cost up-front-drive-cost))
      (up-front-compute-cost (* needed-ghz cpu-ghz-cost))
-     (seal-cost (/ up-front-sealing-cost hourly-GiB))
+     (up-front-sealing-cost (+ up-front-compute-cost up-front-memory-cost))
+     (gib-hour-seal-investment (/ up-front-sealing-cost hourly-GiB))
+     (gib-seal-cost (/ up-front-sealing-cost GiB-capacity))
      (average-monthly-income-during-ramp-up (/ monthly-income 2))
      (income-during-ramp-up (* average-monthly-income-during-ramp-up miner-months-to-capacity))
      (income-to-fgr-at-capacity (- total-up-front-cost income-during-ramp-up))
@@ -138,7 +140,3 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
 							*isolated-performance-defaults*
 							*integrated-performance-defaults*))))
 
-(test performance-test
-  "Test performance system, with default values -- a sanity/regression test for now."
-  (is (same (tuple (seal-cost 108.01223))
-	    (ask (performance-system :isolated t) '(seal-cost)))))
