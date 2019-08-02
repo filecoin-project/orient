@@ -1,6 +1,6 @@
 (defsystem "orient"
   :description "orient: Orientable Lisp."
-  :version "0.1.0"
+  :version "0.1.1"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
   :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre")
