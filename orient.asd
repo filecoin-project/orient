@@ -16,7 +16,7 @@
 			 (:file "constraint")
 			 (:file "interface")
 			 (:file "presentation")
-			 (:file "demo"))
+			 )
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
 	       (:module "filecoin"
 			:depends-on ("base")
