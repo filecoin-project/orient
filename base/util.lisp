@@ -46,3 +46,33 @@
 	 (commit (uiop:run-program (format nil "cd ~a; git rev-parse HEAD" project-path) :output :string))
 	 (uri (format nil "~A/~A" commit-base-uri commit)))
     (values commit uri)))
+
+(defun map-tree (function tree)
+  (typecase tree
+    (null)
+    (atom (funcall function tree))
+    (cons (cons (map-tree function (car tree))
+                (map-tree function (cdr tree))))))
+
+(defun transform-tree (function tree &key test key)
+  (let ((function (coerce function 'function))
+        (test (when test (coerce test 'function)))
+        (key (when key (coerce key 'function))))
+    (map-tree (lambda (x)
+                (if (and test 
+                         (not (funcall test 
+                                       (if key (funcall key x) x))))
+                    x
+                  (funcall function x)))
+              tree)))
+
+(defun transform-tree-if (test function tree)
+  (when tree
+    (cond
+     ((funcall test tree)
+      (funcall function tree))
+     (t (typecase tree
+          (cons (cons (transform-tree-if test function (car tree))
+                      (transform-tree-if test function (cdr tree))))
+          (t tree))))))
+

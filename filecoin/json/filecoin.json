@@ -1,616 +1,616 @@
 {
   "schema": [
     {
-      "name": "AWS-GLACIER-PRICE",
+      "name": "aws-glacier-price",
       "description": "Cost of one GiB storage from AWS glacier for one month. Unit: dollars"
     },
     {
-      "name": "ANNUAL-INCOME",
+      "name": "annual-income",
       "description": "Annual income from selling storage on the storage market. Unit: dollars"
     },
     {
-      "name": "MONTHLY-INCOME",
+      "name": "monthly-income",
       "description": "Monthly income from selling storage on the storage market. Unit: dollars"
     },
     {
-      "name": "COMPARABLE-MONTHLY-COST",
+      "name": "comparable-monthly-cost",
       "description": "Expected cost of purchasing monthly storage from commodity provider. Unit: dollars"
     },
     {
-      "name": "GIB-HOUR-SEAL-INVESTMENT",
+      "name": "gib-hour-seal-investment",
       "description": "Cost of investment required to seal one GiB in one hour at scale. Unit: dollars"
     },
     {
-      "name": "GIB-SEAL-COST",
+      "name": "gib-seal-cost",
       "description": "Cost of sealing one GiB. Unit: dollars"
     },
     {
-      "name": "COMMODITY-STORAGE-DISCOUNT",
+      "name": "commodity-storage-discount",
       "description": "Fraction of commodity storage pricing expected as income from storage market. Unit: decimal fraction"
     },
     {
-      "name": "MINER-MONTHS-TO-CAPACITY",
+      "name": "miner-months-to-capacity",
       "description": "Months it should take a miner to reach full storage capacity. Unit: months"
     },
     {
-      "name": "GIB-CAPACITY",
+      "name": "gib-capacity",
       "description": "GiB of storage at full capacity. Unit: GiB"
     },
     {
-      "name": "TIB-CAPACITY",
+      "name": "tib-capacity",
       "description": "TiB of storage at full capacity. Unit: TiB"
     },
     {
-      "name": "ANNUAL-TIB",
+      "name": "annual-tib",
       "description": "TiB of storage which must be brought online per year. Unit: TiB"
     },
     {
-      "name": "MONTHLY-TIB",
+      "name": "monthly-tib",
       "description": "TiB of storage which must be brought online per month. Unit: TiB"
     },
     {
-      "name": "DAILY-TIB",
+      "name": "daily-tib",
       "description": "TiB of storage which must be brought online per day. Unit: TiB"
     },
     {
-      "name": "HOURLY-TIB",
+      "name": "hourly-tib",
       "description": "TiB of storage which must be brought online per hour. Unit: TiB"
     },
     {
-      "name": "HOURLY-GIB",
+      "name": "hourly-gib",
       "description": "GiB of storage which must be brought online per hour. Unit: GiB"
     },
     {
-      "name": "SEAL-CYCLES-PER-HOUR",
+      "name": "seal-cycles-per-hour",
       "description": "CPU required to seal at required rate for one hour. Unit: cycles"
     },
     {
-      "name": "SEAL-CYCLES-PER-MINUTE",
+      "name": "seal-cycles-per-minute",
       "description": "CPU required to seal at required rate for one minute. Unit: cycles"
     },
     {
-      "name": "SEAL-CYCLES-PER-SECOND",
+      "name": "seal-cycles-per-second",
       "description": "CPU required to seal at required rate for one second. Unit: cycles"
     },
     {
-      "name": "GIB-SEAL-CYCLES",
+      "name": "gib-seal-cycles",
       "description": "Total CPU cycles required to seal 1 GiB. Unit: cycles"
     },
     {
-      "name": "NEEDED-GHZ",
+      "name": "needed-ghz",
       "description": "Total GHz capacity needed to seal at the required rate."
     },
     {
-      "name": "UP-FRONT-DRIVE-COST",
+      "name": "up-front-drive-cost",
       "description": "Up-front investment in hard drives required to store sufficient sealed data. Unit: dollars."
     },
     {
-      "name": "UP-FRONT-MEMORY-COST",
+      "name": "up-front-memory-cost",
       "description": "Up-front investment in memory (RAM) required to seal at necessary rate. Unit: dollars"
     },
     {
-      "name": "UP-FRONT-COMPUTE-COST",
+      "name": "up-front-compute-cost",
       "description": "Up-front investement in compute hardware required to seal at necessary rate. Unit: dollars"
     },
     {
-      "name": "UP-FRONT-SEALING-COST",
+      "name": "up-front-sealing-cost",
       "description": "Up-front investment in total hardware require to seal at necessary rate. Unit: dollars"
     },
     {
-      "name": "TOTAL-UP-FRONT-COST",
+      "name": "total-up-front-cost",
       "description": "Total up-front investment required to generate MONTHLY-INCOME. Unit: dollars"
     },
     {
-      "name": "AVERAGE-MONTHLY-INCOME-DURING-RAMP-UP",
+      "name": "average-monthly-income-during-ramp-up",
       "description": "Average monthly income before miner reaches capacity (assuming linear growth). Unit: dollars"
     },
     {
-      "name": "INCOME-DURING-RAMP-UP",
+      "name": "income-during-ramp-up",
       "description": "Total income during ramp-up period (before reaching capacity). Unit: dollars"
     },
     {
-      "name": "INCOME-TO-FGR-AT-CAPACITY",
+      "name": "income-to-fgr-at-capacity",
       "description": "Income still required to reach filecoin growth rate equilibrium after reaching capacity. Unit: dollars"
     },
     {
-      "name": "FGR-MONTHS-AT-CAPACITY",
+      "name": "fgr-months-at-capacity",
       "description": "Months needed after reaching capacity before filecoin growth rate equilibrium."
     },
     {
-      "name": "FGR-MONTHS",
+      "name": "fgr-months",
       "description": "Months after which a miner should reach filecoin growth rate equilibrium."
     },
     {
-      "name": "ONE-YEAR-PROFIT-MONTHS",
+      "name": "one-year-profit-months",
       "description": "Months from FGR to one year of profit. Unit: months"
     },
     {
-      "name": "ONE-YEAR-PROFIT",
+      "name": "one-year-profit",
       "description": "Profit after one year of operation: Unit: dollars"
     },
     {
-      "name": "ONE-YEAR-FGR",
+      "name": "one-year-fgr",
       "description": "FGR after one year of operation: Unit: fraction"
     },
     {
-      "name": "TWO-YEAR-PROFIT-MONTHS",
+      "name": "two-year-profit-months",
       "description": "Months from FGR to two years of profit. Unit: months"
     },
     {
-      "name": "TWO-YEAR-PROFIT",
+      "name": "two-year-profit",
       "description": "Profit after two years of operation: Unit: dollars"
     },
     {
-      "name": "TWO-YEAR-FGR",
+      "name": "two-year-fgr",
       "description": "FGR after two years of operation: Unit: fraction"
     },
     {
-      "name": "THREE-YEAR-PROFIT-MONTHS",
+      "name": "three-year-profit-months",
       "description": "Months from FGR to three years of profit. Unit: months"
     },
     {
-      "name": "THREE-YEAR-PROFIT",
+      "name": "three-year-profit",
       "description": "Profit after three years of operation: Unit: dollars"
     },
     {
-      "name": "THREE-YEAR-FGR",
+      "name": "three-year-fgr",
       "description": "FGR after three years of operation: Unit: fraction"
     },
     {
-      "name": "SEAL-HZ",
+      "name": "seal-hz",
       "description": "Cycles per second at which the sealing machine operates. Unit: Hz"
     },
     {
-      "name": "SEAL-GHZ",
+      "name": "seal-ghz",
       "description": "Cycles per second at which the sealing machine operates. Unit: GHz"
     },
     {
-      "name": "NODE-BYTES",
+      "name": "node-bytes",
       "description": "The number of bytes in a node -- must also be the hash digest size."
     },
     {
-      "name": "SECTOR-GIB",
+      "name": "sector-gib",
       "description": "Size of one sector. Unit: GiB"
     },
     {
-      "name": "SECTOR-SIZE",
+      "name": "sector-size",
       "description": "Size of one sector. Unit: bytes"
     },
     {
-      "name": "COMM-D-SIZE",
+      "name": "comm-d-size",
       "description": "Size of the data commitment (CommD). Unit: bytes"
     },
     {
-      "name": "COMM-R-SIZE",
+      "name": "comm-r-size",
       "description": "Size of the replica commitment (CommR). Unit: bytes"
     },
     {
-      "name": "COMM-R-STAR-SIZE",
+      "name": "comm-r-star-size",
       "description": "Size of the aggregated commitment to each layer's replica (CommR*). Unit: bytes"
     },
     {
-      "name": "COMM-RS-SIZE",
+      "name": "comm-rs-size",
       "description": "Size of all replica commitments. Unit: bytes"
     },
     {
-      "name": "COMMITMENTS-SIZE",
+      "name": "commitments-size",
       "description": "Size of all commitments returned by Seal. Unit: bytes"
     },
     {
-      "name": "ON-CHAIN-POREP-SIZE",
+      "name": "on-chain-porep-size",
       "description": "On-chain size of one Seal proof plus commitments. Unit: bytes"
     },
     {
-      "name": "DEGREE",
+      "name": "degree",
       "description": "Total in-degree of the ZigZag graph."
     },
     {
-      "name": "BASE-DEGREE",
+      "name": "base-degree",
       "description": "In-degree of the base depth-robust graph (DRG)."
     },
     {
-      "name": "EXPANSION-DEGREE",
+      "name": "expansion-degree",
       "description": "Maximum in-degree of the bipartite expander graph component of a ZigZag graph."
     },
     {
-      "name": "SLOTH-ITER",
+      "name": "sloth-iter",
       "description": "Number of iterations of sloth verifiable delay encoding (VDE) to perform."
     },
     {
-      "name": "PARTITIONS",
+      "name": "partitions",
       "description": "Number of circuit partitions into which a proof is divided."
     },
     {
-      "name": "REPLICATION-TIME",
+      "name": "replication-time",
       "description": "Time to replicate one sector. Unit: seconds"
     },
     {
-      "name": "REPLICATION-TIME-PER-BYTE",
+      "name": "replication-time-per-byte",
       "description": "Time to replicate one byte. Unit: seconds / byte"
     },
     {
-      "name": "REPLICATION-TIME-PER-GIB",
+      "name": "replication-time-per-gib",
       "description": "Time to replicate one GiB. Unit: seconds / GiB"
     },
     {
-      "name": "SEALING-TIME",
+      "name": "sealing-time",
       "description": "Total CPU time to seal (replicate + generate proof of replication) one sector. Unit: seconds"
     },
     {
-      "name": "NON-CIRCUIT-PROVING-TIME",
+      "name": "non-circuit-proving-time",
       "description": "Time (including replication) to generate a non-circuit proof of replication. Unit: seconds"
     },
     {
-      "name": "VECTOR-COMMITMENT-TIME",
+      "name": "vector-commitment-time",
       "description": "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds"
     },
     {
-      "name": "CIRCUIT-PROVING-TIME-PER-CONSTRAINT",
+      "name": "circuit-proving-time-per-constraint",
       "description": "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds"
     },
     {
-      "name": "ZIGZAG-TOTAL-PROVING-TIME",
+      "name": "zigzag-total-proving-time",
       "description": "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds"
     },
     {
-      "name": "SEAL-TIME",
+      "name": "seal-time",
       "description": "Total time to seal (replication + proving) one sector. Unit: seconds"
     },
     {
-      "name": "WALL-CLOCK-SEAL-TIME",
+      "name": "wall-clock-seal-time",
       "description": "Wall clock time sealing time using SEAL-PARALLELISM cores. Unit: seconds"
     },
     {
-      "name": "SEAL-PARALLELISM",
+      "name": "seal-parallelism",
       "description": "Number of cores utilized when computing wall-clock-seal-time."
     },
     {
-      "name": "SECTOR-GIB",
+      "name": "sector-gib",
       "description": "Number of GiB in one sector. Unit: GiB"
     },
     {
-      "name": "GIB-SEAL-TIME",
+      "name": "gib-seal-time",
       "description": "Total time to seal (replication + proving) one GiB. Unit: seconds"
     },
     {
-      "name": "TOTAL-PARENTS",
+      "name": "total-parents",
       "description": "Number of parents (or padding) each node uses when performing key derivation."
     },
     {
-      "name": "HASH-FUNCTIONS",
+      "name": "hash-functions",
       "description": "Alternate hash functions for use in merkle-tree generation, KDF, or other commitments. All values here assume 64 bytes of raw input, but benchmarks include any extra, 'personalization', bits/bytes included as input during merkle-tree construction."
     },
     {
-      "name": "SINGLE-KDF-HASHES",
+      "name": "single-kdf-hashes",
       "description": "Number of hashes performed as part of a single application of the key-derivation function (KDF). This is equal to the number of parents and includes the replica ID. Since we use Merkle-Damgard construction, the number of compression hashes is the number of elements - 1."
     },
     {
-      "name": "KDF-HASHES",
+      "name": "kdf-hashes",
       "description": "Number of hashes performed as part of the key-derivation function (KDF)."
     },
     {
-      "name": "SINGLE-KDF-TIME",
+      "name": "single-kdf-time",
       "description": "Hashing time to perform a single KDF. Unit: seconds"
     },
     {
-      "name": "SINGLE-LAYER-MERKLE-HASHING-TIME",
+      "name": "single-layer-merkle-hashing-time",
       "description": "Merkle hashing time for a single layer. Unit: seconds"
     },
     {
-      "name": "TOTAL-MERKLE-TREES",
+      "name": "total-merkle-trees",
       "description": "Total merkle trees which must be generated."
     },
     {
-      "name": "TOTAL-MERKLE-HASHING-TIME",
+      "name": "total-merkle-hashing-time",
       "description": "Total time to generate all merkle trees. Unit: seconds"
     },
     {
-      "name": "TOTAL-NODES-TO-ENCODE",
+      "name": "total-nodes-to-encode",
       "description": "Total nodes to encode across all layers."
     },
     {
-      "name": "SINGLE-NODE-SLOTH-TIME",
+      "name": "single-node-sloth-time",
       "description": "Time to perform sloth (VDE) for a single node. Unit: seconds"
     },
     {
-      "name": "SINGLE-NODE-ENCODING-TIME",
+      "name": "single-node-encoding-time",
       "description": "Time to encode a single node. Unit: seconds"
     },
     {
-      "name": "SINGLE-CHALLENGE-INCLUSION-PROOFS",
+      "name": "single-challenge-inclusion-proofs",
       "description": "Number of inclusion proofs which must be verified for a single challenge."
     },
     {
-      "name": "SINGLE-CHALLENGE-MERKLE-HASES",
+      "name": "single-challenge-merkle-hases",
       "description": "Number of merkle hashes which must be verified for a single challenge."
     },
     {
-      "name": "SINGLE-CHALLENGE-KDF-HASHES",
+      "name": "single-challenge-kdf-hashes",
       "description": "Number of KDF hashes which must be verified for a single challenge."
     },
     {
-      "name": "SINGLE-CHALLENGE-SLOTH-VERIFICATIONS",
+      "name": "single-challenge-sloth-verifications",
       "description": "Number of sloth iterations which must be verified for a single challenge."
     },
     {
-      "name": "TOTAL-KDF-HASHES",
+      "name": "total-kdf-hashes",
       "description": "Total number of KDF (key-derivation function) required during replication."
     },
     {
-      "name": "TOTAL-ZIGZAG-KDF-HASHING-CONSTRAINTS",
+      "name": "total-zigzag-kdf-hashing-constraints",
       "description": "Total number of kdf hashing constraints in a ZigZag circuit."
     },
     {
-      "name": "TOTAL-ZIGZAG-NON-HASHING-CONSTRAINTS",
+      "name": "total-zigzag-non-hashing-constraints",
       "description": "Total number of hashes which must be verified in a ZigZag circuit."
     },
     {
-      "name": "TOTAL-ZIGZAG-CIRCUIT-KDF-HASHES",
+      "name": "total-zigzag-circuit-kdf-hashes",
       "description": "Total number of KDF hashes which must be verified in a ZigZag circuit."
     },
     {
-      "name": "TOTAL-ZIGZAG-SLOTH-CONSTRAINTS",
+      "name": "total-zigzag-sloth-constraints",
       "description": "Total number of constraints due to sloth verification."
     },
     {
-      "name": "TOTAL-ZIGZAG-CONSTRAINTS",
+      "name": "total-zigzag-constraints",
       "description": "Total number of constraints which must be verified in a ZigZag circuit."
     },
     {
-      "name": "LAYER-INDEX",
+      "name": "layer-index",
       "description": "Index of layer. Unit: integer"
     },
     {
-      "name": "LAYER-REPLICATION-TIME",
+      "name": "layer-replication-time",
       "description": "Time to replicate one layer. Unit: seconds"
     },
     {
-      "name": "STORAGE-TO-PROOF-SIZE-RATIO",
+      "name": "storage-to-proof-size-ratio",
       "description": "Ratio of sealed sector size to on-chain PoRep size."
     },
     {
-      "name": "STORAGE-TO-PROOF-SIZE-FLOAT",
+      "name": "storage-to-proof-size-float",
       "description": "Ratio of sealed sector size to on-chain PoRep size -- expressed as a float."
     },
     {
-      "name": "SINGLE-CIRCUIT-PROOF-SIZE",
+      "name": "single-circuit-proof-size",
       "description": "Size of a single Groth16 Proof. Unit: bytes"
     },
     {
-      "name": "TOTAL-CIRCUIT-PROOF-SIZE",
+      "name": "total-circuit-proof-size",
       "description": "Total size of a single circuit proof. Unit: bytes"
     },
     {
-      "name": "TOTAL-CHALLENGES",
+      "name": "total-challenges",
       "description": ""
     },
     {
-      "name": "PARTITION-CHALLENGES",
+      "name": "partition-challenges",
       "description": ""
     },
     {
-      "name": "KDF-HASH-FUNCTION.SIZE",
+      "name": "kdf-hash-function.size",
       "description": "Size of digest (output) generated by *.HASH-FUNCTION."
     },
     {
-      "name": "KDF-HASH-FUNCTION.CIRCUIT-TIME",
+      "name": "kdf-hash-function.circuit-time",
       "description": "Time for one *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "KDF-HASH-FUNCTION.CONSTRAINTS",
+      "name": "kdf-hash-function.constraints",
       "description": "Number of constraints required to prove *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "KDF-HASH-FUNCTION.HASH-FUNCTION%",
+      "name": "kdf-hash-function.hash-function%",
       "description": "Tuple containing the selected hash function's characteristics."
     },
     {
-      "name": "MERKLE-HASH-FUNCTION.SIZE",
+      "name": "merkle-hash-function.size",
       "description": "Size of digest (output) generated by *.HASH-FUNCTION."
     },
     {
-      "name": "MERKLE-HASH-FUNCTION.CIRCUIT-TIME",
+      "name": "merkle-hash-function.circuit-time",
       "description": "Time for one *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "MERKLE-HASH-FUNCTION.CONSTRAINTS",
+      "name": "merkle-hash-function.constraints",
       "description": "Number of constraints required to prove *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "MERKLE-HASH-FUNCTION.HASH-FUNCTION%",
+      "name": "merkle-hash-function.hash-function%",
       "description": "Tuple containing the selected hash function's characteristics."
     },
     {
-      "name": "ALPHA-HASH-FUNCTION.SIZE",
+      "name": "alpha-hash-function.size",
       "description": "Size of digest (output) generated by *.HASH-FUNCTION."
     },
     {
-      "name": "ALPHA-HASH-FUNCTION.CIRCUIT-TIME",
+      "name": "alpha-hash-function.circuit-time",
       "description": "Time for one *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "ALPHA-HASH-FUNCTION.CONSTRAINTS",
+      "name": "alpha-hash-function.constraints",
       "description": "Number of constraints required to prove *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "ALPHA-HASH-FUNCTION.HASH-FUNCTION%",
+      "name": "alpha-hash-function.hash-function%",
       "description": "Tuple containing the selected hash function's characteristics."
     },
     {
-      "name": "BETA-HASH-FUNCTION.SIZE",
+      "name": "beta-hash-function.size",
       "description": "Size of digest (output) generated by *.HASH-FUNCTION."
     },
     {
-      "name": "BETA-HASH-FUNCTION.CIRCUIT-TIME",
+      "name": "beta-hash-function.circuit-time",
       "description": "Time for one *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "BETA-HASH-FUNCTION.CONSTRAINTS",
+      "name": "beta-hash-function.constraints",
       "description": "Number of constraints required to prove *.HASH-FUNCTION in circuit."
     },
     {
-      "name": "BETA-HASH-FUNCTION.HASH-FUNCTION%",
+      "name": "beta-hash-function.hash-function%",
       "description": "Tuple containing the selected hash function's characteristics."
     },
     {
-      "name": "ZIGZAG-SOUNDNESS",
+      "name": "zigzag-soundness",
       "description": "ZigZag soundness: Unit fraction"
     },
     {
-      "name": "ZIGZAG-LAMBDA",
+      "name": "zigzag-lambda",
       "description": "ZigZag soundness: Unit bits"
     },
     {
-      "name": "ZIGZAG-EPSILON",
+      "name": "zigzag-epsilon",
       "description": "Maximum allowable deletion (space tightness): Unit: fraction"
     },
     {
-      "name": "ZIGZAG-DELTA",
+      "name": "zigzag-delta",
       "description": "Maximum allowable cheating on labels (block corruption)"
     },
     {
-      "name": "ZIGZAG-BASIC-LAYER-CHALLENGES",
+      "name": "zigzag-basic-layer-challenges",
       "description": "Multiple of lambda challenges per layer, without tapering optimization."
     },
     {
-      "name": "ZIGZAG-BASIC-LAYER-CHALLENGE-FACTOR",
+      "name": "zigzag-basic-layer-challenge-factor",
       "description": "Number of challenges which, when multiplied by lambda, yields the number of challenges per layer without tapering optimization."
     },
     {
-      "name": "ZIGZAG-SPACE-GAP",
+      "name": "zigzag-space-gap",
       "description": "Maximum allowable gap between actual and claimed storage. Unit: fraction"
     },
     {
-      "name": "ZIGZAG-LAYER-CHALLENGES",
+      "name": "zigzag-layer-challenges",
       "description": "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer"
     },
     {
-      "name": "LAYERS",
+      "name": "layers",
       "description": "Number of layers specified for this construction (not necessarily same as calculated from security parameters)."
     },
     {
-      "name": "MUST-HAVE-FILECOIN",
+      "name": "must-have-filecoin",
       "description": "WE MUST HAVE FILECOIN -- SWEET, SWEET FILECOIN."
     },
     {
-      "name": "SPACE-GAP-SATISFIED",
+      "name": "space-gap-satisfied",
       "description": "Is the actual space gap less than or equal to the maximum allowable space gap?"
     },
     {
-      "name": "FILECOIN-REQUIREMENTS-SATISFIED",
+      "name": "filecoin-requirements-satisfied",
       "description": "Are the Filecoin requirements all satisfied?"
     },
     {
-      "name": "MINIMUM-ONE-YEAR-FGR",
+      "name": "minimum-one-year-fgr",
       "description": "Minimum allowable FGR after one year."
     },
     {
-      "name": "MINIMUM-TWO-YEAR-FGR",
+      "name": "minimum-two-year-fgr",
       "description": "Minimum allowable FGR after two years."
     },
     {
-      "name": "MINIMUM-THREE-YEAR-FGR",
+      "name": "minimum-three-year-fgr",
       "description": "Minimum allowable FGR after three years."
     },
     {
-      "name": "MINIMUM-STORAGE-TO-PROOF-SIZE-RATIO",
+      "name": "minimum-storage-to-proof-size-ratio",
       "description": "Minimum necessary storage to on-chain proof ratio."
     },
     {
-      "name": "PROFIT",
+      "name": "profit",
       "description": "… Profit."
     }
   ],
   "assignments": {
-    "optimalHeights": {
+    "optimal-heights": {
       "tuples": [
         {
           "constraints": 0,
-          "layerIndex": 0,
-          "lowestTime": 97.94244,
-          "circuitTime": 0,
-          "hashingTime": 97.94244,
-          "optimalBetaMerkleHeight": 30
+          "layer-index": 0,
+          "lowest-time": 97.94244,
+          "circuit-time": 0,
+          "hashing-time": 97.94244,
+          "optimal-beta-merkle-height": 30
         },
         {
           "constraints": 171690880,
-          "layerIndex": 1,
-          "lowestTime": 24432.822,
-          "circuitTime": 20836.523,
-          "hashingTime": 3596.2986,
-          "optimalBetaMerkleHeight": 3
+          "layer-index": 1,
+          "lowest-time": 24432.822,
+          "circuit-time": 20836.523,
+          "hashing-time": 3596.2986,
+          "optimal-beta-merkle-height": 3
         },
         {
           "constraints": 171690880,
-          "layerIndex": 2,
-          "lowestTime": 24432.822,
-          "circuitTime": 20836.523,
-          "hashingTime": 3596.2986,
-          "optimalBetaMerkleHeight": 3
+          "layer-index": 2,
+          "lowest-time": 24432.822,
+          "circuit-time": 20836.523,
+          "hashing-time": 3596.2986,
+          "optimal-beta-merkle-height": 3
         },
         {
           "constraints": 171690880,
-          "layerIndex": 3,
-          "lowestTime": 24432.822,
-          "circuitTime": 20836.523,
-          "hashingTime": 3596.2986,
-          "optimalBetaMerkleHeight": 3
+          "layer-index": 3,
+          "lowest-time": 24432.822,
+          "circuit-time": 20836.523,
+          "hashing-time": 3596.2986,
+          "optimal-beta-merkle-height": 3
         },
         {
           "constraints": 225136320,
-          "layerIndex": 4,
-          "lowestTime": 34205.582,
-          "circuitTime": 27110.928,
-          "hashingTime": 7094.655,
-          "optimalBetaMerkleHeight": 2
+          "layer-index": 4,
+          "lowest-time": 34205.582,
+          "circuit-time": 27110.928,
+          "hashing-time": 7094.655,
+          "optimal-beta-merkle-height": 2
         },
         {
           "constraints": 330199936,
-          "layerIndex": 5,
-          "lowestTime": 46857.348,
-          "circuitTime": 39762.69,
-          "hashingTime": 7094.655,
-          "optimalBetaMerkleHeight": 2
+          "layer-index": 5,
+          "lowest-time": 46857.348,
+          "circuit-time": 39762.69,
+          "hashing-time": 7094.655,
+          "optimal-beta-merkle-height": 2
         },
         {
           "constraints": 424019904,
-          "layerIndex": 6,
-          "lowestTime": 64618.906,
-          "circuitTime": 50527.54,
-          "hashingTime": 14091.367,
-          "optimalBetaMerkleHeight": 1
+          "layer-index": 6,
+          "lowest-time": 64618.906,
+          "circuit-time": 50527.54,
+          "hashing-time": 14091.367,
+          "optimal-beta-merkle-height": 1
         },
         {
           "constraints": 636029856,
-          "layerIndex": 7,
-          "lowestTime": 89882.68,
-          "circuitTime": 75791.31,
-          "hashingTime": 14091.367,
-          "optimalBetaMerkleHeight": 1
+          "layer-index": 7,
+          "lowest-time": 89882.68,
+          "circuit-time": 75791.31,
+          "hashing-time": 14091.367,
+          "optimal-beta-merkle-height": 1
         },
         {
           "constraints": 796337056,
-          "layerIndex": 8,
-          "lowestTime": 121573.375,
-          "circuitTime": 93488.586,
-          "hashingTime": 28084.791,
-          "optimalBetaMerkleHeight": 0
+          "layer-index": 8,
+          "lowest-time": 121573.375,
+          "circuit-time": 93488.586,
+          "hashing-time": 28084.791,
+          "optimal-beta-merkle-height": 0
         },
         {
           "constraints": 1191833312,
-          "layerIndex": 9,
-          "lowestTime": 168003.95,
-          "circuitTime": 139919.16,
-          "hashingTime": 28084.791,
-          "optimalBetaMerkleHeight": 0
+          "layer-index": 9,
+          "lowest-time": 168003.95,
+          "circuit-time": 139919.16,
+          "hashing-time": 28084.791,
+          "optimal-beta-merkle-height": 0
         },
         {
           "constraints": 1785077696,
-          "layerIndex": 10,
-          "lowestTime": 237649.81,
-          "circuitTime": 209565.02,
-          "hashingTime": 28084.791,
-          "optimalBetaMerkleHeight": 0
+          "layer-index": 10,
+          "lowest-time": 237649.81,
+          "circuit-time": 209565.02,
+          "hashing-time": 28084.791,
+          "optimal-beta-merkle-height": 0
         }
       ]
     },
@@ -618,480 +618,480 @@
     "degree": 13,
     "layers": 10,
     "profit": true,
-    "sealHz": 5000000000,
-    "sealGhz": 5,
-    "dailyTib": 1.1147972,
-    "sealTime": 843044.06,
-    "fgrMonths": 6.409414,
-    "hourlyGib": 47.564682,
-    "hourlyTib": 0.046449885,
-    "neededGhz": 1740.4132,
-    "nodeBytes": 32,
+    "seal-hz": 5000000000,
+    "seal-ghz": 5,
+    "daily-tib": 1.1147972,
+    "seal-time": 843044.06,
+    "fgr-months": 6.409414,
+    "hourly-gib": 47.564682,
+    "hourly-tib": 0.046449885,
+    "needed-ghz": 1740.4132,
+    "node-bytes": 32,
     "partitions": 1,
-    "sectorGib": 32,
-    "slothIter": 0,
-    "baseDegree": 5,
-    "commDSize": 32,
-    "commRSize": 32,
-    "monthlyTib": 33.908417,
-    "sectorSize": 34359738368,
-    "commRsSize": 64,
-    "cpuGhzCost": 10,
-    "gibCapacity": 104166.66,
-    "oneYearFgr": 1.1387482,
-    "tibCapacity": 101.72525,
-    "twoYearFgr": 3.5830317,
-    "zigzagDelta": 0.003,
-    "zigzagTaper": 0.33333334,
-    "annualIncome": 50000,
-    "gibSealCost": 0.16707969,
-    "gibSealTime": 26345.127,
-    "totalParents": 13,
-    "zigzagLambda": 8,
-    "zigzagLayers": 12,
-    "hashFunctions": {
+    "sector-gib": 32,
+    "sloth-iter": 0,
+    "base-degree": 5,
+    "comm-d-size": 32,
+    "comm-r-size": 32,
+    "monthly-tib": 33.908417,
+    "sector-size": 34359738368,
+    "comm-rs-size": 64,
+    "cpu-ghz-cost": 10,
+    "gib-capacity": 104166.66,
+    "one-year-fgr": 1.1387482,
+    "tib-capacity": 101.72525,
+    "two-year-fgr": 3.5830317,
+    "zigzag-delta": 0.003,
+    "zigzag-taper": 0.33333334,
+    "annual-income": 50000,
+    "gib-seal-cost": 0.16707969,
+    "gib-seal-time": 26345.127,
+    "total-parents": 13,
+    "zigzag-lambda": 8,
+    "zigzag-layers": 12,
+    "hash-functions": {
       "tuples": [
         {
-          "circuitTime": 0.153988,
-          "hashFunctionName": "pedersen",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 2.6156e-05,
-          "hashFunctionConstraints": 1324
+          "circuit-time": 0.153988,
+          "hash-function-name": "pedersen",
+          "hash-function-size": 32,
+          "hash-function-time": 2.6156e-05,
+          "hash-function-constraints": 1324
         },
         {
-          "circuitTime": 0.65253,
-          "hashFunctionName": "blake2sKdf",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 4.5608e-08,
-          "hashFunctionConstraints": 5162
+          "circuit-time": 0.65253,
+          "hash-function-name": "blake2s-kdf",
+          "hash-function-size": 32,
+          "hash-function-time": 4.5608e-08,
+          "hash-function-constraints": 5162
         },
         {
-          "circuitTime": 1.30506,
-          "hashFunctionName": "blake2s",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 9.1216e-08,
-          "hashFunctionConstraints": 10324
+          "circuit-time": 1.30506,
+          "hash-function-name": "blake2s",
+          "hash-function-size": 32,
+          "hash-function-time": 9.1216e-08,
+          "hash-function-constraints": 10324
         }
       ]
     },
-    "monthlyIncome": 4166.6665,
-    "threeYearFgr": 6.027315,
-    "tibDriveCost": 30,
-    "zigzagEpsilon": 0.007,
-    "gibSealCycles": 131725630000000,
-    "oneYearProfit": 23294.107,
-    "singleKdfTime": 6.38512e-07,
-    "twoYearProfit": 73294.1,
-    "alternateLayers": {
+    "monthly-income": 4166.6665,
+    "three-year-fgr": 6.027315,
+    "tib-drive-cost": 30,
+    "zigzag-epsilon": 0.007,
+    "gib-seal-cycles": 131725630000000,
+    "one-year-profit": 23294.107,
+    "single-kdf-time": 6.38512e-07,
+    "two-year-profit": 73294.1,
+    "alternate-layers": {
       "tuples": [
         {
-          "provingTime": 237649.81,
-          "betaMerkleHeight": 0
+          "proving-time": 237649.81,
+          "beta-merkle-height": 0
         },
         {
-          "provingTime": 269791.34,
-          "betaMerkleHeight": 1
+          "proving-time": 269791.34,
+          "beta-merkle-height": 1
         },
         {
-          "provingTime": 308929.63,
-          "betaMerkleHeight": 2
+          "proving-time": 308929.63,
+          "beta-merkle-height": 2
         },
         {
-          "provingTime": 351566.25,
-          "betaMerkleHeight": 3
+          "proving-time": 351566.25,
+          "beta-merkle-height": 3
         },
         {
-          "provingTime": 395952.03,
-          "betaMerkleHeight": 4
+          "proving-time": 395952.03,
+          "beta-merkle-height": 4
         },
         {
-          "provingTime": 441212.38,
-          "betaMerkleHeight": 5
+          "proving-time": 441212.38,
+          "beta-merkle-height": 5
         },
         {
-          "provingTime": 486910.06,
-          "betaMerkleHeight": 6
+          "proving-time": 486910.06,
+          "beta-merkle-height": 6
         },
         {
-          "provingTime": 532826.4,
-          "betaMerkleHeight": 7
+          "proving-time": 532826.4,
+          "beta-merkle-height": 7
         },
         {
-          "provingTime": 578852,
-          "betaMerkleHeight": 8
+          "proving-time": 578852,
+          "beta-merkle-height": 8
         },
         {
-          "provingTime": 624932.3,
-          "betaMerkleHeight": 9
+          "proving-time": 624932.3,
+          "beta-merkle-height": 9
         },
         {
-          "provingTime": 671039.94,
-          "betaMerkleHeight": 10
+          "proving-time": 671039.94,
+          "beta-merkle-height": 10
         },
         {
-          "provingTime": 717161.25,
-          "betaMerkleHeight": 11
+          "proving-time": 717161.25,
+          "beta-merkle-height": 11
         },
         {
-          "provingTime": 763289.4,
-          "betaMerkleHeight": 12
+          "proving-time": 763289.4,
+          "beta-merkle-height": 12
         },
         {
-          "provingTime": 809420.9,
-          "betaMerkleHeight": 13
+          "proving-time": 809420.9,
+          "beta-merkle-height": 13
         },
         {
-          "provingTime": 855554.1,
-          "betaMerkleHeight": 14
+          "proving-time": 855554.1,
+          "beta-merkle-height": 14
         },
         {
-          "provingTime": 901688.4,
-          "betaMerkleHeight": 15
+          "proving-time": 901688.4,
+          "beta-merkle-height": 15
         },
         {
-          "provingTime": 947822.8,
-          "betaMerkleHeight": 16
+          "proving-time": 947822.8,
+          "beta-merkle-height": 16
         },
         {
-          "provingTime": 993957.5,
-          "betaMerkleHeight": 17
+          "proving-time": 993957.5,
+          "beta-merkle-height": 17
         },
         {
-          "provingTime": 1040092.5,
-          "betaMerkleHeight": 18
+          "proving-time": 1040092.5,
+          "beta-merkle-height": 18
         },
         {
-          "provingTime": 1086227.4,
-          "betaMerkleHeight": 19
+          "proving-time": 1086227.4,
+          "beta-merkle-height": 19
         },
         {
-          "provingTime": 1132362.4,
-          "betaMerkleHeight": 20
+          "proving-time": 1132362.4,
+          "beta-merkle-height": 20
         },
         {
-          "provingTime": 1178497.4,
-          "betaMerkleHeight": 21
+          "proving-time": 1178497.4,
+          "beta-merkle-height": 21
         },
         {
-          "provingTime": 1224632.3,
-          "betaMerkleHeight": 22
+          "proving-time": 1224632.3,
+          "beta-merkle-height": 22
         },
         {
-          "provingTime": 1270767.1,
-          "betaMerkleHeight": 23
+          "proving-time": 1270767.1,
+          "beta-merkle-height": 23
         },
         {
-          "provingTime": 1316902.3,
-          "betaMerkleHeight": 24
+          "proving-time": 1316902.3,
+          "beta-merkle-height": 24
         },
         {
-          "provingTime": 1363037.1,
-          "betaMerkleHeight": 25
+          "proving-time": 1363037.1,
+          "beta-merkle-height": 25
         },
         {
-          "provingTime": 1409172.3,
-          "betaMerkleHeight": 26
+          "proving-time": 1409172.3,
+          "beta-merkle-height": 26
         },
         {
-          "provingTime": 1455307.1,
-          "betaMerkleHeight": 27
+          "proving-time": 1455307.1,
+          "beta-merkle-height": 27
         },
         {
-          "provingTime": 1501442,
-          "betaMerkleHeight": 28
+          "proving-time": 1501442,
+          "beta-merkle-height": 28
         },
         {
-          "provingTime": 1547577.1,
-          "betaMerkleHeight": 29
+          "proving-time": 1547577.1,
+          "beta-merkle-height": 29
         },
         {
-          "provingTime": 1593712.1,
-          "betaMerkleHeight": 30
+          "proving-time": 1593712.1,
+          "beta-merkle-height": 30
         }
       ]
     },
-    "commRStarSize": 32,
-    "commitmentsSize": 96,
-    "expansionDegree": 8,
-    "replicationTime": 6855.9707,
-    "sealParallelism": 14,
-    "totalChallenges": 2672,
-    "zigzagSoundness": 0.00390625,
-    "zigzagSpaceGap": 0.01,
-    "awsGlacierPrice": 0.004,
-    "singleKdfHashes": 14,
-    "threeYearProfit": 123294.1,
-    "mustHaveFilecoin": true,
-    "totalCircuitTime": 698674.8,
-    "totalHashingTime": 137513.25,
-    "totalProvingTime": 836188.06,
-    "onChainPorepSize": 288,
-    "spaceGapSatisfied": true,
-    "totalUpFrontCost": 20455.89,
-    "upFrontDriveCost": 3051.7576,
-    "minimumOneYearFgr": -2,
-    "minimumTwoYearFgr": 0.25,
-    "partitionChallenges": 2672,
-    "sealCyclesPerHour": 6265487600000000,
-    "upFrontMemoryCost": 0,
-    "wallClockSealTime": 59727.72,
-    "incomeDuringRampUp": 6250,
-    "totalNodesToEncode": 10737418240,
-    "upFrontComputeCost": 17404.133,
-    "upFrontSealingCost": 17404.133,
-    "fgrMonthsAtCapacity": 3.4094138,
-    "kdfHashFunctionName": "blake2sKdf",
-    "kdfHashFunction.size": 32,
-    "kdfHashFunction.time": 4.5608e-08,
-    "layerReplicationTime": 685.59705,
-    "maxBetaMerkleHeight": 30,
-    "minimumThreeYearFgr": 1,
-    "oneYearFgrSatisfied": true,
-    "oneYearProfitMonths": 5.590586,
-    "sealCyclesPerMinute": 104424790000000,
-    "sealCyclesPerSecond": 1740413200000,
-    "singleNodeSlothTime": 0,
-    "twoYearFgrSatisfied": true,
-    "twoYearProfitMonths": 17.590586,
-    "betaHashFunctionName": "blake2s",
-    "betaHashFunction.size": 32,
-    "betaHashFunction.time": 9.1216e-08,
-    "comparableMonthlyCost": 416.66666,
-    "kdfHashFunction.name%": "blake2sKdf",
-    "totalZigzagChallenges": 2672,
-    "alphaHashFunctionName": "pedersen",
-    "alphaHashFunction.size": 32,
-    "alphaHashFunction.time": 2.6156e-05,
-    "betaHashFunction.name%": "blake2s",
-    "filecoinFgrRequirement": true,
-    "gibHourSealInvestment": 365.90454,
-    "layerPerformance.layers": 10,
-    "minerMonthsToCapacity": 3,
-    "replicationTimePerGib": 214.24908,
-    "threeYearFgrSatisfied": true,
-    "threeYearProfitMonths": 29.590586,
-    "totalCircuitProofSize": 192,
-    "totalZigzagConstraints": 5903706720,
-    "alphaHashFunction.name%": "pedersen",
-    "benchCircuitConstraints": 10324,
-    "incomeToFgrAtCapacity": 14205.891,
-    "merkleHashFunctionName": "pedersen",
-    "merkleHashFunction.size": 32,
-    "merkleHashFunction.time": 2.6156e-05,
-    "replicationTimePerByte": 1.9953501e-07,
-    "singleCircuitProofSize": 192,
-    "singleNodeEncodingTime": 6.38512e-07,
-    "benchCircuitProvingTime": 0.14464,
-    "commodityStorageDiscount": 10,
-    "filecoinFgrRequirement1": true,
-    "merkleHashFunction.name%": "pedersen",
-    "totalUntaperedChallenges": 32000,
-    "maximumAllowableSpaceGap": 0.02,
-    "singleChallengeKdfHashes": 14,
-    "singleSlothIterationTime": 123,
-    "storageToProofSizeFloat": 119304650,
-    "storageToProofSizeRatio": 119304650,
-    "layerPerformance.nodeBytes": 32,
-    "wallClockSealTimePerGib": 1866.4912,
-    "kdfHashFunction.constraints": 5162,
-    "layerPerformance.layerIndex": 10,
-    "layerPerformance.sectorSize": 34359738368,
-    "wallClockSealTimePerByte": 1.7383054e-06,
-    "zigzagBasicLayerChallenges": 2666.6667,
-    "betaHashFunction.constraints": 10324,
-    "kdfHashFunction.circuitTime": 0.65253,
-    "layerPerformance.circuitTime": 1593614.1,
-    "totalZigzagOtherConstraints": 0,
-    "totalZigzagSlothConstraints": 857712,
-    "alphaHashFunction.constraints": 1324,
-    "alphaMerkleHashFunctionName": "pedersen",
-    "betaHashFunction.circuitTime": 1.30506,
-    "filecoinRequirementsSatisfied": true,
-    "totalZigzagCircuitKdfHashes": 37408,
-    "alphaHashFunction.circuitTime": 0.153988,
-    "filecoinStorageRatioSatisfied": true,
-    "kdfHashFunction.hashFunction%": {
-      "circuitTime": 0.65253,
-      "hashFunctionName": "blake2sKdf",
-      "hashFunctionSize": 32,
-      "hashFunctionTime": 4.5608e-08,
-      "hashFunctionConstraints": 5162
+    "comm-r-star-size": 32,
+    "commitments-size": 96,
+    "expansion-degree": 8,
+    "replication-time": 6855.9707,
+    "seal-parallelism": 14,
+    "total-challenges": 2672,
+    "zigzag-soundness": 0.00390625,
+    "zigzag-space-gap": 0.01,
+    "aws-glacier-price": 0.004,
+    "single-kdf-hashes": 14,
+    "three-year-profit": 123294.1,
+    "must-have-filecoin": true,
+    "total-circuit-time": 698674.8,
+    "total-hashing-time": 137513.25,
+    "total-proving-time": 836188.06,
+    "on-chain-porep-size": 288,
+    "space-gap-satisfied": true,
+    "total-up-front-cost": 20455.89,
+    "up-front-drive-cost": 3051.7576,
+    "minimum-one-year-fgr": -2,
+    "minimum-two-year-fgr": 0.25,
+    "partition-challenges": 2672,
+    "seal-cycles-per-hour": 6265487600000000,
+    "up-front-memory-cost": 0,
+    "wall-clock-seal-time": 59727.72,
+    "income-during-ramp-up": 6250,
+    "total-nodes-to-encode": 10737418240,
+    "up-front-compute-cost": 17404.133,
+    "up-front-sealing-cost": 17404.133,
+    "fgr-months-at-capacity": 3.4094138,
+    "kdf-hash-function-name": "blake2s-kdf",
+    "kdf-hash-function.size": 32,
+    "kdf-hash-function.time": 4.5608e-08,
+    "layer-replication-time": 685.59705,
+    "max-beta-merkle-height": 30,
+    "minimum-three-year-fgr": 1,
+    "one-year-fgr-satisfied": true,
+    "one-year-profit-months": 5.590586,
+    "seal-cycles-per-minute": 104424790000000,
+    "seal-cycles-per-second": 1740413200000,
+    "single-node-sloth-time": 0,
+    "two-year-fgr-satisfied": true,
+    "two-year-profit-months": 17.590586,
+    "beta-hash-function-name": "blake2s",
+    "beta-hash-function.size": 32,
+    "beta-hash-function.time": 9.1216e-08,
+    "comparable-monthly-cost": 416.66666,
+    "kdf-hash-function.name%": "blake2s-kdf",
+    "total-zigzag-challenges": 2672,
+    "alpha-hash-function-name": "pedersen",
+    "alpha-hash-function.size": 32,
+    "alpha-hash-function.time": 2.6156e-05,
+    "beta-hash-function.name%": "blake2s",
+    "filecoin-fgr-requirement": true,
+    "gib-hour-seal-investment": 365.90454,
+    "layer-performance.layers": 10,
+    "miner-months-to-capacity": 3,
+    "replication-time-per-gib": 214.24908,
+    "three-year-fgr-satisfied": true,
+    "three-year-profit-months": 29.590586,
+    "total-circuit-proof-size": 192,
+    "total-zigzag-constraints": 5903706720,
+    "alpha-hash-function.name%": "pedersen",
+    "bench-circuit-constraints": 10324,
+    "income-to-fgr-at-capacity": 14205.891,
+    "merkle-hash-function-name": "pedersen",
+    "merkle-hash-function.size": 32,
+    "merkle-hash-function.time": 2.6156e-05,
+    "replication-time-per-byte": 1.9953501e-07,
+    "single-circuit-proof-size": 192,
+    "single-node-encoding-time": 6.38512e-07,
+    "bench-circuit-proving-time": 0.14464,
+    "commodity-storage-discount": 10,
+    "filecoin-fgr-requirement-1": true,
+    "merkle-hash-function.name%": "pedersen",
+    "total-untapered-challenges": 32000,
+    "maximum-allowable-space-gap": 0.02,
+    "single-challenge-kdf-hashes": 14,
+    "single-sloth-iteration-time": 123,
+    "storage-to-proof-size-float": 119304650,
+    "storage-to-proof-size-ratio": 119304650,
+    "layer-performance.node-bytes": 32,
+    "wall-clock-seal-time-per-gib": 1866.4912,
+    "kdf-hash-function.constraints": 5162,
+    "layer-performance.layer-index": 10,
+    "layer-performance.sector-size": 34359738368,
+    "wall-clock-seal-time-per-byte": 1.7383054e-06,
+    "zigzag-basic-layer-challenges": 2666.6667,
+    "beta-hash-function.constraints": 10324,
+    "kdf-hash-function.circuit-time": 0.65253,
+    "layer-performance.circuit-time": 1593614.1,
+    "total-zigzag-other-constraints": 0,
+    "total-zigzag-sloth-constraints": 857712,
+    "alpha-hash-function.constraints": 1324,
+    "alpha-merkle-hash-function-name": "pedersen",
+    "beta-hash-function.circuit-time": 1.30506,
+    "filecoin-requirements-satisfied": true,
+    "total-zigzag-circuit-kdf-hashes": 37408,
+    "alpha-hash-function.circuit-time": 0.153988,
+    "filecoin-storage-ratio-satisfied": true,
+    "kdf-hash-function.hash-function%": {
+      "circuit-time": 0.65253,
+      "hash-function-name": "blake2s-kdf",
+      "hash-function-size": 32,
+      "hash-function-time": 4.5608e-08,
+      "hash-function-constraints": 5162
     },
-    "merkleHashFunction.constraints": 1324,
-    "betaHashFunction.hashFunction%": {
-      "circuitTime": 1.30506,
-      "hashFunctionName": "blake2s",
-      "hashFunctionSize": 32,
-      "hashFunctionTime": 9.1216e-08,
-      "hashFunctionConstraints": 10324
+    "merkle-hash-function.constraints": 1324,
+    "beta-hash-function.hash-function%": {
+      "circuit-time": 1.30506,
+      "hash-function-name": "blake2s",
+      "hash-function-size": 32,
+      "hash-function-time": 9.1216e-08,
+      "hash-function-constraints": 10324
     },
-    "kdfHashFunction.hashFunctions%": {
+    "kdf-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuitTime": 0.153988,
-          "hashFunctionName": "pedersen",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 2.6156e-05,
-          "hashFunctionConstraints": 1324
+          "circuit-time": 0.153988,
+          "hash-function-name": "pedersen",
+          "hash-function-size": 32,
+          "hash-function-time": 2.6156e-05,
+          "hash-function-constraints": 1324
         },
         {
-          "circuitTime": 0.65253,
-          "hashFunctionName": "blake2sKdf",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 4.5608e-08,
-          "hashFunctionConstraints": 5162
+          "circuit-time": 0.65253,
+          "hash-function-name": "blake2s-kdf",
+          "hash-function-size": 32,
+          "hash-function-time": 4.5608e-08,
+          "hash-function-constraints": 5162
         },
         {
-          "circuitTime": 1.30506,
-          "hashFunctionName": "blake2s",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 9.1216e-08,
-          "hashFunctionConstraints": 10324
+          "circuit-time": 1.30506,
+          "hash-function-name": "blake2s",
+          "hash-function-size": 32,
+          "hash-function-time": 9.1216e-08,
+          "hash-function-constraints": 10324
         }
       ]
     },
-    "merkleHashFunction.circuitTime": 0.153988,
-    "singleChallengeInclusionProofs": 15,
-    "alphaHashFunction.hashFunction%": {
-      "circuitTime": 0.153988,
-      "hashFunctionName": "pedersen",
-      "hashFunctionSize": 32,
-      "hashFunctionTime": 2.6156e-05,
-      "hashFunctionConstraints": 1324
+    "merkle-hash-function.circuit-time": 0.153988,
+    "single-challenge-inclusion-proofs": 15,
+    "alpha-hash-function.hash-function%": {
+      "circuit-time": 0.153988,
+      "hash-function-name": "pedersen",
+      "hash-function-size": 32,
+      "hash-function-time": 2.6156e-05,
+      "hash-function-constraints": 1324
     },
-    "betaHashFunction.hashFunctions%": {
+    "beta-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuitTime": 0.153988,
-          "hashFunctionName": "pedersen",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 2.6156e-05,
-          "hashFunctionConstraints": 1324
+          "circuit-time": 0.153988,
+          "hash-function-name": "pedersen",
+          "hash-function-size": 32,
+          "hash-function-time": 2.6156e-05,
+          "hash-function-constraints": 1324
         },
         {
-          "circuitTime": 0.65253,
-          "hashFunctionName": "blake2sKdf",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 4.5608e-08,
-          "hashFunctionConstraints": 5162
+          "circuit-time": 0.65253,
+          "hash-function-name": "blake2s-kdf",
+          "hash-function-size": 32,
+          "hash-function-time": 4.5608e-08,
+          "hash-function-constraints": 5162
         },
         {
-          "circuitTime": 1.30506,
-          "hashFunctionName": "blake2s",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 9.1216e-08,
-          "hashFunctionConstraints": 10324
+          "circuit-time": 1.30506,
+          "hash-function-name": "blake2s",
+          "hash-function-size": 32,
+          "hash-function-time": 9.1216e-08,
+          "hash-function-constraints": 10324
         }
       ]
     },
-    "layerPerformance.layerChallenges": 2672,
-    "singleSlothIterationConstraints": 321,
-    "alphaHashFunction.hashFunctions%": {
+    "layer-performance.layer-challenges": 2672,
+    "single-sloth-iteration-constraints": 321,
+    "alpha-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuitTime": 0.153988,
-          "hashFunctionName": "pedersen",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 2.6156e-05,
-          "hashFunctionConstraints": 1324
+          "circuit-time": 0.153988,
+          "hash-function-name": "pedersen",
+          "hash-function-size": 32,
+          "hash-function-time": 2.6156e-05,
+          "hash-function-constraints": 1324
         },
         {
-          "circuitTime": 0.65253,
-          "hashFunctionName": "blake2sKdf",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 4.5608e-08,
-          "hashFunctionConstraints": 5162
+          "circuit-time": 0.65253,
+          "hash-function-name": "blake2s-kdf",
+          "hash-function-size": 32,
+          "hash-function-time": 4.5608e-08,
+          "hash-function-constraints": 5162
         },
         {
-          "circuitTime": 1.30506,
-          "hashFunctionName": "blake2s",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 9.1216e-08,
-          "hashFunctionConstraints": 10324
+          "circuit-time": 1.30506,
+          "hash-function-name": "blake2s",
+          "hash-function-size": 32,
+          "hash-function-time": 9.1216e-08,
+          "hash-function-constraints": 10324
         }
       ]
     },
-    "circuitProvingTimePerConstraint": 1.4010074e-05,
-    "layerPerformance.betaHashingTime": 97.94244,
-    "merkleHashFunction.hashFunction%": {
-      "circuitTime": 0.153988,
-      "hashFunctionName": "pedersen",
-      "hashFunctionSize": 32,
-      "hashFunctionTime": 2.6156e-05,
-      "hashFunctionConstraints": 1324
+    "circuit-proving-time-per-constraint": 1.4010074e-05,
+    "layer-performance.beta-hashing-time": 97.94244,
+    "merkle-hash-function.hash-function%": {
+      "circuit-time": 0.153988,
+      "hash-function-name": "pedersen",
+      "hash-function-size": 32,
+      "hash-function-time": 2.6156e-05,
+      "hash-function-constraints": 1324
     },
-    "minimumStorageToProofSizeRatio": 42949670,
-    "zigzagBasicLayerChallengeFactor": 333.33334,
-    "layerPerformance.alphaHashingTime": 0,
-    "layerPerformance.merkleTree.height": 30,
-    "layerPerformance.merkleTree.leaves": 1073741824,
-    "merkleHashFunction.hashFunctions%": {
+    "minimum-storage-to-proof-size-ratio": 42949670,
+    "zigzag-basic-layer-challenge-factor": 333.33334,
+    "layer-performance.alpha-hashing-time": 0,
+    "layer-performance.merkle-tree.height": 30,
+    "layer-performance.merkle-tree.leaves": 1073741824,
+    "merkle-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuitTime": 0.153988,
-          "hashFunctionName": "pedersen",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 2.6156e-05,
-          "hashFunctionConstraints": 1324
+          "circuit-time": 0.153988,
+          "hash-function-name": "pedersen",
+          "hash-function-size": 32,
+          "hash-function-time": 2.6156e-05,
+          "hash-function-constraints": 1324
         },
         {
-          "circuitTime": 0.65253,
-          "hashFunctionName": "blake2sKdf",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 4.5608e-08,
-          "hashFunctionConstraints": 5162
+          "circuit-time": 0.65253,
+          "hash-function-name": "blake2s-kdf",
+          "hash-function-size": 32,
+          "hash-function-time": 4.5608e-08,
+          "hash-function-constraints": 5162
         },
         {
-          "circuitTime": 1.30506,
-          "hashFunctionName": "blake2s",
-          "hashFunctionSize": 32,
-          "hashFunctionTime": 9.1216e-08,
-          "hashFunctionConstraints": 10324
+          "circuit-time": 1.30506,
+          "hash-function-name": "blake2s",
+          "hash-function-size": 32,
+          "hash-function-time": 9.1216e-08,
+          "hash-function-constraints": 10324
         }
       ]
     },
-    "singleChallengeSlothVerifications": 0,
-    "totalZigzagKdfHashingConstraints": 193100096,
-    "totalZigzagNonHashingConstraints": 857712,
-    "averageMonthlyIncomeDuringRampUp": 2083.3333,
-    "filecoinPorepRequirementsSatisfied": true,
-    "layerPerformance.challengeConstraints": 4718068,
-    "layerPerformance.challengeCircuitTime": 596.4125,
-    "layerPerformance.layerChallengeProofs": 15,
-    "layerPerformance.maxBetaMerkleHeight": 30,
-    "layerPerformance.merkleTree.heightRaw": 30,
-    "layerPerformance.merkleTree.nodeBytes": 32,
-    "layerPerformance.betaHashFunction.time": 9.1216e-08,
-    "layerPerformance.merkleTree.betaHeight": 30,
-    "layerPerformance.merkleTree.sectorSize": 34359738368,
-    "layerPerformance.alphaHashFunction.time": 2.6156e-05,
-    "layerPerformance.merkleTree.alphaHeight": 0,
-    "layerPerformance.merkleTree.alphaLeaves": 1,
-    "layerPerformance.challengeKdfConstraints": 72268,
-    "layerPerformance.challengeKdfCircuitTime": 9.13542,
-    "layerPerformance.inclusionProofConstraints": 309720,
-    "layerPerformance.merkleTree.betaHashCount": 1073741823,
-    "layerPerformance.singleChallengeKdfHashes": 14,
-    "filecoinPorepSecurityRequirementsSatisfied": true,
-    "layerPerformance.inclusionProofCircuitTime": 39.151802,
-    "layerPerformance.merkleTree.alphaHashCount": 0,
-    "layerPerformance.merkleTree.totalHashCount": 1073741823,
-    "layerPerformance.kdfHashFunction.constraints": 5162,
-    "layerPerformance.betaHashFunction.constraints": 10324,
-    "layerPerformance.kdfHashFunction.circuitTime": 0.65253,
-    "layerPerformance.alphaHashFunction.constraints": 1324,
-    "layerPerformance.betaHashFunction.circuitTime": 1.30506,
-    "layerPerformance.challengeInclusionConstraints": 4645800,
-    "layerPerformance.alphaHashFunction.circuitTime": 0.153988,
-    "layerPerformance.betaInclusionProofConstraints": 309720,
-    "layerPerformance.challengeInclusionCircuitTime": 587.27704,
-    "layerPerformance.alphaInclusionProofConstraints": 0,
-    "layerPerformance.betaInclusionProofCircuitTime": 39.151802,
-    "layerPerformance.singleChallengeInclusionProofs": 15,
-    "layerPerformance.alphaInclusionProofCircuitTime": 0,
-    "layerPerformance.circuitProvingTimePerConstraint": 1.4010074e-05,
-    "layerPerformance.merkleTree.betaInclusionProofHashLength": 30,
-    "layerPerformance.merkleTree.alphaInclusionProofHashLength": 0,
-    "layerPerformance.merkleTree.totalInclusionProofHashLength": 30
+    "single-challenge-sloth-verifications": 0,
+    "total-zigzag-kdf-hashing-constraints": 193100096,
+    "total-zigzag-non-hashing-constraints": 857712,
+    "average-monthly-income-during-ramp-up": 2083.3333,
+    "filecoin-porep-requirements-satisfied": true,
+    "layer-performance.challenge-constraints": 4718068,
+    "layer-performance.challenge-circuit-time": 596.4125,
+    "layer-performance.layer-challenge-proofs": 15,
+    "layer-performance.max-beta-merkle-height": 30,
+    "layer-performance.merkle-tree.height-raw": 30,
+    "layer-performance.merkle-tree.node-bytes": 32,
+    "layer-performance.beta-hash-function.time": 9.1216e-08,
+    "layer-performance.merkle-tree.beta-height": 30,
+    "layer-performance.merkle-tree.sector-size": 34359738368,
+    "layer-performance.alpha-hash-function.time": 2.6156e-05,
+    "layer-performance.merkle-tree.alpha-height": 0,
+    "layer-performance.merkle-tree.alpha-leaves": 1,
+    "layer-performance.challenge-kdf-constraints": 72268,
+    "layer-performance.challenge-kdf-circuit-time": 9.13542,
+    "layer-performance.inclusion-proof-constraints": 309720,
+    "layer-performance.merkle-tree.beta-hash-count": 1073741823,
+    "layer-performance.single-challenge-kdf-hashes": 14,
+    "filecoin-porep-security-requirements-satisfied": true,
+    "layer-performance.inclusion-proof-circuit-time": 39.151802,
+    "layer-performance.merkle-tree.alpha-hash-count": 0,
+    "layer-performance.merkle-tree.total-hash-count": 1073741823,
+    "layer-performance.kdf-hash-function.constraints": 5162,
+    "layer-performance.beta-hash-function.constraints": 10324,
+    "layer-performance.kdf-hash-function.circuit-time": 0.65253,
+    "layer-performance.alpha-hash-function.constraints": 1324,
+    "layer-performance.beta-hash-function.circuit-time": 1.30506,
+    "layer-performance.challenge-inclusion-constraints": 4645800,
+    "layer-performance.alpha-hash-function.circuit-time": 0.153988,
+    "layer-performance.beta-inclusion-proof-constraints": 309720,
+    "layer-performance.challenge-inclusion-circuit-time": 587.27704,
+    "layer-performance.alpha-inclusion-proof-constraints": 0,
+    "layer-performance.beta-inclusion-proof-circuit-time": 39.151802,
+    "layer-performance.single-challenge-inclusion-proofs": 15,
+    "layer-performance.alpha-inclusion-proof-circuit-time": 0,
+    "layer-performance.circuit-proving-time-per-constraint": 1.4010074e-05,
+    "layer-performance.merkle-tree.beta-inclusion-proof-hash-length": 30,
+    "layer-performance.merkle-tree.alpha-inclusion-proof-hash-length": 0,
+    "layer-performance.merkle-tree.total-inclusion-proof-hash-length": 30
   }
 }

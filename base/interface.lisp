@@ -1,5 +1,5 @@
 (defpackage orient.interface
-  (:use :common-lisp :orient :cl-json :it.bese.FiveAm)
+  (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
   (:export :*schema-package* :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
@@ -20,10 +20,10 @@
 (defun effective-schema-package-name ()
   (package-name (effective-schema-package)))
 
-(defun schema-intern (name &key (upcase nil))
+(defun schema-intern (name &key (upcase t))
   (let ((name (if upcase (string-upcase name) name)))
     (when (> (length name) 0)
-      (intern (simplified-camel-case-to-lisp name) (effective-schema-package-name)))))
+      (intern name (effective-schema-package-name)))))
 
 (defgeneric load-json (type-spec json-pathspec)
   (:method ((type-spec t) (stream stream))
@@ -52,7 +52,7 @@
   (:method ((type-spec (eql :data)) (json t))
     (typecase json
       (atom json)
-      (tuple (<-json :tuple json))
+      (tuple (<-json :tuple (intern-schema-symbols json)))
       ;; TODO: relations
     ))
   (:method ((type-spec (eql :tuple)) (json list))
@@ -84,6 +84,9 @@
 		   :subsystems (extract-from-json-list :subsystems :system-spec json)
 		   :schema (extract-from-json :schema :schema json)
 		   :data (extract-from-json-list :data :data json))))
+
+(defun intern-schema-symbols (list)
+  (transform-tree-if #'keywordp (lambda (x) (schema-intern (symbol-name x))) list))
 
 (defun extract-from-json (key type-spec json)
   (<-json type-spec (cdr (assoc key json))))
@@ -140,17 +143,17 @@
 			(encode-json impl stream)))
       (symbol (as-object-member (:implementation stream)
 		(encode-json-plist `(:module
-				     ,(lisp-to-camel-case (package-name (symbol-package impl)))
+				     ,(package-name (symbol-package impl))
 				     :name
-				     ,(lisp-to-camel-case (symbol-name impl)))
+				     ,(symbol-name impl))
 				   stream)))
       (t (awhen (transformation-name transformation)
 	   (as-object-member (:implementation stream)
 	     (with-object (stream)
 	       (as-object-member (:module stream)
-		 (encode-json (lisp-to-camel-case (package-name (symbol-package it))) stream))
+		 (encode-json (package-name (symbol-package it)) stream))
 	       (as-object-member (:name stream)
-		 (encode-json (lisp-to-camel-case (symbol-name it)) stream)))))))))
+		 (encode-json (symbol-name it) stream)))))))))
 
 (defvar *encode-constraint-component-formulas* t)
 (defvar *encode-constraint-component-structure* nil)
@@ -236,7 +239,8 @@
 
 (defun dump-json (spec thing stream &key expand-references)
   (declare (ignore spec))
-  (let ((to-use (if expand-references
+  (let ((json:*lisp-identifier-name-to-json* #'string-downcase)
+	(to-use (if expand-references
 		    (expand-references thing)
 		    thing)))
     (encode-json to-use stream)
@@ -246,9 +250,12 @@
   "Test that thing can be converted to JSON and back, preserving sameness. If PARSING-ONLY is true, only verify that encoding/decoding completes without error. This at least ensure the JSON is well-formed."
   (let ((returned (finishes
 		    (let* ((*schema-package* *package*)
+			   (json:*lisp-identifier-name-to-json* #'string-downcase)
 			   (json-string (encode-json-to-string thing))
 			   (json (decode-json-from-string json-string)))
-			   (<-json type-spec json)))))
+		          (setq *dval* json-string)
+
+		      (<-json type-spec json)))))
     (when (not parsing-only)
       (is (same thing returned)))))
 
@@ -290,7 +297,7 @@
 									 (transformation ((x y) ~> (z)) == yyy)))
 							     (component ((transformation ((a b) ~> (c d e)) == xxx)
 									 (transformation ((x y z) ~> (q)) == yyy))))
-					   :subsystems (list 'system-a 'system-b)
+					   :subsystems  (list 'system-a 'system-b)
 					   :schema (schema "Test Schema"
 							   (a-param "A parameter.")
 							   (another "Something else you should know."))
