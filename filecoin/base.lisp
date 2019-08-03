@@ -1,5 +1,5 @@
 (defpackage filecoin
-  (:use :common-lisp :orient :it.bese.FiveAm)
+  (:use :common-lisp :orient :orient.base.util :it.bese.FiveAm)
   (:import-from :fset :with)
   (:nicknames :fc)
   (:export
@@ -7,7 +7,8 @@
    :GiB-seal-cycles :sector-GiB
    :replication-time :replication-time-per-GiB
    :fgr-months
-   :seal-cost :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income :annual-income
+   :gib-seal-cost :gib-hour-seal-investment :seal-time :GiB-seal-time :sector-size :up-front-compute-cost :total-up-front-cost :monthly-income
+   :annual-income :seal-cost
    :layers :layer-index :lowest-time :circuit-time :hashing-time
    :optimal-beta-merkle-height
    

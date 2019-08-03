@@ -32,11 +32,17 @@
 
 (defun commit-base-uri (&optional (base-uri *project-base-uri*))
   (format nil "~A/commit" base-uri))
+  
+(defun project-root ()
+  (let* ((root-file (asdf:system-source-file (asdf:find-system :orient)))
+	 (project-dir (pathname-directory root-file)))
+    (make-pathname :directory project-dir)))
+
+(defun project-merge (pathspec)
+  (merge-pathnames (pathname pathspec) (project-root)))
 
 (defun project-commit (&optional (commit-base-uri (commit-base-uri)))
-  (let* ((root-file (asdf:system-source-file (asdf:find-system :orient)))
-	 (project-dir (pathname-directory root-file))
-	 (project-path (make-pathname :directory project-dir))
+  (let* ((project-path (project-root))
 	 (commit (uiop:run-program (format nil "cd ~a; git rev-parse HEAD" project-path) :output :string))
 	 (uri (format nil "~A/~A" commit-base-uri commit)))
     (values commit uri)))

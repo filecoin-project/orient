@@ -1,7 +1,7 @@
 (defpackage :orient.base.util
   (:use :common-lisp)
   (:nicknames :util)
-  (:export :comma-list :string-split :project-commit :project-sha1))
+  (:export :comma-list :string-split :project-commit :project-merge :project-sha1 :project-root))
 
 (defpackage :orient
   (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util)
@@ -23,7 +23,7 @@
 			  #:some #:every #:notany #:notevery)
   (:export
 
-   :all-system-schemas
+   :all-system-schemas :assignments
    :dbg :display :aif :apply-transformation :ask :attributes :awhen
    :dbreak :*dval*
    :cardinality
@@ -37,13 +37,14 @@
    :find-component :find-constraint :find-schema :find-system :find-transformation :format-value
    :forget :generate-directed-graph :it
    :implementation :implementation-module :implementation-name
+   :link
    :tref :join :lookup-description :make-relation
    :make-signature :make-tuple :operation
    :orient-tests :optimal-heights
    :org-present
    :parameter :parameter-name :parameter-description :parameter-type
-   :present-data :project
    :plan :plan-for :pipeline-signature :private-attr-p :project-commit-link
+   :present-data :project :publish
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system
@@ -51,5 +52,5 @@
    :tpl :transformation :transformation*
    :transformation-implementation :transformation-name :transformation-signature :tref :trem :try-with
    :use-construction :use-attribute
-   :where :with-construction :write-dot-format
+   :where :with-attributes :with-construction :write-dot-format
    :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group &group-by &into :!>))

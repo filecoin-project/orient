@@ -537,3 +537,6 @@
 (defmacro rename ((&rest pairs) attributed)
   `(rename-attributes ',pairs ,attributed))
 
+(defmacro with-attributes ((&rest attributes) tuple &body body)
+  `(symbol-macrolet (,@(mapcar (lambda (attr) `(,attr (tref ',attr ,tuple))) attributes))
+     ,@body))

@@ -44,24 +44,11 @@
 		 :schema 'filecoin-requirements-schema
 		 :data (list *filecoin-requirements*)))
 
-(test zigzag-system
-  "Test ZigZag constraint system."
-  (let* ((result (ask (zigzag-system) '(seal-time))))
-    (is (same (relation (seal-time) (843044.06))
-	      result))))
-
 (defun filecoin-system (&key no-zigzag)
   (let* ((subsystems (if no-zigzag
 			 (list (performance-system) (filecoin-requirements-system))
 		         (list (performance-system) (zigzag-system) (filecoin-requirements-system)))))
     (make-instance 'system :subsystems subsystems)))
-
-(test filecoin-defaults
-  "Test and assert results of solving with defaults."
-  (let* ((result (ask (filecoin-system) '(seal-cost seal-time)))
-	 (expected
-	  (relation (seal-cost seal-time) (365.90454 843044.06))))
-    (is (same expected result))))
 
 ;; FIXME: Get JSON working again.
 #+(or)

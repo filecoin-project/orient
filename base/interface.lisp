@@ -104,7 +104,7 @@
   (load-json :tuple json-source))
 
 (defmethod encode-json ((tuple wb-map) &optional stream)
- (encode-json-alist (convert 'list tuple) stream))
+  (encode-json-alist (convert 'list tuple) stream))
 
 (defmethod encode-json ((set set) &optional stream)
   (encode-json (convert 'list set) stream))
