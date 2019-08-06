@@ -1,6 +1,8 @@
 # Orient(able)
 (↻Observe-Orient-Decide-Act↩)
 
+[![CircleCI](https://circleci.com/gh/filecoin-project/orient/tree/master.svg?style=svg)](https://circleci.com/gh/filecoin-project/orient/tree/master)
+
 This is a proof-of-concept reference implementation intended as a lightweight way to explore and clarify the [Orientable specification](https://docs.google.com/document/d/1zjWHegvZwTgvU4fOAjUbIwMwQyfPzHoXJVTX8iR--2E/edit#heading=h.2jf8rxk263pw).
 
 ## Installation
