@@ -1,1 +1,1 @@
-docker run ubercalc $@
+docker run ubercalc dcalc $@

@@ -35,6 +35,7 @@
     (null (with-output-to-string (out) (json:encode-json (publish-filecoin) out)))
     (t (json:encode-json (publish-filecoin) where))))
 
+#+(or)
 (eval-when (:load-toplevel :execute)
   (publish-filecoin-json))
 
