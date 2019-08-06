@@ -3,11 +3,13 @@ jobs:
   build:
     machine:
       enabled: true
+      working_directory: ~/orient
     steps:
       - run: make ubercalc
   test:
     machine:
       enabled: true
+      working_directory: ~/orient
     steps:
       - run: make dtest
 workflows:
