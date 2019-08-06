@@ -3,10 +3,12 @@ jobs:
   build:
     machine: true
     steps:
+      - checkout
       - run: make docker
   test:
     machine: true
     steps:
+      - checkout
       - run: make dtest
 workflows:
   version: 2
