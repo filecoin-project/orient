@@ -6,3 +6,6 @@ docker:
 
 ubercalc:
 	cl -Q -sp orient --dump bin/ubercalc
+
+dtest: ubercalc
+	./bin/ucalc test

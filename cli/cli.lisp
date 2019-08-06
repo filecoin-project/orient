@@ -41,44 +41,44 @@
 			(lambda (free-val) (declare (ignore free-val))))
     (destructuring-bind (&optional arg0 free-command &rest subcommands) commands
       (declare (ignore arg0 subcommands))
+      (let ((command (keywordize (if command
+				     (progn (assert (not free-command))
+					    command)
+				     free-command))))
+	(when (eql command :test)
+	  (asdf:test-system :orient)
+	  (return-from main t))
+	(let* ((*schema-package* (find-package :filecoin))
+	       (calc-spec (maybe-keywordize calc))
+	       (json:*json-symbols-package* 'filecoin) ;; FIXME: remove need to expose use of JSON package here.
+	       (input (cond
+			((equal in "--") (load-tuple *standard-input*))
+			(in (load-tuple in))))
 
-      (let* ((*schema-package* (find-package :filecoin))
-	     (command (if command
-			  (progn (assert (not free-command))
-				 command)
-			  free-command))
-	     (calc-spec (maybe-keywordize calc))
-	     (json:*json-symbols-package* 'filecoin) ;; FIXME: remove need to expose use of JSON package here.
-	     (input (cond
-		      ((equal in "--") (load-tuple *standard-input*))
-		      (in (load-tuple in))))
-
-	     (system (choose-system calc-spec)))
-	(with-output (out)
-	  (case (keywordize command)
-	    ((:web)
-	     (let ((acceptor (if port
-				 (web:start-web :port port)
-				 (web:start-web))))
-	       (when acceptor
-		 (format *error-output* "Orient webserver started on port ~S" (hunchentoot:acceptor-port acceptor)))
-	       (let ((*package* (find-package :orient.web)))
-		 (sb-impl::toplevel-repl nil))))
-	    ((:solve)
-	     (cond	       
-	       (system
-		(let ((override-data (and merge input))
-		      (input (and (not merge) input)))
-		  (handle-calc :system system :input input :override-data override-data)))
-	       (t (format *error-output* "No system specified.~%"))))
-	    ((:dump)
-	     (dump-json :system system *out* :expand-references t))
-	    ((:test)
-	     (asdf:test-system :orient))
-	    (otherwise
-	     ;; TODO: Generate this list and share with options doc.
-	     (format t "Usage: ~A command~%  command is one of {dump, solve, test, web}~%" (car argv))))
-	  (terpri))))))
+	       (system (choose-system calc-spec)))
+	  (with-output (out)
+	    (case command
+	      ((:web)
+	       (let ((acceptor (if port
+				   (web:start-web :port port)
+				   (web:start-web))))
+		 (when acceptor
+		   (format *error-output* "Orient webserver started on port ~S" (hunchentoot:acceptor-port acceptor)))
+		 (let ((*package* (find-package :orient.web)))
+		   (sb-impl::toplevel-repl nil))))
+	      ((:solve)
+	       (cond	       
+		 (system
+		  (let ((override-data (and merge input))
+			(input (and (not merge) input)))
+		    (handle-calc :system system :input input :override-data override-data)))
+		 (t (format *error-output* "No system specified.~%"))))
+	      ((:dump)
+	       (dump-json :system system *out* :expand-references t))
+	      (otherwise
+	       ;; TODO: Generate this list and share with options doc.
+	       (format t "Usage: ~A command~%  command is one of {dump, solve, test, web}~%" (car argv))))
+	    (terpri)))))))
 
 (defun choose-system (spec)
   (case spec
