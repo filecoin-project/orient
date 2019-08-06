@@ -10,6 +10,6 @@ ubercalc:
 utest: ubercalc
 	./bin/ucalc test
 
-dtest: ubercalc
+dtest: docker
 	./bin/dcalc test
 

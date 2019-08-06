@@ -4,7 +4,6 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run: sudo apt-get install -y cl-launch
       - run: make dtest
 workflows:
   version: 2
