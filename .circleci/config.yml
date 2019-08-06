@@ -1,15 +1,11 @@
 version: 2
 jobs:
   build:
-    machine:
-      enabled: true
-      working_directory: ~/orient
+    machine: true
     steps:
-      - run: make ubercalc
+      - run: make docker
   test:
-    machine:
-      enabled: true
-      working_directory: ~/orient
+    machine: true
     steps:
       - run: make dtest
 workflows:
