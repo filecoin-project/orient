@@ -1,9 +1,19 @@
 version: 2
 jobs:
+  build:
+    machine:
+      enabled: true
+    steps:
+      - run: make ubercalc
   test:
-    -run: make dtest
+    machine:
+      enabled: true
+    steps:
+      - run: make dtest
 workflows:
   version: 2
-  test:
+  build_and_test:
     jobs:
+      - build
       - test
+
