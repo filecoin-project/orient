@@ -1,0 +1,9 @@
+version: 2
+jobs:
+  test:
+    -run: make dtest
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
