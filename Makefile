@@ -7,5 +7,9 @@ docker:
 ubercalc:
 	cl -Q -sp orient --dump bin/ubercalc
 
-dtest: ubercalc
+utest: ubercalc
 	./bin/ucalc test
+
+dtest: ubercalc
+	./bin/dcalc test
+
