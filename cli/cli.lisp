@@ -29,7 +29,7 @@
 		   (calc (calc  "{filecoin, performance, zigzag, fc-no-zigzag}"  "Calculator to use"))
 		   (port (port "port-number" "port to listen on"))
 		   (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-		   (command (command "{dump, solve, web}" "<COMMAND>: may be provided as free token (without flag)."))
+		   (command (command "{dump, solve, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
 					    "out" "o"
@@ -73,8 +73,12 @@
 	       (t (format *error-output* "No system specified.~%"))))
 	    ((:dump)
 	     (dump-json :system system *out* :expand-references t))
+	    ((:test)
+	     (asdf:test-system :orient))
 	    (otherwise
-	     (format t "Usage: ~A command~%  command is one of {web, solve}~%" (car argv)))))))))
+	     ;; TODO: Generate this list and share with options doc.
+	     (format t "Usage: ~A command~%  command is one of {dump, solve, test, web}~%" (car argv))))
+	  (terpri))))))
 
 (defun choose-system (spec)
   (case spec
