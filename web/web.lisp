@@ -121,11 +121,11 @@
       `(:html-escape ,(format nil "~S" value))
       `(:html-escape ,(or value "FALSE"))))
 
-;; (defmethod present-data ((format (eql :html)) (null null) (system system) &key)
-;;   "NULL")
+(defmethod present-data ((format (eql :html)) (null null) (system system) &key)
+   "NULL")
 
-;; (defmethod present-data ((format (eql :html)) (thing t) (null null) &key)
-;;   (format-value format thing))
+(defmethod present-data ((format (eql :html)) (thing t) (null null) &key)
+  (format-value format thing))
 
 (defmethod present-data ((format (eql :html)) (tuple wb-map) (system system) &key alt-bgcolor use-alt)
   (cons
@@ -237,7 +237,8 @@
 (defun serve-graph (plan tmp-name &key (layout "dot") (format "svg") base-url)
   ;; FIXME: There must be a better way.
   ;; Or maybe this is good, and we should cache (based on content).
-  (let ((image-file (make-pathname :directory "tmp" :name tmp-name :type format)))
+  (let ((image-file (ensure-directories-exist (merge-pathnames (make-pathname :name tmp-name :type format)
+							       (uiop:default-temporary-directory)))))
     (orient::dot
      (orient::dot-format
       (generate-directed-graph plan) :base-url base-url)
@@ -248,7 +249,7 @@
  
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
 						:title "Filecoin Economic Performance Requirements"
-						:vars (seal-cost fgr-months total-up-front-cost up-front-compute-cost
+						:vars (gib-seal-cost gib-hour-seal-investment fgr-months total-up-front-cost up-front-compute-cost
 								 one-year-fgr two-year-fgr three-year-fgr)
 						:override-parameters (GiB-seal-cycles)
 						:system (performance-system :isolated t))
@@ -299,10 +300,11 @@
 
 (define-calculation-pages (filecoin :uri "/filecoin"
 				    :title "Filecoin Writ Large"
-				    :vars (seal-cost seal-time fgr-months total-up-front-cost fc::filecoin-requirements-satisfied
-						     one-year-fgr two-year-fgr three-year-fgr
+				    :vars (gib-seal-cost gib-hour-seal-investment seal-time fgr-months total-up-front-cost
+							 fc::filecoin-requirements-satisfied
+							 one-year-fgr two-year-fgr three-year-fgr
 					;storage-to-proof-size-float
-						     )
+							 )
 				    :override-parameters (annual-income layers total-challenges sector-size)
 				    :system (filecoin-system))
     ((annual-income :parameter-type 'integer)
