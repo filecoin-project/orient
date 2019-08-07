@@ -699,6 +699,7 @@
     (write-dot-format directed-graph out :base-url base-url)))
 
 (defun dot (dot-format &key format output-file (layout "dot"))
+  (uiop:run-program (format nil "touch ~A" output-file))
   (with-input-from-string (in dot-format)
     (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
