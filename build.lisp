@@ -1,0 +1,5 @@
+(log-title "Building Orient…")
+(push *build-dir* asdf:*central-registry*)
+(ql:quickload :orient)
+(log-footer "Dumping image.")
+(sb-ext:save-lisp-and-die (merge-pathnames "ubercalc" *build-dir*) :toplevel #'cli:main :executable t)
