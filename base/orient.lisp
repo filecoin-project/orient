@@ -675,11 +675,12 @@
     (make-relation tuples)))
 
 (defun generate-directed-graph (plan)
-  (loop for transformation in plan
-     for signature = (transformation-signature transformation)
-     append (loop for dependency in (convert 'list (signature-input signature))
-	       append (loop for target in (convert 'list (signature-output signature))
-			 collect (list dependency target)))))
+  (remove-duplicates (loop for transformation in plan
+			for signature = (transformation-signature transformation)
+			append (loop for dependency in (convert 'list (signature-input signature))
+				  append (loop for target in (convert 'list (signature-output signature))
+					    collect (list dependency target))))
+		     :test #'equal))
 
 (defun write-dot-format (directed-graph stream &key base-url)
   (flet ((make-label (symbol &key url target)
@@ -699,7 +700,7 @@
     (write-dot-format directed-graph out :base-url base-url)))
 
 (defun dot (dot-format &key format output-file (layout "dot"))
-  (uiop:run-program (format nil "touch ~A" output-file))
+  (uiop:run-program (format nil "echo ' ' > ~A" output-file))
   (with-input-from-string (in dot-format)
     (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
