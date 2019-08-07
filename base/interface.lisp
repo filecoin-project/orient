@@ -3,7 +3,7 @@
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
   (:export :*schema-package* :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
-	   :test-roundtrip)
+	   :test-roundtrip :with-json-encoding)
   (:nicknames :interface))
 
 (in-package "INTERFACE")
@@ -246,24 +246,28 @@
     (encode-json to-use stream)
     (terpri)))
 
+(defmacro with-json-encoding ((&optional (schema-package *package*)) &body body)
+  `(let* ((*schema-package* ,schema-package)
+	  (json:*lisp-identifier-name-to-json* #'string-downcase))
+     ,@body))
+
 (defun test-roundtrip (type-spec thing &key parsing-only)
   "Test that thing can be converted to JSON and back, preserving sameness. If PARSING-ONLY is true, only verify that encoding/decoding completes without error. This at least ensure the JSON is well-formed."
   (let ((returned (finishes
-		    (let* ((*schema-package* *package*)
-			   (json:*lisp-identifier-name-to-json* #'string-downcase)
-			   (json-string (encode-json-to-string thing))
-			   (json (decode-json-from-string json-string)))
-		          (setq *dval* json-string)
+		    (with-json-encoding (*package*)
+		      (let* ((json-string (encode-json-to-string thing))
+			     (json (decode-json-from-string json-string)))
+			(setq *dval* json-string)
 
-		      (<-json type-spec json)))))
-    (when (not parsing-only)
-      (is (same thing returned)))))
+			(<-json type-spec json))))))
+	(when (not parsing-only)
+	  (is (same thing returned)))))
 
 (defun test-encoding (thing expected-json)
   (let ((json (finishes
-		(let* ((*schema-package* *package*)
-		       (json-string (encode-json-to-string thing)))
-		  (decode-json-from-string json-string)))))
+		(with-json-encoding (*package*)
+		(let ((json-string (encode-json-to-string thing)))
+		  (decode-json-from-string json-string))))))
     (is (same expected-json json))))
 
 (test roundtrip-transformation
