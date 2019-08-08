@@ -699,9 +699,14 @@
   (with-output-to-string (out)
     (write-dot-format directed-graph out :base-url base-url)))
 
+(defvar *dot-path* "/usr/local/bin/dot")
+
 (defun dot (dot-format &key format output-file (layout "dot"))
-  (uiop:run-program (format nil "echo ' ' > ~A" output-file))
   (with-input-from-string (in dot-format)
+    ;; UIOP:RUN-PROGRAM seems to fail with error that file does not exist when we try this on Heroku. Not sure if a linux or Heroku thing or what.
+    #+sbcl
+    (sb-ext:run-program *dot-path* (list (format nil "-K~A" layout) "-T" format) :output output-file :input in :if-output-exists :supersede)
+    #-sbcl
     (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
