@@ -675,11 +675,12 @@
     (make-relation tuples)))
 
 (defun generate-directed-graph (plan)
-  (loop for transformation in plan
-     for signature = (transformation-signature transformation)
-     append (loop for dependency in (convert 'list (signature-input signature))
-	       append (loop for target in (convert 'list (signature-output signature))
-			 collect (list dependency target)))))
+  (remove-duplicates (loop for transformation in plan
+			for signature = (transformation-signature transformation)
+			append (loop for dependency in (convert 'list (signature-input signature))
+				  append (loop for target in (convert 'list (signature-output signature))
+					    collect (list dependency target))))
+		     :test #'equal))
 
 (defun write-dot-format (directed-graph stream &key base-url)
   (flet ((make-label (symbol &key url target)
@@ -700,6 +701,10 @@
 
 (defun dot (dot-format &key format output-file (layout "dot"))
   (with-input-from-string (in dot-format)
+    ;; UIOP:RUN-PROGRAM seems to fail with error that file does not exist when we try this on Heroku. Not sure if a linux or Heroku thing or what.
+    #+sbcl
+    (sb-ext:run-program "/bin/sh" (list "-c" (format nil "dot -K~A -T ~A" layout format)) :output output-file :input in :if-output-exists :supersede)
+    #-sbcl
     (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
