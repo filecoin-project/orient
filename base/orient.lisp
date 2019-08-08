@@ -190,8 +190,9 @@
   (:method ((list list))
     (mapcar #'representation list))
   (:method ((tuple wb-map))
-    `(tuple ,@(loop for attr in (convert 'list (attributes tuple))
-		 collect (list attr (representation (tref attr tuple))))))
+    `(tuple ,@(sort (loop for attr in (convert 'list (attributes tuple))
+		       collect (list attr (representation (tref attr tuple))))
+		    #'string< :key #'car)))
   (:method ((relation relation))
     (let ((attributes (convert 'list (fset:sort (attributes relation) #'fset:compare))))
     `(relation ,attributes

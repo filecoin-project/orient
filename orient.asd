@@ -23,8 +23,9 @@
 			((:file "base")
 			 (:file "performance")
 			 (:file "zigzag")
-			 (:file "post")
+			 (:file "zigzag-security")
 			 (:file "filecoin")
+			 (:file "systems")
 			 (:file "publish")
 			 ))
 	       (:module "web"

@@ -133,10 +133,4 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
      (three-year-fgr (/ three-year-profit total-up-front-cost)))
   :schema 'filecoin-price-performance)
 
-(defun performance-system (&key isolated)
-  (make-instance 'system
-		 :subsystems (list (find-system 'performance-constraint-system))
-		 :data (list *performance-defaults* (if isolated
-							*isolated-performance-defaults*
-							*integrated-performance-defaults*))))
 
