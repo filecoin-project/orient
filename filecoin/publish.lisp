@@ -36,9 +36,13 @@
     (null (with-output-to-string (out) (json:encode-json (publish-filecoin) out)))
     (t (json:encode-json (publish-filecoin) where))))
 
-#+(or)
-(eval-when (:load-toplevel :execute)
-  (publish-filecoin-json))
+;; TODO: This produces an error when testing in Docker on CircleCI.
+;; But we don't want to just swallow errors in general, because we need to know this has run successfully when run natively.
+;; The goal is to ensure tests are published at every commit, but a pre-commit hook would be heavy.
+(test force-publish
+  (when (not (member :docker *features*))
+    (eval-when (:load-toplevel :execute)
+      (publish-filecoin-json))))
 
 (test published-representation
   (is

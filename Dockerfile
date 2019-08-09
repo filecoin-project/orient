@@ -15,6 +15,6 @@ RUN ln -s /root/orient/orient.asd /root/quicklisp/local-projects/orient.asd
 # RUN cd /root/orient/bin && cl -Q -sp orient --dump /root/ubercalc
 # We should be able to use `cl --dump`, but for some reason it's not working in the container.
 
-RUN cl -Q -sp orient -x "(sb-ext:save-lisp-and-die \"/root/ubercalc\" :toplevel #'cli:main :executable t)"
+RUN cl -Q -sp orient -x "(progn (push :docker *features*) (sb-ext:save-lisp-and-die \"/root/ubercalc\" :toplevel #'cli:main :executable t))"
 
 ENTRYPOINT ["/root/ubercalc"]
