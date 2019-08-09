@@ -226,13 +226,11 @@
 	(SEAL-CYCLES-PER-SECOND 1.7404132e12) (SEAL-GHZ 5.0) (SEAL-HZ 5.0e9)
 	(SEAL-PARALLELISM 14) (SEAL-TIME 843044.06) (SECTOR-GIB 32)
 	(SECTOR-SIZE 34359738368) (SINGLE-CHALLENGE-INCLUSION-PROOFS 15)
-	(SINGLE-CHALLENGE-KDF-HASHES 14)
-	(SINGLE-CHALLENGE-SLOTH-VERIFICATIONS 0)
-	(SINGLE-CIRCUIT-PROOF-SIZE 192) (SINGLE-KDF-HASHES 14)
-	(SINGLE-KDF-TIME 6.38512e-7) (SINGLE-NODE-ENCODING-TIME 6.38512e-7)
-	(SINGLE-NODE-SLOTH-TIME 0) (SINGLE-SLOTH-ITERATION-CONSTRAINTS 321)
-	(SINGLE-SLOTH-ITERATION-TIME 123) (SLOTH-ITER 0)
-	(SPACE-GAP-SATISFIED T) (STORAGE-TO-PROOF-SIZE-FLOAT 1.1930465e8)
+	(SINGLE-CHALLENGE-KDF-HASHES 14) (SINGLE-CIRCUIT-PROOF-SIZE 192)
+	(SINGLE-KDF-HASHES 14) (SINGLE-KDF-TIME 6.38512e-7)
+	(SINGLE-NODE-ADD-ENCODING-TIME 0)
+	(SINGLE-NODE-ENCODING-TIME 6.38512e-7) (SPACE-GAP-SATISFIED T)
+	(STORAGE-TO-PROOF-SIZE-FLOAT 1.1930465e8)
 	(STORAGE-TO-PROOF-SIZE-RATIO 1073741824/9) (THREE-YEAR-FGR 6.027315)
 	(THREE-YEAR-FGR-SATISFIED T) (THREE-YEAR-PROFIT 123294.1)
 	(THREE-YEAR-PROFIT-MONTHS 29.590586) (TIB-CAPACITY 101.72525)
@@ -244,9 +242,8 @@
 	(TOTAL-ZIGZAG-CHALLENGES 2672) (TOTAL-ZIGZAG-CIRCUIT-KDF-HASHES 37408)
 	(TOTAL-ZIGZAG-CONSTRAINTS 5903706720)
 	(TOTAL-ZIGZAG-KDF-HASHING-CONSTRAINTS 193100096)
-	(TOTAL-ZIGZAG-NON-HASHING-CONSTRAINTS 857712)
-	(TOTAL-ZIGZAG-OTHER-CONSTRAINTS 0)
-	(TOTAL-ZIGZAG-SLOTH-CONSTRAINTS 857712) (TWO-YEAR-FGR 3.5830317)
+	(TOTAL-ZIGZAG-NON-HASHING-CONSTRAINTS 0)
+	(TOTAL-ZIGZAG-OTHER-CONSTRAINTS 0) (TWO-YEAR-FGR 3.5830317)
 	(TWO-YEAR-FGR-SATISFIED T) (TWO-YEAR-PROFIT 73294.1)
 	(TWO-YEAR-PROFIT-MONTHS 17.590586) (UP-FRONT-COMPUTE-COST 17404.133)
 	(UP-FRONT-DRIVE-COST 3051.7576) (UP-FRONT-MEMORY-COST 0.0)
@@ -511,10 +508,6 @@
 	 (DESCRIPTION
 	  "Number of merkle hashes which must be verified for a single challenge.")
 	 (NAME "single-challenge-merkle-hases"))
-	(TUPLE
-	 (DESCRIPTION
-	  "Number of sloth iterations which must be verified for a single challenge.")
-	 (NAME "single-challenge-sloth-verifications"))
 	(TUPLE (DESCRIPTION "Size of a single Groth16 Proof. Unit: bytes")
 	       (NAME "single-circuit-proof-size"))
 	(TUPLE
@@ -525,16 +518,10 @@
 	       (NAME "single-kdf-time"))
 	(TUPLE (DESCRIPTION "Merkle hashing time for a single layer. Unit: seconds")
 	       (NAME "single-layer-merkle-hashing-time"))
+	(TUPLE (DESCRIPTION "Time to add-encode a single node. Unit: seconds")
+	       (NAME "single-node-add-encoding-time"))
 	(TUPLE (DESCRIPTION "Time to encode a single node. Unit: seconds")
 	       (NAME "single-node-encoding-time"))
-	(TUPLE
-	 (DESCRIPTION
-	  "Time to perform sloth (VDE) for a single node. Unit: seconds")
-	 (NAME "single-node-sloth-time"))
-	(TUPLE
-	 (DESCRIPTION
-	  "Number of iterations of sloth verifiable delay encoding (VDE) to perform.")
-	 (NAME "sloth-iter"))
 	(TUPLE
 	 (DESCRIPTION
 	  "Is the actual space gap less than or equal to the maximum allowable space gap?")
@@ -592,9 +579,6 @@
 	 (DESCRIPTION
 	  "Total number of hashes which must be verified in a ZigZag circuit.")
 	 (NAME "total-zigzag-non-hashing-constraints"))
-	(TUPLE
-	 (DESCRIPTION "Total number of constraints due to sloth verification.")
-	 (NAME "total-zigzag-sloth-constraints"))
 	(TUPLE (DESCRIPTION "FGR after two years of operation: Unit: fraction")
 	       (NAME "two-year-fgr"))
 	(TUPLE (DESCRIPTION "Profit after two years of operation: Unit: dollars")
