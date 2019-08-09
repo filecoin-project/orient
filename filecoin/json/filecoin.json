@@ -333,10 +333,6 @@
       "description": "Number of merkle hashes which must be verified for a single challenge."
     },
     {
-      "name": "single-challenge-sloth-verifications",
-      "description": "Number of sloth iterations which must be verified for a single challenge."
-    },
-    {
       "name": "single-circuit-proof-size",
       "description": "Size of a single Groth16 Proof. Unit: bytes"
     },
@@ -353,16 +349,12 @@
       "description": "Merkle hashing time for a single layer. Unit: seconds"
     },
     {
+      "name": "single-node-add-encoding-time",
+      "description": "Time to add-encode a single node. Unit: seconds"
+    },
+    {
       "name": "single-node-encoding-time",
       "description": "Time to encode a single node. Unit: seconds"
-    },
-    {
-      "name": "single-node-sloth-time",
-      "description": "Time to perform sloth (VDE) for a single node. Unit: seconds"
-    },
-    {
-      "name": "sloth-iter",
-      "description": "Number of iterations of sloth verifiable delay encoding (VDE) to perform."
     },
     {
       "name": "space-gap-satisfied",
@@ -439,10 +431,6 @@
     {
       "name": "total-zigzag-non-hashing-constraints",
       "description": "Total number of hashes which must be verified in a ZigZag circuit."
-    },
-    {
-      "name": "total-zigzag-sloth-constraints",
-      "description": "Total number of constraints due to sloth verification."
     },
     {
       "name": "two-year-fgr",
@@ -625,7 +613,6 @@
     "node-bytes": 32,
     "partitions": 1,
     "sector-gib": 32,
-    "sloth-iter": 0,
     "base-degree": 5,
     "comm-d-size": 32,
     "comm-r-size": 32,
@@ -846,7 +833,6 @@
     "one-year-profit-months": 5.590586,
     "seal-cycles-per-minute": 104424790000000,
     "seal-cycles-per-second": 1740413200000,
-    "single-node-sloth-time": 0,
     "two-year-fgr-satisfied": true,
     "two-year-profit-months": 17.590586,
     "beta-hash-function-name": "blake2s",
@@ -882,7 +868,6 @@
     "total-untapered-challenges": 32000,
     "maximum-allowable-space-gap": 0.02,
     "single-challenge-kdf-hashes": 14,
-    "single-sloth-iteration-time": 123,
     "storage-to-proof-size-float": 119304650,
     "storage-to-proof-size-ratio": 119304650,
     "layer-performance.node-bytes": 32,
@@ -890,13 +875,13 @@
     "kdf-hash-function.constraints": 5162,
     "layer-performance.layer-index": 10,
     "layer-performance.sector-size": 34359738368,
+    "single-node-add-encoding-time": 0,
     "wall-clock-seal-time-per-byte": 1.7383054e-06,
     "zigzag-basic-layer-challenges": 2666.6667,
     "beta-hash-function.constraints": 10324,
     "kdf-hash-function.circuit-time": 0.65253,
     "layer-performance.circuit-time": 1593614.1,
     "total-zigzag-other-constraints": 0,
-    "total-zigzag-sloth-constraints": 857712,
     "alpha-hash-function.constraints": 1324,
     "alpha-merkle-hash-function-name": "pedersen",
     "beta-hash-function.circuit-time": 1.30506,
@@ -979,7 +964,6 @@
       ]
     },
     "layer-performance.layer-challenges": 2672,
-    "single-sloth-iteration-constraints": 321,
     "alpha-hash-function.hash-functions%": {
       "tuples": [
         {
@@ -1043,9 +1027,8 @@
         }
       ]
     },
-    "single-challenge-sloth-verifications": 0,
     "total-zigzag-kdf-hashing-constraints": 193100096,
-    "total-zigzag-non-hashing-constraints": 857712,
+    "total-zigzag-non-hashing-constraints": 0,
     "average-monthly-income-during-ramp-up": 2083.3333,
     "filecoin-porep-requirements-satisfied": true,
     "layer-performance.challenge-constraints": 4718068,

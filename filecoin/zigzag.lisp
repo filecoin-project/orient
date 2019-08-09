@@ -39,17 +39,13 @@
 				 (partitions 1)
 				 (single-circuit-proof-size 192) ;; Groth16, BLS12-381 -- eventually should allow selection of proving systems/curves.
 				 ;(single-circuit-proof-size 520) ;; Groth16, SW6 -- eventually should allow selection of proving systems/curves.
-				 (sloth-iter 0)
 				 (layers 10)
 				 (base-degree 5)
 				 (expansion-degree 8)
 
+				 (single-node-add-encoding-time 0)
 				 ;; TODO: account for other constraint sources.
 				 (total-zigzag-other-constraints 0)
-
-				 ;; Need from benchmarks
-				 (single-sloth-iteration-time 123) ;; BOGUS
-				 (single-sloth-iteration-constraints 321) ;; BOGUS
 
 				 ;;(max-beta-merkle-height 0)
 				 (max-beta-merkle-height 30)
@@ -352,7 +348,6 @@
   (degree "Total in-degree of the ZigZag graph.")
   (base-degree "In-degree of the base depth-robust graph (DRG).")
   (expansion-degree "Maximum in-degree of the bipartite expander graph component of a ZigZag graph.")
-  (sloth-iter "Number of iterations of sloth verifiable delay encoding (VDE) to perform.")
   (partitions "Number of circuit partitions into which a proof is divided.")
   ;; TODO: hierarchical namespacing of some parameters?
   (replication-time "Time to replicate one sector. Unit: seconds")
@@ -376,20 +371,18 @@
   (total-merkle-trees "Total merkle trees which must be generated.")
   (total-merkle-hashing-time "Total time to generate all merkle trees. Unit: seconds")
 
-  (total-nodes-to-encode "Total nodes to encode across all layers.")
-  (single-node-sloth-time "Time to perform sloth (VDE) for a single node. Unit: seconds")
+  (total-nodes-to-encode "Total nodes to encode across all layers.") 
   (single-node-encoding-time "Time to encode a single node. Unit: seconds")
+  (single-node-add-encoding-time "Time to add-encode a single node. Unit: seconds")
   
   (single-challenge-inclusion-proofs "Number of inclusion proofs which must be verified for a single challenge.")
   (single-challenge-merkle-hases "Number of merkle hashes which must be verified for a single challenge.")
   (single-challenge-kdf-hashes "Number of KDF hashes which must be verified for a single challenge.")
-  (single-challenge-sloth-verifications "Number of sloth iterations which must be verified for a single challenge.")
   (total-kdf-hashes "Total number of KDF (key-derivation function) required during replication.")
   (total-zigzag-kdf-hashing-constraints "Total number of kdf hashing constraints in a ZigZag circuit.")
   (total-zigzag-non-hashing-constraints "Total number of hashes which must be verified in a ZigZag circuit.")
   (total-zigzag-circuit-kdf-hashes "Total number of KDF hashes which must be verified in a ZigZag circuit.")
 
-  (total-zigzag-sloth-constraints "Total number of constraints due to sloth verification.")
   (total-zigzag-constraints "Total number of constraints which must be verified in a ZigZag circuit.")
   (layer-index "Index of layer. Unit: integer")
   (layer-replication-time "Time to replicate one layer. Unit: seconds")
@@ -508,12 +501,10 @@
      (single-kdf-hashes (+ total-parents 1))
      (single-kdf-time (* single-kdf-hashes kdf-hash-function.time))
      (total-nodes-to-encode (* nodes layers))
-     (single-node-sloth-time (* sloth-iter single-sloth-iteration-time))
-     (single-node-encoding-time (+ single-kdf-time single-node-sloth-time)) ;; Excludes parent loading time.
+     (single-node-encoding-time (+ single-kdf-time single-node-add-encoding-time))
      
      (single-challenge-inclusion-proofs (+ total-parents 2))
      (single-challenge-kdf-hashes (* single-kdf-hashes 1))
-     (single-challenge-sloth-verifications (== sloth-iter))
      
      (total-zigzag-circuit-kdf-hashes (* single-challenge-kdf-hashes total-challenges))
      
@@ -527,9 +518,8 @@
      (non-circuit-proving-time (+ replication-time total-merkle-hashing-time))
      
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function.constraints))
-     (total-zigzag-sloth-constraints (* total-challenges single-sloth-iteration-constraints))
      
-     (total-zigzag-non-hashing-constraints (+ total-zigzag-sloth-constraints total-zigzag-other-constraints))
+     (total-zigzag-non-hashing-constraints (== total-zigzag-other-constraints))
      
      (total-zigzag-constraints-z (+ total-zigzag-hashing-constraints total-zigzag-non-hashing-constraints))
 
