@@ -51,13 +51,6 @@
 				 (single-sloth-iteration-time 123) ;; BOGUS
 				 (single-sloth-iteration-constraints 321) ;; BOGUS
 
-				 ;; On my proving machine (for comparable timing to hash benchmarks)
-				 ;; ./target/release/examples/zigzag --size 1024 --groth
-				 ;;(bench-circuit-proving-time (* 4 30.0))
-				 ;;(bench-circuit-constraints 4652824)
-				 (bench-circuit-proving-time 0.14464)
-				 (bench-circuit-constraints 10324)
-
 				 ;;(max-beta-merkle-height 0)
 				 (max-beta-merkle-height 30)
 
@@ -66,8 +59,6 @@
 				 ))
 
 (defun zigzag-bench-data () (tuple (hash-functions (hash-functions))))
-
-(defparameter *zigzag-hypotheticals* nil)
 
 ;; -- is not assigned internally, so this constraint will not produce a 'return value'.
 ;; TODO: Consider a more explicit way to do this -- at least a strong convention, if not a syntax
@@ -273,7 +264,6 @@
     (-- (zigzag-layer-performance layers layer-index layer-challenges
 				  sector-size node-bytes
 				  max-beta-merkle-height
-				  circuit-proving-time-per-constraint
 				  single-challenge-inclusion-proofs
 				  single-challenge-kdf-hashes
 				  alpha-hash-function
@@ -298,7 +288,6 @@
    (challenge-constraints (+ challenge-kdf-constraints challenge-inclusion-constraints))
    (challenge-circuit-time (+ challenge-kdf-circuit-time challenge-inclusion-circuit-time))
    (constraints (* challenge-constraints layer-challenges))
-;;    (circuit-time (* constraints circuit-proving-time-per-constraint))
    (circuit-time (* challenge-circuit-time layer-challenges))
    (hashing-time (+ alpha-hashing-time beta-hashing-time))
    (proving-time (+ circuit-time hashing-time))
@@ -307,7 +296,6 @@
 (defschema zigzag-layer-performance-schema "Single ZigZag Layer Performance")
 
 (deftransformation compute-total-zigzag-performance
-    ;; FIXME: The aggregation removes CIRCUIT-PROVING-TIME-PER-CONSTRAINT from the results.
     ((lowest-time
       optimal-hashing-time
       optimal-circuit-time
@@ -373,7 +361,6 @@
   (sealing-time "Total CPU time to seal (replicate + generate proof of replication) one sector. Unit: seconds")
   (non-circuit-proving-time "Time (including replication) to generate a non-circuit proof of replication. Unit: seconds")
   (vector-commitment-time "Time to generate the vector commitments used in a non-circuit proof of replication. Unit: seconds")
-  (circuit-proving-time-per-constraint "Groth16 circuit proving time (from benchmarks) per constraint. Unit: seconds")
   (zigzag-total-proving-time "Total time to generate a proof of replication (circuit and non-circuit). Unit: seconds")
   (seal-time "Total time to seal (replication + proving) one sector. Unit: seconds")
   (wall-clock-seal-time "Wall clock time sealing time using SEAL-PARALLELISM cores. Unit: seconds")
@@ -539,8 +526,6 @@
           
      (non-circuit-proving-time (+ replication-time total-merkle-hashing-time))
      
-     (circuit-proving-time-per-constraint (/ bench-circuit-proving-time bench-circuit-constraints))
-
      (total-zigzag-kdf-hashing-constraints (* total-zigzag-circuit-kdf-hashes kdf-hash-function.constraints))
      (total-zigzag-sloth-constraints (* total-challenges single-sloth-iteration-constraints))
      
@@ -563,7 +548,6 @@
 						  zigzag-layer-challenges
 						  sector-size node-bytes
 						  max-beta-merkle-height
-						  circuit-proving-time-per-constraint
 						  single-challenge-inclusion-proofs
 						  single-challenge-kdf-hashes
 						  alpha-hash-function
@@ -619,68 +603,6 @@
 	       (10 1593614.1 2672 4718068 9.1216e-8 2.6156e-5 0 10324 1324 309720 0 30 0))
 	      result))
     (is (= (cardinality result) 11))))
-
-(defschema zigzag-security-schema
-    "ZigZag Security"
-  (zigzag-soundness "ZigZag soundness: Unit fraction")
-  (zigzag-lambda "ZigZag soundness: Unit bits")
-  (zigzag-epsilon "Maximum allowable deletion (space tightness): Unit: fraction")
-  (zigzag-delta "Maximum allowable cheating on labels (block corruption)")
-  (zigzag-basic-layer-challenges "Multiple of lambda challenges per layer, without tapering optimization.")
-  (zigzag-basic-layer-challenge-factor "Number of challenges which, when multiplied by lambda, yields the number of challenges per layer without tapering optimization.")
-  (zigzag-space-gap "Maximum allowable gap between actual and claimed storage. Unit: fraction")
-  (zigzag-layer-challenges "Number of challenges in this (indexed) layer of ZigZag PoRep. Unit: integer")
-
-  (layers "Number of layers specified for this construction (not necessarily same as calculated from security parameters).")
-  )
-
-(defconstraint-system zigzag-security-constraint-system
-    ((zigzag-lambda (log zigzag-soundness 0.5))
-     (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
-     (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
-     (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
-     (zigzag-layers (compute-zigzag-layers zigzag-epsilon zigzag-delta))
-     (total-untapered-challenges (* zigzag-layers zigzag-basic-layer-challenges))
-
-     #+(or) ;; TODO: Allow specifying like this.
-     (zigzag-layers (+ (log (/ 1
-			       (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
-			    2)
-		       4))
-     (total-challenges (== total-zigzag-challenges)))
-  :schema 'zigzag-security-schema)
-
-(defparameter *default-zigzag-security*
-  (tuple
-   (zigzag-lambda 8)
-   (zigzag-taper (/ 1 3))
-   (zigzag-epsilon 0.007)
-   (zigzag-delta 0.003)))
-
-(defun zigzag-security-system (&key isolated no-aggregate)
-  (make-instance 'system
-		 :components `(,(component ('compute-zigzag-tapered-layers))
-				,@(when (not no-aggregate)
-				    (list (component ('compute-zigzag-tapered-layers))
-					  (component ('compute-total-zigzag-challenges)))))
-		 :subsystems (list (find-system 'zigzag-security-constraint-system))
-		 :data (if isolated
-			   (list (tuple (layers 10)) *default-zigzag-security*)
-			   (list *default-zigzag-security*))))
-
-(defun zigzag-system (&key no-aggregate)
-  (make-instance 'system
-		 :components (when (not no-aggregate)
-			       (list
-				(component ('compute-total-zigzag-performance))))
-		 :subsystems (list (find-system 'zigzag-constraint-system)
-				   ;; FIXME: If these subsystems are provided in the opposite order,
-				   ;; something breaks.
-				   (zigzag-security-system :no-aggregate no-aggregate))
-		 :data (list* *defaults*
-			      *zigzag-defaults*
-			      (zigzag-bench-data)
-			      *zigzag-hypotheticals*)))
 
 #+(or) ;; FIXME
 (test query-for-grouped-attributes
