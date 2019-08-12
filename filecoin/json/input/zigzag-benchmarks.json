@@ -1,0 +1,58 @@
+{
+  "git": {
+    "hash": "1182e68594806892b36d548d38473bcb33854571",
+    "date": "2019-08-07T20:50:38Z"
+  },
+  "system": {
+    "system": "Linux",
+    "release": "4.9.0-5-amd64",
+    "version": "#1 SMP Debian 4.9.65-3+deb9u2 (2018-01-04)",
+    "architecture": "x86_64",
+    "processor": "Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz",
+    "processor-base-frequency-hz": 2600,
+    "processor-max-frequency-hz": 3700,
+    "processor-features": "FeatureInfo { eax: 329300, ebx: 371197952, edx_ecx: SSE3 | PCLMULQDQ | DTES64 | MONITOR | DSCPL | VMX | SMX | EIST | TM2 | SSSE3 | FMA | CMPXCHG16B | PDCM | PCID | DCA | SSE41 | SSE42 | X2APIC | MOVBE | POPCNT | TSC_DEADLINE | AESNI | XSAVE | OSXSAVE | AVX | F16C | RDRAND | FPU | VME | DE | PSE | TSC | MSR | PAE | MCE | CX8 | APIC | SEP | MTRR | PGE | MCA | CMOV | PAT | PSE36 | CLFSH | DS | ACPI | MMX | FXSR | SSE | SSE2 | SS | HTT | TM | PBE }",
+    "processor-cores-logical": 48,
+    "processor-cores-physical": 14,
+    "memory-total-bytes": 201426341888
+  },
+  "benchmarks": {
+    "inputs": {
+      "sector-size": 1073741824,
+      "base-degree": 5,
+      "expansion-degree": 8,
+      "partitions": 1,
+      "hasher": "pedersen",
+      "samples": 5,
+      "layers": 10,
+      "partition-challenges": 10,
+      "total-challenges": 10
+    },
+    "outputs": {
+      "avg-groth-verifying-cpu-time-ms": null,
+      "avg-groth-verifying-wall-time-ms": null,
+      "circuit-num-constraints": null,
+      "circuit-num-inputs": null,
+      "extracting-cpu-time-ms": null,
+      "extracting-wall-time-ms": null,
+      "replication-wall-time-ms": 2018995,
+      "replication-cpu-time-ms": 27564927,
+      "replication-wall-time-ns-per-byte": 1879,
+      "replication-cpu-time-ns-per-byte": 25670,
+      "total-report-cpu-time-ms": 27567381,
+      "total-report-wall-time-ms": 2021464,
+      "total-proving-cpu-time-ms": 1,
+      "total-proving-wall-time-ms": 1,
+      "vanilla-proving-cpu-time-us": 1089,
+      "vanilla-proving-wall-time-us": 1093,
+      "vanilla-verification-wall-time-us": 123865,
+      "vanilla-verification-cpu-time-us": 123842,
+      "verifying-wall-time-avg-ms": 126,
+      "verifying-cpu-time-avg-ms": 126
+    }
+  },
+  "outputs": {
+    "max-resident-set-size-kb": 25827712
+  }
+}
+
