@@ -21,6 +21,7 @@
 			:depends-on ("base")
 			:components
 			((:file "base")
+			 (:file "import")
 			 (:file "performance")
 			 (:file "zigzag")
 			 (:file "zigzag-security")

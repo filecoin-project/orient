@@ -511,89 +511,89 @@
         {
           "constraints": 0,
           "layer-index": 0,
-          "lowest-time": 97.94244,
+          "lowest-time": 56.337086,
           "circuit-time": 0,
-          "hashing-time": 97.94244,
+          "hashing-time": 56.337086,
           "optimal-beta-merkle-height": 30
         },
         {
-          "constraints": 171690880,
+          "constraints": 316535360,
           "layer-index": 1,
-          "lowest-time": 24432.822,
-          "circuit-time": 20836.523,
-          "hashing-time": 3596.2986,
-          "optimal-beta-merkle-height": 3
+          "lowest-time": 10169.729,
+          "circuit-time": 9329.68,
+          "hashing-time": 840.04865,
+          "optimal-beta-merkle-height": 4
         },
         {
-          "constraints": 171690880,
+          "constraints": 316535360,
           "layer-index": 2,
-          "lowest-time": 24432.822,
-          "circuit-time": 20836.523,
-          "hashing-time": 3596.2986,
-          "optimal-beta-merkle-height": 3
+          "lowest-time": 10169.729,
+          "circuit-time": 9329.68,
+          "hashing-time": 840.04865,
+          "optimal-beta-merkle-height": 4
         },
         {
-          "constraints": 171690880,
+          "constraints": 316535360,
           "layer-index": 3,
-          "lowest-time": 24432.822,
-          "circuit-time": 20836.523,
-          "hashing-time": 3596.2986,
+          "lowest-time": 10169.729,
+          "circuit-time": 9329.68,
+          "hashing-time": 840.04865,
+          "optimal-beta-merkle-height": 4
+        },
+        {
+          "constraints": 402291840,
+          "layer-index": 4,
+          "lowest-time": 14769.208,
+          "circuit-time": 13145.448,
+          "hashing-time": 1623.7601,
           "optimal-beta-merkle-height": 3
         },
         {
-          "constraints": 225136320,
-          "layer-index": 4,
-          "lowest-time": 34205.582,
-          "circuit-time": 27110.928,
-          "hashing-time": 7094.655,
-          "optimal-beta-merkle-height": 2
-        },
-        {
-          "constraints": 330199936,
+          "constraints": 590028032,
           "layer-index": 5,
-          "lowest-time": 46857.348,
-          "circuit-time": 39762.69,
-          "hashing-time": 7094.655,
+          "lowest-time": 20903.75,
+          "circuit-time": 19279.99,
+          "hashing-time": 1623.7601,
+          "optimal-beta-merkle-height": 3
+        },
+        {
+          "constraints": 725517408,
+          "layer-index": 6,
+          "lowest-time": 30243.21,
+          "circuit-time": 27052.027,
+          "hashing-time": 3191.1833,
           "optimal-beta-merkle-height": 2
         },
         {
-          "constraints": 424019904,
-          "layer-index": 6,
-          "lowest-time": 64618.906,
-          "circuit-time": 50527.54,
-          "hashing-time": 14091.367,
-          "optimal-beta-merkle-height": 1
-        },
-        {
-          "constraints": 636029856,
+          "constraints": 1088276112,
           "layer-index": 7,
-          "lowest-time": 89882.68,
-          "circuit-time": 75791.31,
-          "hashing-time": 14091.367,
+          "lowest-time": 43769.227,
+          "circuit-time": 40578.043,
+          "hashing-time": 3191.1833,
+          "optimal-beta-merkle-height": 2
+        },
+        {
+          "constraints": 1277771552,
+          "layer-index": 8,
+          "lowest-time": 63180.977,
+          "circuit-time": 56854.945,
+          "hashing-time": 6326.0293,
           "optimal-beta-merkle-height": 1
         },
         {
-          "constraints": 796337056,
-          "layer-index": 8,
-          "lowest-time": 121573.375,
-          "circuit-time": 93488.586,
-          "hashing-time": 28084.791,
-          "optimal-beta-merkle-height": 0
-        },
-        {
-          "constraints": 1191833312,
+          "constraints": 1373369584,
           "layer-index": 9,
-          "lowest-time": 168003.95,
-          "circuit-time": 139919.16,
-          "hashing-time": 28084.791,
+          "lowest-time": 91375.914,
+          "circuit-time": 78780.195,
+          "hashing-time": 12595.722,
           "optimal-beta-merkle-height": 0
         },
         {
-          "constraints": 1785077696,
+          "constraints": 2056975072,
           "layer-index": 10,
-          "lowest-time": 237649.81,
-          "circuit-time": 209565.02,
-          "hashing-time": 28084.791,
+          "lowest-time": 130589.375,
+          "circuit-time": 117993.66,
+          "hashing-time": 12595.722,
           "optimal-beta-merkle-height": 0
         }
       ]
@@ -605,11 +605,11 @@
     "seal-hz": 5000000000,
     "seal-ghz": 5,
     "daily-tib": 1.1147972,
-    "seal-time": 843044.06,
-    "fgr-months": 6.409414,
+    "seal-time": 433292.2,
+    "fgr-months": 4.3792353,
     "hourly-gib": 47.564682,
     "hourly-tib": 0.046449885,
-    "needed-ghz": 1740.4132,
+    "needed-ghz": 894.50543,
     "node-bytes": 32,
     "partitions": 1,
     "sector-gib": 32,
@@ -621,174 +621,174 @@
     "comm-rs-size": 64,
     "cpu-ghz-cost": 10,
     "gib-capacity": 104166.66,
-    "one-year-fgr": 1.1387482,
+    "one-year-fgr": 2.646802,
     "tib-capacity": 101.72525,
-    "two-year-fgr": 3.5830317,
+    "two-year-fgr": 6.8145757,
     "zigzag-delta": 0.003,
     "zigzag-taper": 0.33333334,
     "annual-income": 50000,
-    "gib-seal-cost": 0.16707969,
-    "gib-seal-time": 26345.127,
+    "gib-seal-cost": 0.08587253,
+    "gib-seal-time": 13540.381,
     "total-parents": 13,
     "zigzag-lambda": 8,
     "zigzag-layers": 12,
     "hash-functions": {
       "tuples": [
         {
-          "circuit-time": 0.153988,
+          "circuit-time": 0.093016036,
           "hash-function-name": "pedersen",
           "hash-function-size": 32,
-          "hash-function-time": 2.6156e-05,
-          "hash-function-constraints": 1324
+          "hash-function-time": 1.173068e-05,
+          "hash-function-constraints": 1376
         },
         {
-          "circuit-time": 0.65253,
+          "circuit-time": 0.16443467,
           "hash-function-name": "blake2s-kdf",
           "hash-function-size": 32,
-          "hash-function-time": 4.5608e-08,
-          "hash-function-constraints": 5162
+          "hash-function-time": 5.2520004e-08,
+          "hash-function-constraints": 10759
         },
         {
-          "circuit-time": 1.30506,
+          "circuit-time": 0.32886934,
           "hash-function-name": "blake2s",
           "hash-function-size": 32,
-          "hash-function-time": 9.1216e-08,
-          "hash-function-constraints": 10324
+          "hash-function-time": 5.2468e-08,
+          "hash-function-constraints": 21518
         }
       ]
     },
     "monthly-income": 4166.6665,
-    "three-year-fgr": 6.027315,
+    "three-year-fgr": 10.982349,
     "tib-drive-cost": 30,
     "zigzag-epsilon": 0.007,
-    "gib-seal-cycles": 131725630000000,
-    "one-year-profit": 23294.107,
-    "single-kdf-time": 6.38512e-07,
-    "two-year-profit": 73294.1,
+    "gib-seal-cycles": 67701905000000,
+    "one-year-profit": 31753.186,
+    "single-kdf-time": 7.352801e-07,
+    "two-year-profit": 81753.19,
     "alternate-layers": {
       "tuples": [
         {
-          "proving-time": 237649.81,
+          "proving-time": 130589.375,
           "beta-merkle-height": 0
         },
         {
-          "proving-time": 269791.34,
+          "proving-time": 133772.69,
           "beta-merkle-height": 1
         },
         {
-          "proving-time": 308929.63,
+          "proving-time": 140090.84,
           "beta-merkle-height": 2
         },
         {
-          "proving-time": 351566.25,
+          "proving-time": 147976.42,
           "beta-merkle-height": 3
         },
         {
-          "proving-time": 395952.03,
+          "proving-time": 156645.7,
           "beta-merkle-height": 4
         },
         {
-          "proving-time": 441212.38,
+          "proving-time": 165706.84,
           "beta-merkle-height": 5
         },
         {
-          "proving-time": 486910.06,
+          "proving-time": 174963.9,
           "beta-merkle-height": 6
         },
         {
-          "proving-time": 532826.4,
+          "proving-time": 184318.95,
           "beta-merkle-height": 7
         },
         {
-          "proving-time": 578852,
+          "proving-time": 193722.97,
           "beta-merkle-height": 8
         },
         {
-          "proving-time": 624932.3,
+          "proving-time": 203151.48,
           "beta-merkle-height": 9
         },
         {
-          "proving-time": 671039.94,
+          "proving-time": 212592.22,
           "beta-merkle-height": 10
         },
         {
-          "proving-time": 717161.25,
+          "proving-time": 222039.13,
           "beta-merkle-height": 11
         },
         {
-          "proving-time": 763289.4,
+          "proving-time": 231489.08,
           "beta-merkle-height": 12
         },
         {
-          "proving-time": 809420.9,
+          "proving-time": 240940.53,
           "beta-merkle-height": 13
         },
         {
-          "proving-time": 855554.1,
+          "proving-time": 250392.77,
           "beta-merkle-height": 14
         },
         {
-          "proving-time": 901688.4,
+          "proving-time": 259845.38,
           "beta-merkle-height": 15
         },
         {
-          "proving-time": 947822.8,
+          "proving-time": 269298.22,
           "beta-merkle-height": 16
         },
         {
-          "proving-time": 993957.5,
+          "proving-time": 278751.1,
           "beta-merkle-height": 17
         },
         {
-          "proving-time": 1040092.5,
+          "proving-time": 288204.03,
           "beta-merkle-height": 18
         },
         {
-          "proving-time": 1086227.4,
+          "proving-time": 297657.03,
           "beta-merkle-height": 19
         },
         {
-          "proving-time": 1132362.4,
+          "proving-time": 307110.03,
           "beta-merkle-height": 20
         },
         {
-          "proving-time": 1178497.4,
+          "proving-time": 316563,
           "beta-merkle-height": 21
         },
         {
-          "proving-time": 1224632.3,
+          "proving-time": 326016,
           "beta-merkle-height": 22
         },
         {
-          "proving-time": 1270767.1,
+          "proving-time": 335469,
           "beta-merkle-height": 23
         },
         {
-          "proving-time": 1316902.3,
+          "proving-time": 344922,
           "beta-merkle-height": 24
         },
         {
-          "proving-time": 1363037.1,
+          "proving-time": 354374.97,
           "beta-merkle-height": 25
         },
         {
-          "proving-time": 1409172.3,
+          "proving-time": 363828,
           "beta-merkle-height": 26
         },
         {
-          "proving-time": 1455307.1,
+          "proving-time": 373281,
           "beta-merkle-height": 27
         },
         {
-          "proving-time": 1501442,
+          "proving-time": 382734,
           "beta-merkle-height": 28
         },
         {
-          "proving-time": 1547577.1,
+          "proving-time": 392186.97,
           "beta-merkle-height": 29
         },
         {
-          "proving-time": 1593712.1,
+          "proving-time": 401640,
           "beta-merkle-height": 30
         }
       ]
@@ -796,72 +796,72 @@
     "comm-r-star-size": 32,
     "commitments-size": 96,
     "expansion-degree": 8,
-    "replication-time": 6855.9707,
+    "replication-time": 7895.01,
     "seal-parallelism": 14,
     "total-challenges": 2672,
     "zigzag-soundness": 0.00390625,
     "zigzag-space-gap": 0.01,
     "aws-glacier-price": 0.004,
     "single-kdf-hashes": 14,
-    "three-year-profit": 123294.1,
+    "three-year-profit": 131753.19,
     "must-have-filecoin": true,
-    "total-circuit-time": 698674.8,
-    "total-hashing-time": 137513.25,
-    "total-proving-time": 836188.06,
+    "total-circuit-time": 381673.34,
+    "total-hashing-time": 43723.844,
+    "total-proving-time": 425397.2,
     "on-chain-porep-size": 288,
     "space-gap-satisfied": true,
-    "total-up-front-cost": 20455.89,
+    "total-up-front-cost": 11996.8125,
     "up-front-drive-cost": 3051.7576,
     "minimum-one-year-fgr": -2,
     "minimum-two-year-fgr": 0.25,
     "partition-challenges": 2672,
-    "seal-cycles-per-hour": 6265487600000000,
+    "seal-cycles-per-hour": 3220219600000000,
     "up-front-memory-cost": 0,
-    "wall-clock-seal-time": 59727.72,
+    "wall-clock-seal-time": 30385.514,
     "income-during-ramp-up": 6250,
     "total-nodes-to-encode": 10737418240,
-    "up-front-compute-cost": 17404.133,
-    "up-front-sealing-cost": 17404.133,
-    "fgr-months-at-capacity": 3.4094138,
+    "up-front-compute-cost": 8945.055,
+    "up-front-sealing-cost": 8945.055,
+    "fgr-months-at-capacity": 1.379235,
     "kdf-hash-function-name": "blake2s-kdf",
     "kdf-hash-function.size": 32,
-    "kdf-hash-function.time": 4.5608e-08,
-    "layer-replication-time": 685.59705,
+    "kdf-hash-function.time": 5.2520004e-08,
+    "layer-replication-time": 789.501,
     "max-beta-merkle-height": 30,
     "minimum-three-year-fgr": 1,
     "one-year-fgr-satisfied": true,
-    "one-year-profit-months": 5.590586,
-    "seal-cycles-per-minute": 104424790000000,
-    "seal-cycles-per-second": 1740413200000,
+    "one-year-profit-months": 7.6207647,
+    "seal-cycles-per-minute": 53670327000000,
+    "seal-cycles-per-second": 894505450000,
     "two-year-fgr-satisfied": true,
-    "two-year-profit-months": 17.590586,
+    "two-year-profit-months": 19.620766,
     "beta-hash-function-name": "blake2s",
     "beta-hash-function.size": 32,
-    "beta-hash-function.time": 9.1216e-08,
+    "beta-hash-function.time": 5.2468e-08,
     "comparable-monthly-cost": 416.66666,
     "kdf-hash-function.name%": "blake2s-kdf",
     "total-zigzag-challenges": 2672,
     "alpha-hash-function-name": "pedersen",
     "alpha-hash-function.size": 32,
-    "alpha-hash-function.time": 2.6156e-05,
+    "alpha-hash-function.time": 1.173068e-05,
     "beta-hash-function.name%": "blake2s",
     "filecoin-fgr-requirement": true,
-    "gib-hour-seal-investment": 365.90454,
+    "gib-hour-seal-investment": 188.06085,
     "layer-performance.layers": 10,
     "miner-months-to-capacity": 3,
-    "replication-time-per-gib": 214.24908,
+    "replication-time-per-gib": 246.71906,
     "three-year-fgr-satisfied": true,
-    "three-year-profit-months": 29.590586,
+    "three-year-profit-months": 31.620766,
     "total-circuit-proof-size": 192,
-    "total-zigzag-constraints": 5903706720,
+    "total-zigzag-constraints": 8463835680,
     "alpha-hash-function.name%": "pedersen",
-    "income-to-fgr-at-capacity": 14205.891,
+    "income-to-fgr-at-capacity": 5746.8125,
     "merkle-hash-function-name": "pedersen",
     "merkle-hash-function.size": 32,
-    "merkle-hash-function.time": 2.6156e-05,
-    "replication-time-per-byte": 1.9953501e-07,
+    "merkle-hash-function.time": 1.173068e-05,
+    "replication-time-per-byte": 2.2977503e-07,
     "single-circuit-proof-size": 192,
-    "single-node-encoding-time": 6.38512e-07,
+    "single-node-encoding-time": 7.352801e-07,
     "commodity-storage-discount": 10,
     "filecoin-fgr-requirement-1": true,
     "merkle-hash-function.name%": "pedersen",
@@ -871,95 +871,95 @@
     "storage-to-proof-size-float": 119304650,
     "storage-to-proof-size-ratio": 119304650,
     "layer-performance.node-bytes": 32,
-    "wall-clock-seal-time-per-gib": 1866.4912,
-    "kdf-hash-function.constraints": 5162,
+    "wall-clock-seal-time-per-gib": 949.5473,
+    "kdf-hash-function.constraints": 10759,
     "layer-performance.layer-index": 10,
     "layer-performance.sector-size": 34359738368,
     "single-node-add-encoding-time": 0,
-    "wall-clock-seal-time-per-byte": 1.7383054e-06,
+    "wall-clock-seal-time-per-byte": 8.8433484e-07,
     "zigzag-basic-layer-challenges": 2666.6667,
-    "beta-hash-function.constraints": 10324,
-    "kdf-hash-function.circuit-time": 0.65253,
-    "layer-performance.circuit-time": 1593614.1,
+    "beta-hash-function.constraints": 21518,
+    "kdf-hash-function.circuit-time": 0.16443467,
+    "layer-performance.circuit-time": 401583.66,
     "total-zigzag-other-constraints": 0,
-    "alpha-hash-function.constraints": 1324,
+    "alpha-hash-function.constraints": 1376,
     "alpha-merkle-hash-function-name": "pedersen",
-    "beta-hash-function.circuit-time": 1.30506,
+    "beta-hash-function.circuit-time": 0.32886934,
     "filecoin-requirements-satisfied": true,
     "total-zigzag-circuit-kdf-hashes": 37408,
-    "alpha-hash-function.circuit-time": 0.153988,
+    "alpha-hash-function.circuit-time": 0.093016036,
     "filecoin-storage-ratio-satisfied": true,
     "kdf-hash-function.hash-function%": {
-      "circuit-time": 0.65253,
+      "circuit-time": 0.16443467,
       "hash-function-name": "blake2s-kdf",
       "hash-function-size": 32,
-      "hash-function-time": 4.5608e-08,
-      "hash-function-constraints": 5162
+      "hash-function-time": 5.2520004e-08,
+      "hash-function-constraints": 10759
     },
-    "merkle-hash-function.constraints": 1324,
+    "merkle-hash-function.constraints": 1376,
     "beta-hash-function.hash-function%": {
-      "circuit-time": 1.30506,
+      "circuit-time": 0.32886934,
       "hash-function-name": "blake2s",
       "hash-function-size": 32,
-      "hash-function-time": 9.1216e-08,
-      "hash-function-constraints": 10324
+      "hash-function-time": 5.2468e-08,
+      "hash-function-constraints": 21518
     },
     "kdf-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuit-time": 0.153988,
+          "circuit-time": 0.093016036,
           "hash-function-name": "pedersen",
           "hash-function-size": 32,
-          "hash-function-time": 2.6156e-05,
-          "hash-function-constraints": 1324
+          "hash-function-time": 1.173068e-05,
+          "hash-function-constraints": 1376
         },
         {
-          "circuit-time": 0.65253,
+          "circuit-time": 0.16443467,
           "hash-function-name": "blake2s-kdf",
           "hash-function-size": 32,
-          "hash-function-time": 4.5608e-08,
-          "hash-function-constraints": 5162
+          "hash-function-time": 5.2520004e-08,
+          "hash-function-constraints": 10759
         },
         {
-          "circuit-time": 1.30506,
+          "circuit-time": 0.32886934,
           "hash-function-name": "blake2s",
           "hash-function-size": 32,
-          "hash-function-time": 9.1216e-08,
-          "hash-function-constraints": 10324
+          "hash-function-time": 5.2468e-08,
+          "hash-function-constraints": 21518
         }
       ]
     },
-    "merkle-hash-function.circuit-time": 0.153988,
+    "merkle-hash-function.circuit-time": 0.093016036,
     "single-challenge-inclusion-proofs": 15,
     "alpha-hash-function.hash-function%": {
-      "circuit-time": 0.153988,
+      "circuit-time": 0.093016036,
       "hash-function-name": "pedersen",
       "hash-function-size": 32,
-      "hash-function-time": 2.6156e-05,
-      "hash-function-constraints": 1324
+      "hash-function-time": 1.173068e-05,
+      "hash-function-constraints": 1376
     },
     "beta-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuit-time": 0.153988,
+          "circuit-time": 0.093016036,
           "hash-function-name": "pedersen",
           "hash-function-size": 32,
-          "hash-function-time": 2.6156e-05,
-          "hash-function-constraints": 1324
+          "hash-function-time": 1.173068e-05,
+          "hash-function-constraints": 1376
         },
         {
-          "circuit-time": 0.65253,
+          "circuit-time": 0.16443467,
           "hash-function-name": "blake2s-kdf",
           "hash-function-size": 32,
-          "hash-function-time": 4.5608e-08,
-          "hash-function-constraints": 5162
+          "hash-function-time": 5.2520004e-08,
+          "hash-function-constraints": 10759
         },
         {
-          "circuit-time": 1.30506,
+          "circuit-time": 0.32886934,
           "hash-function-name": "blake2s",
           "hash-function-size": 32,
-          "hash-function-time": 9.1216e-08,
-          "hash-function-constraints": 10324
+          "hash-function-time": 5.2468e-08,
+          "hash-function-constraints": 21518
         }
       ]
     },
@@ -967,35 +967,35 @@
     "alpha-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuit-time": 0.153988,
+          "circuit-time": 0.093016036,
           "hash-function-name": "pedersen",
           "hash-function-size": 32,
-          "hash-function-time": 2.6156e-05,
-          "hash-function-constraints": 1324
+          "hash-function-time": 1.173068e-05,
+          "hash-function-constraints": 1376
         },
         {
-          "circuit-time": 0.65253,
+          "circuit-time": 0.16443467,
           "hash-function-name": "blake2s-kdf",
           "hash-function-size": 32,
-          "hash-function-time": 4.5608e-08,
-          "hash-function-constraints": 5162
+          "hash-function-time": 5.2520004e-08,
+          "hash-function-constraints": 10759
         },
         {
-          "circuit-time": 1.30506,
+          "circuit-time": 0.32886934,
           "hash-function-name": "blake2s",
           "hash-function-size": 32,
-          "hash-function-time": 9.1216e-08,
-          "hash-function-constraints": 10324
+          "hash-function-time": 5.2468e-08,
+          "hash-function-constraints": 21518
         }
       ]
     },
-    "layer-performance.beta-hashing-time": 97.94244,
+    "layer-performance.beta-hashing-time": 56.337086,
     "merkle-hash-function.hash-function%": {
-      "circuit-time": 0.153988,
+      "circuit-time": 0.093016036,
       "hash-function-name": "pedersen",
       "hash-function-size": 32,
-      "hash-function-time": 2.6156e-05,
-      "hash-function-constraints": 1324
+      "hash-function-time": 1.173068e-05,
+      "hash-function-constraints": 1376
     },
     "minimum-storage-to-proof-size-ratio": 42949670,
     "zigzag-basic-layer-challenge-factor": 333.33334,
@@ -1005,64 +1005,64 @@
     "merkle-hash-function.hash-functions%": {
       "tuples": [
         {
-          "circuit-time": 0.153988,
+          "circuit-time": 0.093016036,
           "hash-function-name": "pedersen",
           "hash-function-size": 32,
-          "hash-function-time": 2.6156e-05,
-          "hash-function-constraints": 1324
+          "hash-function-time": 1.173068e-05,
+          "hash-function-constraints": 1376
         },
         {
-          "circuit-time": 0.65253,
+          "circuit-time": 0.16443467,
           "hash-function-name": "blake2s-kdf",
           "hash-function-size": 32,
-          "hash-function-time": 4.5608e-08,
-          "hash-function-constraints": 5162
+          "hash-function-time": 5.2520004e-08,
+          "hash-function-constraints": 10759
         },
         {
-          "circuit-time": 1.30506,
+          "circuit-time": 0.32886934,
           "hash-function-name": "blake2s",
           "hash-function-size": 32,
-          "hash-function-time": 9.1216e-08,
-          "hash-function-constraints": 10324
+          "hash-function-time": 5.2468e-08,
+          "hash-function-constraints": 21518
         }
       ]
     },
-    "total-zigzag-kdf-hashing-constraints": 193100096,
+    "total-zigzag-kdf-hashing-constraints": 402472672,
     "total-zigzag-non-hashing-constraints": 0,
     "average-monthly-income-during-ramp-up": 2083.3333,
     "filecoin-porep-requirements-satisfied": true,
-    "layer-performance.challenge-constraints": 4718068,
-    "layer-performance.challenge-circuit-time": 596.4125,
+    "layer-performance.challenge-constraints": 9833726,
+    "layer-performance.challenge-circuit-time": 150.29329,
     "layer-performance.layer-challenge-proofs": 15,
     "layer-performance.max-beta-merkle-height": 30,
     "layer-performance.merkle-tree.height-raw": 30,
     "layer-performance.merkle-tree.node-bytes": 32,
-    "layer-performance.beta-hash-function.time": 9.1216e-08,
+    "layer-performance.beta-hash-function.time": 5.2468e-08,
     "layer-performance.merkle-tree.beta-height": 30,
     "layer-performance.merkle-tree.sector-size": 34359738368,
-    "layer-performance.alpha-hash-function.time": 2.6156e-05,
+    "layer-performance.alpha-hash-function.time": 1.173068e-05,
     "layer-performance.merkle-tree.alpha-height": 0,
     "layer-performance.merkle-tree.alpha-leaves": 1,
-    "layer-performance.challenge-kdf-constraints": 72268,
-    "layer-performance.challenge-kdf-circuit-time": 9.13542,
-    "layer-performance.inclusion-proof-constraints": 309720,
+    "layer-performance.challenge-kdf-constraints": 150626,
+    "layer-performance.challenge-kdf-circuit-time": 2.3020854,
+    "layer-performance.inclusion-proof-constraints": 645540,
     "layer-performance.merkle-tree.beta-hash-count": 1073741823,
     "layer-performance.single-challenge-kdf-hashes": 14,
     "filecoin-porep-security-requirements-satisfied": true,
-    "layer-performance.inclusion-proof-circuit-time": 39.151802,
+    "layer-performance.inclusion-proof-circuit-time": 9.86608,
     "layer-performance.merkle-tree.alpha-hash-count": 0,
     "layer-performance.merkle-tree.total-hash-count": 1073741823,
-    "layer-performance.kdf-hash-function.constraints": 5162,
-    "layer-performance.beta-hash-function.constraints": 10324,
-    "layer-performance.kdf-hash-function.circuit-time": 0.65253,
-    "layer-performance.alpha-hash-function.constraints": 1324,
-    "layer-performance.beta-hash-function.circuit-time": 1.30506,
-    "layer-performance.challenge-inclusion-constraints": 4645800,
-    "layer-performance.alpha-hash-function.circuit-time": 0.153988,
-    "layer-performance.beta-inclusion-proof-constraints": 309720,
-    "layer-performance.challenge-inclusion-circuit-time": 587.27704,
+    "layer-performance.kdf-hash-function.constraints": 10759,
+    "layer-performance.beta-hash-function.constraints": 21518,
+    "layer-performance.kdf-hash-function.circuit-time": 0.16443467,
+    "layer-performance.alpha-hash-function.constraints": 1376,
+    "layer-performance.beta-hash-function.circuit-time": 0.32886934,
+    "layer-performance.challenge-inclusion-constraints": 9683100,
+    "layer-performance.alpha-hash-function.circuit-time": 0.093016036,
+    "layer-performance.beta-inclusion-proof-constraints": 645540,
+    "layer-performance.challenge-inclusion-circuit-time": 147.99121,
     "layer-performance.alpha-inclusion-proof-constraints": 0,
-    "layer-performance.beta-inclusion-proof-circuit-time": 39.151802,
+    "layer-performance.beta-inclusion-proof-circuit-time": 9.86608,
     "layer-performance.single-challenge-inclusion-proofs": 15,
     "layer-performance.alpha-inclusion-proof-circuit-time": 0,
     "layer-performance.merkle-tree.beta-inclusion-proof-hash-length": 30,

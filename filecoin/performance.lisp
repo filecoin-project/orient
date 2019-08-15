@@ -38,7 +38,7 @@ TODO: block reward growth rate can/should be folded into this as an incremental 
   )
 
 (defparameter *isolated-performance-defaults* (tuple (GiB-seal-cycles (* 4.3e9 9042.883))))
-(defparameter *integrated-performance-defaults* (tuple (seal-GHz 5.0)))
+(defparameter *integrated-performance-defaults* (tuple (seal-GHz *baseline-ghz*)))
 
 (defschema filecoin-price-performance
     "Filecoin price performance."  

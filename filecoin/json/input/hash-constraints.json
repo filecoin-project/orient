@@ -1,0 +1,64 @@
+{
+  "git": {
+    "hash": "1182e68594806892b36d548d38473bcb33854571",
+    "date": "2019-08-07T20:50:38Z"
+  },
+  "system": {
+    "system": "Linux",
+    "release": "4.9.0-5-amd64",
+    "version": "#1 SMP Debian 4.9.65-3+deb9u2 (2018-01-04)",
+    "architecture": "x86_64",
+    "processor": "Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz",
+    "processor-base-frequency-hz": 2600,
+    "processor-max-frequency-hz": 3700,
+    "processor-features": "FeatureInfo { eax: 329300, ebx: 1008732160, edx_ecx: SSE3 | PCLMULQDQ | DTES64 | MONITOR | DSCPL | VMX | SMX | EIST | TM2 | SSSE3 | FMA | CMPXCHG16B | PDCM | PCID | DCA | SSE41 | SSE42 | X2APIC | MOVBE | POPCNT | TSC_DEADLINE | AESNI | XSAVE | OSXSAVE | AVX | F16C | RDRAND | FPU | VME | DE | PSE | TSC | MSR | PAE | MCE | CX8 | APIC | SEP | MTRR | PGE | MCA | CMOV | PAT | PSE36 | CLFSH | DS | ACPI | MMX | FXSR | SSE | SSE2 | SS | HTT | TM | PBE }",
+    "processor-cores-logical": 48,
+    "processor-cores-physical": 14,
+    "memory-total-bytes": 201426341888
+  },
+  "benchmarks": [
+    {
+      "hash-fn": "blake2s",
+      "constraints": 21262,
+      "bytes": 32
+    },
+    {
+      "hash-fn": "blake2s",
+      "constraints": 21518,
+      "bytes": 64
+    },
+    {
+      "hash-fn": "blake2s",
+      "constraints": 43420,
+      "bytes": 128
+    },
+    {
+      "hash-fn": "blake2s",
+      "constraints": 87224,
+      "bytes": 256
+    },
+    {
+      "hash-fn": "pedersen",
+      "constraints": 689,
+      "bytes": 32
+    },
+    {
+      "hash-fn": "pedersen",
+      "constraints": 1376,
+      "bytes": 64
+    },
+    {
+      "hash-fn": "pedersen",
+      "constraints": 4126,
+      "bytes": 128
+    },
+    {
+      "hash-fn": "pedersen",
+      "constraints": 9626,
+      "bytes": 256
+    }
+  ],
+  "Outputs": {
+    "max-resident-set-size-kb": 1207824
+  }
+}

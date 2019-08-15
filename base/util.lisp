@@ -76,3 +76,5 @@
                       (transform-tree-if test function (cdr tree))))
           (t tree))))))
 
+(defun keywordize (string-designator)
+  (intern (string-upcase (string string-designator)) :keyword))

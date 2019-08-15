@@ -34,6 +34,9 @@
 (def-suite filecoin-suite)
 (in-suite filecoin-suite)
 
+(defparameter *baseline-mhz* 5000.0 "Clock speed on which original benchmarks were based. Unit: MHz")
+(defparameter *baseline-ghz* (* 1e-3 *baseline-mhz*))
+
 (defconstant KiB 1024)
 (defconstant MiB (* KiB 1024))
 (defconstant GiB (* MiB 1024))
@@ -42,3 +45,8 @@
   (tuple
    (node-bytes 32)
    (sector-GiB 32)))
+
+(defparameter *filecoin-json-directory* (project-merge "filecoin/json/"))
+
+  
+
