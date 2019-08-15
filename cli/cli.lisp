@@ -30,15 +30,20 @@
 		   (port (port "port-number" "port to listen on"))
 		   (merge (merge nil "merge inputs with (instead of replacing) defaults"))
 		   (command (command "{dump, solve, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+		   (root (root "project root, so we can find json files"))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
 					    "out" "o"
 					    "calc" "c"
 					    "port" "p"
 					    "command" "c"
-					    "merge" "m") ;; Need to include all parameters from WITH-CLI-OPTIONS here.
+					    "merge" "m"
+					    "root" "r") ;; Need to include all parameters from WITH-CLI-OPTIONS here.
 			(lambda (option value) (declare (ignore option value)))
 			(lambda (free-val) (declare (ignore free-val))))
+    (when root
+      (setq orient.base.util:*project-root* (truename root)))
+    
     (destructuring-bind (&optional arg0 free-command &rest subcommands) commands
       (declare (ignore arg0 subcommands))
       (let ((command (keywordize (if command

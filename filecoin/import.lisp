@@ -2,12 +2,12 @@
 
 (in-suite filecoin-suite)
 
-(defparameter *filecoin-json-path* (merge-pathnames *filecoin-json-directory* "filecoin.json"))
+(defun filecoin-json-path () (merge-pathnames (filecoin-json-directory) "filecoin.json"))
 
 (defvar *benchmarks* nil)
 
 (defun benchmarks-pathname ()
-  (let* ((candidates (directory (merge-pathnames (make-pathname :directory '(:relative "input") :name :wild :type "json") *filecoin-json-directory*)))
+  (let* ((candidates (directory (merge-pathnames (make-pathname :directory '(:relative "input") :name :wild :type "json") (filecoin-json-directory))))
 	 (narrowed (remove-if-not (lambda (pathname)
 				    (let* ((name (pathname-name pathname))					  
 					   (suffix "-benchmarks")
@@ -67,7 +67,7 @@
 				      hash-constraints)))))
 
 (defun benchmarks (&optional (pathname (benchmarks-pathname)))
-  (or ;*benchmarks*
+  (or *benchmarks*
       (let ((data (read-benchmarks pathname)))
 	(setq *benchmarks*
 	      (tuple
