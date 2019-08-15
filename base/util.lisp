@@ -32,11 +32,14 @@
 
 (defun commit-base-uri (&optional (base-uri *project-base-uri*))
   (format nil "~A/commit" base-uri))
-  
+
+(defvar *project-root* nil "The project root should be a directory pathname and will override the calculated value of PROJECT-ROOT if set.")
+
 (defun project-root ()
-  (let* ((root-file (asdf:system-source-file (asdf:find-system :orient)))
-	 (project-dir (pathname-directory root-file)))
-    (make-pathname :directory project-dir)))
+  (or *project-root*
+      (let* ((root-file (asdf:system-source-file (asdf:find-system :orient)))
+	     (project-dir (pathname-directory root-file)))
+	(make-pathname :directory project-dir))))
 
 (defun project-merge (pathspec)
   (merge-pathnames (pathname pathspec) (project-root)))

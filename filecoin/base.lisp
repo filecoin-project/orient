@@ -46,7 +46,7 @@
    (node-bytes 32)
    (sector-GiB 32)))
 
-(defparameter *filecoin-json-directory* (project-merge "filecoin/json/"))
+(defun filecoin-json-directory () (project-merge "filecoin/json/"))
 
   
 

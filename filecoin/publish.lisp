@@ -19,7 +19,7 @@
       (setf assignments (extract assignments :error t)))
     published))
 
-(defun publish-filecoin-json (&optional (where *filecoin-json-path*))
+(defun publish-filecoin-json (&optional (where (filecoin-json-path)))
   (typecase where
     ((or string pathname)
      (let* ((pathname (project-merge where))

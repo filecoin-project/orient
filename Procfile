@@ -7,5 +7,5 @@
 #  1. https://github.com/yangby/heroku-buildpack-sbcl.git
 #  2. https://github.com/weibeld/heroku-buildpack-graphviz.git
 
-web: $HOME/ubercalc ubercalc web --port $PORT
+web: $HOME/ubercalc ubercalc web -r . --port $PORT
 
