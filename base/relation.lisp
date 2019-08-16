@@ -29,7 +29,7 @@
 (defmethod print-object ((relation relation) (stream t))
   ;; TODO: Define a reader macro (possibly changing format) and ensure relations/tuples are printed readably
   ;; (with a way of setting up read table appropiately).
-  (format stream "#<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
+  (format stream "#<RELATION ~S>" (tuples relation)))
 
 (defgeneric ensure-tuples (attributed)
   (:method ((tuple wb-map))
