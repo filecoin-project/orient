@@ -78,6 +78,9 @@
      (setq *dval* ,value-form)
      (break)))
 
+(defmacro isetq (var val)
+  `(setf (symbol-value ',var) ,val))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; Interactive Interface

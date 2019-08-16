@@ -3,7 +3,14 @@
 
 [![CircleCI](https://circleci.com/gh/filecoin-project/orient/tree/master.svg?style=svg&circle-token=e06461d4c5ca9731534a1e238c77e575d368798c)](https://circleci.com/gh/filecoin-project/orient/tree/master)
 
-This is a proof-of-concept reference implementation intended as a lightweight way to explore and clarify the [Orientable specification](https://docs.google.com/document/d/1zjWHegvZwTgvU4fOAjUbIwMwQyfPzHoXJVTX8iR--2E/edit#heading=h.2jf8rxk263pw).
+Orient began life as a proof-of-concept reference implementation intended as a lightweight way to explore and clarify
+the (now somewhat outdated) [Orientable specification](https://docs.google.com/document/d/1zjWHegvZwTgvU4fOAjUbIwMwQyfPzHoXJVTX8iR--2E/edit#heading=h.2jf8rxk263pw).
+
+The underlying framework has been developed alongside the [Filecoin Übercalc](ubercalc/ubercalc.org). Eventually the repositories
+for these two projects will be split. In the meantime, for ease of development and deployment, they are colocated
+here.
+
+For a brief introduction to Orient, see the [tutorial](tutorial.org).
 
 ## Installation
 
@@ -36,7 +43,7 @@ After sbcl launched, type in the command below.
 (quicklisp-quickstart:install)
 ```
 
-At this moment, Quicklisp has already been installed. To load Quicklisp every time you start Lisp (which is recommended), type in command below.
+Now Quicklisp has been installed. To ensure Quicklisp is loaded every time you start Lisp, type in the command below.
 
 ```lisp
 (ql:add-to-init-file)
@@ -223,6 +230,10 @@ If you're having a hard time setting up a development environment, Docker might 
 ```bash
 > make test
 ```
+
+### Tutorial
+
+For a brief introduction to Orient, see the [tutorial](tutorial.org).
 
 ## License
 

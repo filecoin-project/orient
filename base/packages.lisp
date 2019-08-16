@@ -1,10 +1,10 @@
-(defpackage :orient.base.util
+(defpackage orient.base.util
   (:use :common-lisp)
   (:nicknames :util)
   (:export :comma-list :keywordize :map-tree :transform-tree :transform-tree-if :string-split :project-commit :project-merge :project-sha1
 	   :project-root :*project-root*))
 
-(defpackage :orient
+(defpackage orient
   (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util)
   (:shadow :join :restrict :relation :tuple)
   ;; Use same shadowing imports as FSET-USER does.
@@ -37,7 +37,7 @@
    :deftransformation :deftransformation= :extract
    :find-component :find-constraint :find-schema :find-system :find-transformation :format-value
    :forget :generate-directed-graph :it
-   :implementation :implementation-module :implementation-name
+   :implementation :implementation-module :implementation-name :isetq
    :link
    :tref :join :lookup-description :make-relation
    :make-signature :make-tuple :operation
@@ -46,7 +46,7 @@
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p :project-commit-link
    :present-data :project :publish
-   :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation
+   :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation :restrict
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system
    :system-components :system-data :system-name :system-schema :system-subsystems
@@ -55,3 +55,22 @@
    :use-construction :use-attribute
    :where :with-attributes :with-construction :write-dot-format
    :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group &group-by &into :!>))
+
+(defpackage orient.scratch
+  (:use :common-lisp :orient :orient.base.util :it.bese.FiveAm :fset :gmap)
+  (:nicknames :scratch)
+  (:shadowing-import-from :orient #:join #:restrict #:relation #:tuple)
+  (:shadowing-import-from :fset
+			  ;; Shadowed type/constructor names
+			  #:set #:map
+			  ;; Shadowed set operations
+			  #:union #:intersection #:set-difference #:complement
+			  ;; Shadowed sequence operations
+			  #:first #:last #:subseq #:reverse #:sort #:stable-sort
+			  #:reduce
+			  #:find #:find-if #:find-if-not
+			  #:count #:count-if #:count-if-not
+			  #:position #:position-if #:position-if-not
+			  #:remove #:remove-if #:remove-if-not
+			  #:substitute #:substitute-if #:substitute-if-not
+			  #:some #:every #:notany #:notevery))
