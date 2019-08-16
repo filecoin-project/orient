@@ -6,8 +6,6 @@ For a (possibly) better reading experience, try the [[https://filecoin-project.g
 [[https://github.com/filecoin-project/orient][Orient]] is implemented in [[http://www.lispworks.com/documentation/HyperSpec/Front/][Common Lisp]]. This tutorial won't teach you that, but if you follow the examples you should be
 able to pick up the basics pretty quickly.
 
-
-
 * Relational Data
 First, load Orient:
 #+BEGIN_SRC lisp
@@ -22,9 +20,11 @@ First, load Orient:
 #+END_SRC
 
 #+RESULTS:
-[2019-08-15 05:46:48 PM]:  Using commit [[https://github.com/filecoin-project/orient/commit/36978087f57f8f5d39a163a86a8ab96a1225472e
-][36978087f57f8f5d39a163a86a8ab96a1225472e
+[2019-08-15 06:25:17 PM]:  Using commit [[https://github.com/filecoin-project/orient/commit/78089b6d3bf72429a18a56ab23f03ab88893f256
+][78089b6d3bf72429a18a56ab23f03ab88893f256
 ]]
+
+
 For this tutorial, we will work in the =SCRATCH= package.
 #+BEGIN_SRC lisp :exports both
 (in-package scratch)
