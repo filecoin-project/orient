@@ -384,7 +384,7 @@ Joining a tuple with a relation lets you select a subset of its tuples.
 </pre>
 
 <p>
-No shared attributes.
+No shared attributes:
 </p>
 <div class="org-src-container">
 
@@ -397,7 +397,7 @@ No shared attributes.
 </pre>
 
 <p>
-No match.
+No match:
 </p>
 <div class="org-src-container">
 
@@ -410,7 +410,7 @@ NIL
 </pre>
 
 <p>
-Cartesian product.
+Cartesian product:
 </p>
 <div class="org-src-container">
 
@@ -481,7 +481,8 @@ Orient uses schemas to define parameters. For now, these only associate descript
 
 <p>
 Before we perform any calculation, we need to define the relationship between variables. In this case, we will define
-<code>adults</code> as the sum of <code>men</code> and <code>women</code>; and <code>population</code> as the sum of <code>adults</code> and <code>children</code>.
+<code>ADULTS</code> as the sum of <code>MEN</code> and <code>WOMEN</code>; and <code>POPULATION</code> as the sum of <code>ADULTS</code> and <code>CHILDREN</code>. <code>PETS</code> is the product
+of <code>CHILDREN</code> and <code>PETS-PER-CHILD</code>.
 </p>
 <div class="org-src-container">
 
@@ -536,43 +537,15 @@ Before we perform any calculation, we need to define the relationship between va
 <p>
 The resulting system contains transformations for deriving parameters from each other, when possible.
 </p>
-<pre class="example">
-#&lt;SYSTEM (:COMPONENTS
-          ((COMPONENT ((TRANSFORMATION (SIG #{
-                                              MEN
-                                              WOMEN } -&gt; #{
-                                                           ADULTS }) === "FN()")
-                       (TRANSFORMATION (SIG #{
-                                              MEN
-                                              ADULTS } -&gt; #{
-                                                            WOMEN }) === "FN()")
-                       (TRANSFORMATION (SIG #{
-                                              WOMEN
-                                              ADULTS } -&gt; #{
-                                                            MEN }) === "FN()")))
-           (COMPONENT ((TRANSFORMATION (SIG #{
-                                              ADULTS
-                                              CHILDREN } -&gt; #{
-                                                              POPULATION }) === "FN()")
-                       (TRANSFORMATION (SIG #{
-                                              ADULTS
-                                              POPULATION } -&gt; #{
-                                                                CHILDREN }) === "FN()")
-                       (TRANSFORMATION (SIG #{
-                                              CHILDREN
-                                              POPULATION } -&gt; #{
-                                                                ADULTS }) === "FN()"))))
-          :SUBSYSTEMS NIL :SCHEMA NIL :DATA NIL)&gt;
-</pre>
 
 <p>
-Now that we have defined the relationship between parameters, we can use the convenience function, <code>ask</code> to ask
-questions. <code>ask</code> takes a system, a list of target attributes, and input data. If Orient can find a solution it will be
+Now that we have defined the relationship between parameters, we can use the convenience function, <code>ASK</code> to ask
+questions. <code>ASK</code> takes a system, a list of target attributes, and input data. If Orient can find a solution it will be
 returned.
 </p>
 
 <p>
-Let's calculate <code>population</code> and <code>adults</code>.
+Let's calculate <code>POPULATION</code> and <code>ADULTS</code>.
 </p>
 <div class="org-src-container">
 
@@ -615,7 +588,7 @@ What if we know the population and number of adults but not how many men and chi
 </pre>
 
 <p>
-And remember, Orient is relational, so our input can be a relation and so can the output. Here we join a relation
+Remember, Orient is relational, so our input can be a relation and so can the output. Here we join a relation
 containing a number of different populations with a tuple containing the (constant) numbers of women and adults. And in
 order to make our results more legible, we ask for the population too.
 </p>
@@ -641,12 +614,12 @@ order to make our results more legible, we ask for the population too.
 </pre>
 
 <p>
-If we want more information about the solution, we can use <code>solve-for</code>. <code>solve-for</code> returns the whole solution and
-doesn't project just the requested attributes like <code>ask</code> does.
+If we want more information about the solution, we can use <code>SOLVE-FOR</code>. <code>SOLVE-FOR</code> returns the whole solution and
+doesn't project just the requested attributes like <code>ASK</code> does.
 </p>
 
 <p>
-It also returns some other values: the <code>plan</code>, an optional <code>report</code> (which we didn't request here), and the
+It also returns some other values: the <code>PLAN</code>, an optional <code>REPORT</code> (which we didn't request here), and the
 <code>initial-data</code> (which might have been assembled in a more complex way than in this example).
 </p>
 <div class="org-src-container">
@@ -676,27 +649,19 @@ The list of transformations below is the plan. In this example, see that Orient 
 Finally, we see the input tuple itself.
 </p>
 
-<pre class="example">
-#{| (MEN 14) (WOMEN 11) (ADULTS 25) (CHILDREN 25) (POPULATION 50) |}
-((TRANSFORMATION (SIG #{ WOMEN ADULTS } -&gt; #{ MEN }) === "FN()")
- (TRANSFORMATION (SIG #{ ADULTS POPULATION } -&gt; #{ CHILDREN }) === "FN()"))
-""
-#{| (WOMEN 11) (ADULTS 25) (POPULATION 50) |}
-</pre>
-
-
 <p>
 The output is a bit hard to read, since multiple values are jammed up together, so let's look at another example which
-binds each value to a variable and stores the results. We will also use the most general function, <code>solve</code> instead of
-the often-more-conveneitn <code>solve-for</code>.
+binds each value to a variable and stores the results. We will also use the most general function, <code>SOLVE</code> instead of
+the often-more-conveneitn <code>SOLVE-FOR</code>.
 </p>
 
 <p>
-This introduces the new concept of a <i>signature</i>, created below with <code>sig</code>. We solve <i>problems</i> over <i>systems</i>. (<i>Problems</i>
+This introduces the new concept of a <i>signature</i>, created below with <code>SIG</code>. We solve <i>problems</i> over <i>systems</i>. (<i>Problems</i>
 have the same shape as simple <i>signatures</i>, so we use <i>signatures</i> here for now. This will change in the future, since the
 overloading of <i>signature</i> can be confusing. We mention it here to hopefully reduce that confusion but realize the
-opposite effect may have been accomplished.
+opposite effect may have been accomplished.)
 </p>
+
 <div class="org-src-container">
 
 <pre class="src src-lisp">(multiple-value-bind (result plan report initial-values)
@@ -716,15 +681,9 @@ opposite effect may have been accomplished.
 </pre>
 
 <p>
-The results:
+The results.
 </p>
-<pre class="example">
-#{| (MEN 10) (WOMEN 11) (ADULTS 21) (CHILDREN 5) (POPULATION 26) |}
-</pre>
 
-<p>
-The plan:
-</p>
 <div class="org-src-container">
 
 <pre class="src src-lisp">plan1
@@ -736,10 +695,13 @@ The plan:
  (TRANSFORMATION (SIG #{ ADULTS CHILDREN } -&gt; #{ POPULATION }) === "FN()"))
 </pre>
 
+<p>
+The plan.
+</p>
 
 <p>
-And here is another way to create a signature, without the convenience macro, <code>sig</code>. We compare the two results using
-<code>same</code> which is generally aware of Orient's domain object equality and is useful when writing tests.
+And here is another way to create a signature, without the convenience macro, <code>SIG</code>. We compare the two results using
+<code>SAME</code> which is generally aware of Orient's domain object equality and is useful when writing tests.
 </p>
 <div class="org-src-container">
 
@@ -767,8 +729,9 @@ And, just to show a slightly more complex example, let's not forget the pets!
 </pre>
 
 <p>
-We can still calculate in different directions.
+We can still calculate in different directions, too.
 </p>
+
 <div class="org-src-container">
 
 <pre class="src src-lisp">(ask (find-system 'woozle-population)
