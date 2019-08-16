@@ -1,0 +1,803 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Orient Tutorial</title>
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="generator" content="Org-mode" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  pre.src-sh:before    { content: 'sh'; }
+  pre.src-bash:before  { content: 'sh'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-R:before     { content: 'R'; }
+  pre.src-perl:before  { content: 'Perl'; }
+  pre.src-java:before  { content: 'Java'; }
+  pre.src-sql:before   { content: 'SQL'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.right  { text-align: center;  }
+  th.left   { text-align: center;   }
+  th.center { text-align: center; }
+  td.right  { text-align: right;  }
+  td.left   { text-align: left;   }
+  td.center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara:nth-child(2) { display: inline; }
+  .footpara { display: block; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  /*]]>*/-->
+</style>
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/styles/readtheorg/css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/styles/readtheorg/css/readtheorg.css"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/styles/lib/js/jquery.stickytableheaders.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/styles/readtheorg/js/readtheorg.js"></script>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Orient Tutorial</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">1. Relational Data</a>
+<ul>
+<li><a href="#sec-1-1">1.1. What about the rest of relational algebra?</a></li>
+</ul>
+</li>
+<li><a href="#sec-2">2. Orient Basics</a></li>
+</ul>
+</div>
+</div>
+<p>
+For a (possibly) better reading experience, try the <a href="https://filecoin-project.github.io/orient/">HTML site</a>.
+</p>
+
+<p>
+<a href="https://github.com/filecoin-project/orient">Orient</a> is implemented in <a href="http://www.lispworks.com/documentation/HyperSpec/Front/">Common Lisp</a>. This tutorial won't teach you that, but if you follow the examples you should be
+able to pick up the basics pretty quickly.
+</p>
+
+
+
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> Relational Data</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+First, load Orient:
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(asdf:load-system :orient)
+</pre>
+</div>
+
+<p>
+<span class="timestamp-wrapper"><span class="timestamp">[2019-08-15 05:46:48 PM]</span></span>:  Using commit <a href="https://github.com/filecoin-project/orient/commit/36978087f57f8f5d39a163a86a8ab96a1225472e">36978087f57f8f5d39a163a86a8ab96a1225472e
+</a>
+For this tutorial, we will work in the <code>SCRATCH</code> package.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(in-package scratch)
+</pre>
+</div>
+
+<p>
+Orient works on relational data, so we need to create and manipulate it. We can construct a tuple like this:
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(tuple (a 1) (b 2))
+</pre>
+</div>
+
+<pre class="example">
+#{| (A 1) (B 2) |}
+</pre>
+
+<p>
+In this tutorial, we will use <code>ISETQ</code> (interactive <code>SETQ</code>) for convenience to define top-level variables.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(isetq t1 (tuple (a 1) (b 2)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (A 1) (B 2) |}
+</pre>
+
+<p>
+Extract values from tuples with <code>TREF</code>.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(tref 'b t1)
+</pre>
+</div>
+
+<pre class="example">
+2
+</pre>
+
+<p>
+<code>TREF</code> also defines a place we can <code>SETF</code>.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(setf (tref 'a t1) 9)
+
+t1
+</pre>
+</div>
+
+<pre class="example">
+#{| (A 9) (B 2) |}
+</pre>
+
+<p>
+For convenience, you can also use the <code>WITH-ATTRIBUTES</code> macro.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(with-attributes (a b) t1
+   (+ b a))
+</pre>
+</div>
+
+<pre class="example">
+11
+</pre>
+
+<p>
+And this also allows you to set (<code>SETQ</code> or <code>SETF</code> both work).
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(with-attributes (a b) t1
+  (setq b 3))
+
+t1
+</pre>
+</div>
+
+<pre class="example">
+#{| (A 9) (B 3) |}
+</pre>
+
+<p>
+A relation is a <i>set</i> of tuples. (There is not yet any concept of 'key', so all attributes together constitute the key.) There is
+a convenient syntax for creating relations.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(isetq r1 (relation (a b c)
+                    (1 2 3)
+                    (4 5 6)
+                    (7 8 9)))
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ A B C ] #{
+                        #{| (A 1) (B 2) (C 3) |}
+                        #{| (A 4) (B 5) (C 6) |}
+                        #{| (A 7) (B 8) (C 9) |} }&gt;
+</pre>
+
+<p>
+We can also create a relation from constituent tuples. Note that one tuple (<code>T1</code>) is deduplicated.
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(isetq r2 (make-relation (list t1 (tuple (a 3) (b 8)) (tuple (a 7) (b 8)) t1)))
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ A B ] #{
+                      #{| (A 3) (B 8) |}
+                      #{| (A 7) (B 8) |}
+                      #{| (A 9) (B 3) |} }&gt;
+</pre>
+
+
+<p>
+We can get a relation's cardinality.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(cardinality r1)
+</pre>
+</div>
+
+<pre class="example">
+3
+</pre>
+
+<p>
+And its attributes.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(attributes r1)
+</pre>
+</div>
+
+<pre class="example">
+#{ A B C }
+</pre>
+
+<p>
+Tuples have attributes too.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(attributes t1)
+</pre>
+</div>
+
+<pre class="example">
+#{ A B }
+</pre>
+
+<p>
+You can join tuples and relations with <code>JOIN</code> (which implements a 'natural join'). This concatenates tuples with
+matching attributes from either of its arguments.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(join r1 r2)
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ A B C ] #{ #{| (A 7) (B 8) (C 9) |} }&gt;
+</pre>
+
+<p>
+Joining a tuple with a relation lets you select a subset of its tuples.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(join (tuple (b 8)) r2)
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ A B ] #{ #{| (A 3) (B 8) |} #{| (A 7) (B 8) |} }&gt;
+</pre>
+
+<p>
+No shared attributes.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(join (tuple (a 1)) (tuple (b 2)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (A 1) (B 2) |}
+</pre>
+
+<p>
+No match.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(join (tuple (a 1)) (tuple (a 2)))
+</pre>
+</div>
+
+<pre class="example">
+NIL
+</pre>
+
+<p>
+Cartesian product.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(join (relation (a) (1) (2) (3)) (relation (b) (1) (2) (3)))
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ A B ] #{
+                      #{| (A 1) (B 1) |}
+                      #{| (A 1) (B 2) |}
+                      #{| (A 1) (B 3) |}
+                      #{| (A 2) (B 1) |}
+                      #{| (A 2) (B 2) |}
+                      #{| (A 2) (B 3) |}
+                      #{| (A 3) (B 1) |}
+                      #{| (A 3) (B 2) |}
+                      #{| (A 3) (B 3) |} }&gt;
+</pre>
+</div>
+
+<div id="outline-container-sec-1-1" class="outline-3">
+<h3 id="sec-1-1"><span class="section-number-3">1.1</span> What about the rest of relational algebra?</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+More is available, but not all or most yet. See <a href="https://github.com/filecoin-project/orient/blob/master/base/relation.lisp">source</a> for details.
+</p>
+
+<p>
+For now, only what has been needed for Orient is implemented. The rest will be naturally built out over time.
+</p>
+
+<p>
+Now move on to the <i>Orient</i> section of this tutorial.
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> Orient Basics</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+This section of the tutorial will show you Orient basics. If you haven't looked at the <a href="#sec-1">Relational Data</a> section yet, some
+things might be hard to follow, so if you get lost consider backtracking.
+</p>
+
+<p>
+Orient uses schemas to define parameters. For now, these only associate descriptions, but types and units will be supported in the future.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">  (defschema woozleton "Where the Woozles live."
+    (population "How many (Woozle) people live here?")
+    (men "How many men in town?")
+    (women "How many women in town?")
+    (adults "How many adults in town?")
+    (children "How many children in town?")
+    (pets "How many pets are there?")
+    (pets-per-child "How many pets does each child have?"))
+)
+</pre>
+</div>
+
+<pre class="example">
+#&lt;SCHEMA {1006C75D53}&gt;
+</pre>
+
+<p>
+Before we perform any calculation, we need to define the relationship between variables. In this case, we will define
+<code>adults</code> as the sum of <code>men</code> and <code>women</code>; and <code>population</code> as the sum of <code>adults</code> and <code>children</code>.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(defconstraint-system woozle-population
+    ((adults (+ men women))
+     (population (+ adults children))
+     (pets (* children pets-per-child))))
+</pre>
+</div>
+
+<pre class="example">
+#&lt;SYSTEM (:COMPONENTS
+          ((COMPONENT ((TRANSFORMATION (SIG #{
+                                              MEN
+                                              WOMEN } -&gt; #{
+                                                           ADULTS }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              MEN
+                                              ADULTS } -&gt; #{
+                                                            WOMEN }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              WOMEN
+                                              ADULTS } -&gt; #{
+                                                            MEN }) === "FN()")))
+           (COMPONENT ((TRANSFORMATION (SIG #{
+                                              ADULTS
+                                              CHILDREN } -&gt; #{
+                                                              POPULATION }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              ADULTS
+                                              POPULATION } -&gt; #{
+                                                                CHILDREN }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              CHILDREN
+                                              POPULATION } -&gt; #{
+                                                                ADULTS }) === "FN()")))
+           (COMPONENT ((TRANSFORMATION (SIG #{
+                                              CHILDREN
+                                              PETS-PER-CHILD } -&gt; #{
+                                                                    PETS }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              PETS
+                                              CHILDREN } -&gt; #{
+                                                              PETS-PER-CHILD }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              PETS
+                                              PETS-PER-CHILD } -&gt; #{
+                                                                    CHILDREN }) === "FN()"))))
+          :SUBSYSTEMS NIL :SCHEMA NIL :DATA NIL)&gt;
+</pre>
+
+<p>
+The resulting system contains transformations for deriving parameters from each other, when possible.
+</p>
+<pre class="example">
+#&lt;SYSTEM (:COMPONENTS
+          ((COMPONENT ((TRANSFORMATION (SIG #{
+                                              MEN
+                                              WOMEN } -&gt; #{
+                                                           ADULTS }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              MEN
+                                              ADULTS } -&gt; #{
+                                                            WOMEN }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              WOMEN
+                                              ADULTS } -&gt; #{
+                                                            MEN }) === "FN()")))
+           (COMPONENT ((TRANSFORMATION (SIG #{
+                                              ADULTS
+                                              CHILDREN } -&gt; #{
+                                                              POPULATION }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              ADULTS
+                                              POPULATION } -&gt; #{
+                                                                CHILDREN }) === "FN()")
+                       (TRANSFORMATION (SIG #{
+                                              CHILDREN
+                                              POPULATION } -&gt; #{
+                                                                ADULTS }) === "FN()"))))
+          :SUBSYSTEMS NIL :SCHEMA NIL :DATA NIL)&gt;
+</pre>
+
+<p>
+Now that we have defined the relationship between parameters, we can use the convenience function, <code>ask</code> to ask
+questions. <code>ask</code> takes a system, a list of target attributes, and input data. If Orient can find a solution it will be
+returned.
+</p>
+
+<p>
+Let's calculate <code>population</code> and <code>adults</code>.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(population adults)
+     (tuple (men 10) (women 11) (children 5)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (ADULTS 21) (POPULATION 26) |}
+</pre>
+
+
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(children)
+     (tuple (men 10) (women 11) (population 100)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (CHILDREN 79) |}
+</pre>
+
+<p>
+What if we know the population and number of adults but not how many men and children there are?
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(men children)
+     (tuple (women 11) (adults 25) (population 100)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (MEN 14) (CHILDREN 75) |}
+</pre>
+
+<p>
+And remember, Orient is relational, so our input can be a relation and so can the output. Here we join a relation
+containing a number of different populations with a tuple containing the (constant) numbers of women and adults. And in
+order to make our results more legible, we ask for the population too.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(population children)
+     (join (relation (population)
+                     (30)
+                     (50)
+                     (100)
+                     (200))
+           (tuple (women 11) (adults 25))))
+</pre>
+</div>
+
+<pre class="example">
+#&lt;RELATION #[ CHILDREN POPULATION ] #{
+                                      #{| (CHILDREN 5) (POPULATION 30) |}
+                                      #{| (CHILDREN 25) (POPULATION 50) |}
+                                      #{| (CHILDREN 75) (POPULATION 100) |}
+                                      #{| (CHILDREN 175) (POPULATION 200) |} }&gt;
+</pre>
+
+<p>
+If we want more information about the solution, we can use <code>solve-for</code>. <code>solve-for</code> returns the whole solution and
+doesn't project just the requested attributes like <code>ask</code> does.
+</p>
+
+<p>
+It also returns some other values: the <code>plan</code>, an optional <code>report</code> (which we didn't request here), and the
+<code>initial-data</code> (which might have been assembled in a more complex way than in this example).
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(solve-for (find-system 'woozle-population) '(population children) (join (tuple (population 50)) (tuple (women 11) (adults 25))))
+</pre>
+</div>
+
+<pre class="example">
+#{| (MEN 14) (WOMEN 11) (ADULTS 25) (CHILDREN 25) (POPULATION 50) |}
+((TRANSFORMATION (SIG #{ WOMEN ADULTS } -&gt; #{ MEN }) === "FN()")
+ (TRANSFORMATION (SIG #{ ADULTS POPULATION } -&gt; #{ CHILDREN }) === "FN()"))
+""
+#{| (WOMEN 11) (ADULTS 25) (POPULATION 50) |}
+</pre>
+
+<p>
+Notice that we see the solved values for all attributes.
+</p>
+
+<p>
+The list of transformations below is the plan. In this example, see that Orient first calculates <code>MEN</code> from <code>WOMEN</code> and
+<code>ADULTS</code>, then calculate <code>CHILDREN</code> from <code>ADULTS</code> and <code>POPULATION</code>.
+</p>
+
+<p>
+Finally, we see the input tuple itself.
+</p>
+
+<pre class="example">
+#{| (MEN 14) (WOMEN 11) (ADULTS 25) (CHILDREN 25) (POPULATION 50) |}
+((TRANSFORMATION (SIG #{ WOMEN ADULTS } -&gt; #{ MEN }) === "FN()")
+ (TRANSFORMATION (SIG #{ ADULTS POPULATION } -&gt; #{ CHILDREN }) === "FN()"))
+""
+#{| (WOMEN 11) (ADULTS 25) (POPULATION 50) |}
+</pre>
+
+
+<p>
+The output is a bit hard to read, since multiple values are jammed up together, so let's look at another example which
+binds each value to a variable and stores the results. We will also use the most general function, <code>solve</code> instead of
+the often-more-conveneitn <code>solve-for</code>.
+</p>
+
+<p>
+This introduces the new concept of a <i>signature</i>, created below with <code>sig</code>. We solve <i>problems</i> over <i>systems</i>. (<i>Problems</i>
+have the same shape as simple <i>signatures</i>, so we use <i>signatures</i> here for now. This will change in the future, since the
+overloading of <i>signature</i> can be confusing. We mention it here to hopefully reduce that confusion but realize the
+opposite effect may have been accomplished.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(multiple-value-bind (result plan report initial-values)
+    (solve (find-system 'woozle-population) 
+           (sig (men women children) -&gt; (adults))
+           (tuple (men 10) (women 11) (children 5)))
+
+  (isetq res1 result)
+  (isetq plan1 plan)
+  (isetq report1 report)
+  res1)
+</pre>
+</div>
+
+<pre class="example">
+#{| (MEN 10) (WOMEN 11) (ADULTS 21) (CHILDREN 5) (POPULATION 26) |}
+</pre>
+
+<p>
+The results:
+</p>
+<pre class="example">
+#{| (MEN 10) (WOMEN 11) (ADULTS 21) (CHILDREN 5) (POPULATION 26) |}
+</pre>
+
+<p>
+The plan:
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">plan1
+</pre>
+</div>
+
+<pre class="example">
+((TRANSFORMATION (SIG #{ MEN WOMEN } -&gt; #{ ADULTS }) === "FN()")
+ (TRANSFORMATION (SIG #{ ADULTS CHILDREN } -&gt; #{ POPULATION }) === "FN()"))
+</pre>
+
+
+<p>
+And here is another way to create a signature, without the convenience macro, <code>sig</code>. We compare the two results using
+<code>same</code> which is generally aware of Orient's domain object equality and is useful when writing tests.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(same (make-signature '(men women children) '(adults))
+      (sig (men women children) -&gt; (adults)))
+</pre>
+</div>
+
+<pre class="example">
+T
+</pre>
+
+<p>
+And, just to show a slightly more complex example, let's not forget the pets!
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+ '(men children pets) (tuple (women 11) (adults 25) (population 100) (pets-per-child 3)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (MEN 14) (PETS 225) (CHILDREN 75) |}
+</pre>
+
+<p>
+We can still calculate in different directions.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(children pets-per-child)
+     (tuple (women 11) (men 17) (population 100) (pets 200.0)))
+</pre>
+</div>
+
+<pre class="example">
+#{| (CHILDREN 72) (PETS-PER-CHILD 2.7777777) |}
+</pre>
+
+<p>
+But if we ask a question that can't be solved, we're out of luck.
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(ask (find-system 'woozle-population)
+     '(men children)
+     (tuple (women 11) (adults 25) (population 100) (pets-per-child 3) (pets 200)))
+</pre>
+</div>
+
+<pre class="example">
+NIL
+</pre>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

@@ -8,10 +8,6 @@
 (defun make-tuple (&optional pairs dotted)
   (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
-;; (defmacro tref (attribute tuple)
-;;   "Get value of ATTRIBUTE in TUPLE."
-;;   `(@ ,tuple ,attribute))
-
 (defclass relation () ())
 
 (deftype strict-data () '(or null tuple relation))
@@ -31,7 +27,9 @@
   ((tuples :initarg :tuples :initform nil :accessor tuples :type set)))
 
 (defmethod print-object ((relation relation) (stream t))
-  (format stream "<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
+  ;; TODO: Define a reader macro (possibly changing format) and ensure relations/tuples are printed readably
+  ;; (with a way of setting up read table appropiately).
+  (format stream "#<RELATION ~S ~S>" (sort (attributes relation) #'string<) (tuples relation)))
 
 (defgeneric ensure-tuples (attributed)
   (:method ((tuple wb-map))

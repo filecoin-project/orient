@@ -120,7 +120,7 @@
 		   :data (system-data system))))
 
 (defmethod print-object ((sys system) (stream t))
-  (format stream "<SYSTEM ~S)" (list :components (system-components sys)
+  (format stream "#<SYSTEM ~S>" (list :components (system-components sys)
 				     :subsystems (system-subsystems sys)
 				     :schema (system-schema sys)
 				     :data (system-data sys))))
