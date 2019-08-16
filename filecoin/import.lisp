@@ -17,14 +17,15 @@
 				      (and (>= start1 0)
 					   (string= name suffix :start1 (- name-length suffix-length)))))
 				  candidates))
-	 (sorted (sort narrowed #'> :key #'file-write-date)))
+	 (sorted (sort narrowed #'> :key #'file-write-date)))    
     ;; Return the most recently written json file with suffix, -benchmarks.
     (car sorted)))
 
 (defun read-benchmarks (&optional (pathname (benchmarks-pathname)))
   (awhen pathname
     (with-open-file (in it :direction :input)
-      (json:decode-json in))))
+      (let ((json:*json-symbols-package* 'keyword))
+	(json:decode-json in)))))
 
 (defun extract-data (key data) (cdr (assoc key data)))
 
@@ -68,16 +69,16 @@
 
 (defun benchmarks (&optional (pathname (benchmarks-pathname)))
   (or *benchmarks*
-      (let ((data (read-benchmarks pathname)))
-	(setq *benchmarks*
-	      (tuple
-	       (git (to-tuple (extract-data :git data)))
-	       (system (to-tuple (extract-data :system data)))
-	       (micro-benchmarks (make-relation (make-micro-benchmarks data)))
-	       (zigzag-benchmarks (make-zigzag-benchmarks data))
-	       (hash-constraints (make-relation (make-hash-constraints data))))))))
+      (let* ((data (read-benchmarks pathname))
+	     (benchmarks-tuple (tuple
+				(git (to-tuple (extract-data :git data)))
+				(system (to-tuple (extract-data :system data)))
+				(micro-benchmarks (make-relation (make-micro-benchmarks data)))
+				(zigzag-benchmarks (make-zigzag-benchmarks data))
+				(hash-constraints (make-relation (make-hash-constraints data))))))
+	(setq *benchmarks* benchmarks-tuple))))
 
-(defun lookup-micro-benchmark (name &key op size (benchmarks (or *benchmarks* (benchmarks))))
+(defun lookup-micro-benchmark (name &key op size (benchmarks (benchmarks)))
   (join (make-tuple (remove nil `((name ,name)
 				  (op ,op)
 				  (size ,size))
