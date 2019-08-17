@@ -20,6 +20,9 @@ First, load Orient:
 #+END_SRC
 
 #+RESULTS:
+[2019-08-16 12:31:21 AM]:  Using commit [[https://github.com/filecoin-project/orient/commit/0d92fbaa375d1c6c2b6be4c0210284bed30cc202
+][0d92fbaa375d1c6c2b6be4c0210284bed30cc202
+]]
 [2019-08-15 06:25:17 PM]:  Using commit [[https://github.com/filecoin-project/orient/commit/78089b6d3bf72429a18a56ab23f03ab88893f256
 ][78089b6d3bf72429a18a56ab23f03ab88893f256
 ]]
@@ -29,6 +32,9 @@ For this tutorial, we will work in the =SCRATCH= package.
 #+BEGIN_SRC lisp :exports both
 (in-package scratch)
 #+END_SRC
+
+#+RESULTS:
+: #<PACKAGE "ORIENT.SCRATCH">
 
 Orient works on relational data, so we need to create and manipulate it. We can construct a tuple like this:
 #+BEGIN_SRC lisp :package scratch :exports both
@@ -98,10 +104,10 @@ a convenient syntax for creating relations.
 #+END_SRC
 
 #+RESULTS:
-: #<RELATION #[ A B C ] #{
-:                         #{| (A 1) (B 2) (C 3) |}
-:                         #{| (A 4) (B 5) (C 6) |}
-:                         #{| (A 7) (B 8) (C 9) |} }>
+: #<RELATION #{
+:              #{| (A 1) (B 2) (C 3) |}
+:              #{| (A 4) (B 5) (C 6) |}
+:              #{| (A 7) (B 8) (C 9) |} }>
 
 We can also create a relation from constituent tuples. Note that one tuple (=T1=) is deduplicated.
 
@@ -110,10 +116,7 @@ We can also create a relation from constituent tuples. Note that one tuple (=T1=
 #+END_SRC
 
 #+RESULTS:
-: #<RELATION #[ A B ] #{
-:                       #{| (A 3) (B 8) |}
-:                       #{| (A 7) (B 8) |}
-:                       #{| (A 9) (B 3) |} }>
+: #<RELATION #{ #{| (A 3) (B 8) |} #{| (A 7) (B 8) |} #{| (A 9) (B 3) |} }>
 
 
 We can get a relation's cardinality.
@@ -147,7 +150,7 @@ matching attributes from either of its arguments.
 #+END_SRC
 
 #+RESULTS:
-: #<RELATION #[ A B C ] #{ #{| (A 7) (B 8) (C 9) |} }>
+: #<RELATION #{ #{| (A 7) (B 8) (C 9) |} }>
 
 Joining a tuple with a relation lets you select a subset of its tuples.
 #+BEGIN_SRC lisp :package scratch :exports both
@@ -155,7 +158,7 @@ Joining a tuple with a relation lets you select a subset of its tuples.
 #+END_SRC
 
 #+RESULTS:
-: #<RELATION #[ A B ] #{ #{| (A 3) (B 8) |} #{| (A 7) (B 8) |} }>
+: #<RELATION #{ #{| (A 3) (B 8) |} #{| (A 7) (B 8) |} }>
 
 No shared attributes:
 #+BEGIN_SRC lisp :package scratch :exports both
@@ -180,16 +183,16 @@ Cartesian product:
 
 #+RESULTS:
 #+begin_example
-#<RELATION #[ A B ] #{
-                      #{| (A 1) (B 1) |}
-                      #{| (A 1) (B 2) |}
-                      #{| (A 1) (B 3) |}
-                      #{| (A 2) (B 1) |}
-                      #{| (A 2) (B 2) |}
-                      #{| (A 2) (B 3) |}
-                      #{| (A 3) (B 1) |}
-                      #{| (A 3) (B 2) |}
-                      #{| (A 3) (B 3) |} }>
+#<RELATION #{
+             #{| (A 1) (B 1) |}
+             #{| (A 1) (B 2) |}
+             #{| (A 1) (B 3) |}
+             #{| (A 2) (B 1) |}
+             #{| (A 2) (B 2) |}
+             #{| (A 2) (B 3) |}
+             #{| (A 3) (B 1) |}
+             #{| (A 3) (B 2) |}
+             #{| (A 3) (B 3) |} }>
 #+end_example
 
 ** What about the rest of relational algebra?
@@ -218,7 +221,7 @@ Orient uses schemas to define parameters. For now, these only associate descript
 #+END_SRC
 
 #+RESULTS:
-: #<SCHEMA {1006C75D53}>
+: #<SCHEMA {10021023A3}>
 
 Before we perform any calculation, we need to define the relationship between variables. In this case, we will define
 =ADULTS= as the sum of =MEN= and =WOMEN=; and =POPULATION= as the sum of =ADULTS= and =CHILDREN=. =PETS= is the product
@@ -323,11 +326,11 @@ order to make our results more legible, we ask for the population too.
 #+END_SRC
 
 #+RESULTS:
-: #<RELATION #[ CHILDREN POPULATION ] #{
-:                                       #{| (CHILDREN 5) (POPULATION 30) |}
-:                                       #{| (CHILDREN 25) (POPULATION 50) |}
-:                                       #{| (CHILDREN 75) (POPULATION 100) |}
-:                                       #{| (CHILDREN 175) (POPULATION 200) |} }>
+: #<RELATION #{
+:              #{| (CHILDREN 5) (POPULATION 30) |}
+:              #{| (CHILDREN 25) (POPULATION 50) |}
+:              #{| (CHILDREN 75) (POPULATION 100) |}
+:              #{| (CHILDREN 175) (POPULATION 200) |} }>
 
 If we want more information about the solution, we can use =SOLVE-FOR=. =SOLVE-FOR= returns the whole solution and
 doesn't project just the requested attributes like =ASK= does.
@@ -349,6 +352,8 @@ Notice that we see the solved values for all attributes.
 
 The list of transformations below is the plan. In this example, see that Orient first calculates =MEN= from =WOMEN= and
 =ADULTS=, then calculate =CHILDREN= from =ADULTS= and =POPULATION=.
+
+The report is an empty string in this case (since we didn't request it).
 
 Finally, we see the input tuple itself.
 
@@ -427,4 +432,3 @@ But if we ask a question that can't be solved, we're out of luck.
 
 #+RESULTS:
 : NIL
-
