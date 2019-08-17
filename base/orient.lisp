@@ -675,38 +675,29 @@
 			     base))))
     (make-relation tuples)))
 
+
+(defstruct plan-graph (edges))
+
+(defmethod cl-dot:graph-object-node ((graph plan-graph) attribute)
+  (make-instance 'cl-dot:node
+		 :attributes (list :label (symbol-name attribute))))
+
+(defmethod cl-dot:graph-object-edges ((graph plan-graph))
+  (coerce (loop for (from to) in (plan-graph-edges graph)
+	      collect (list from to))
+		  'vector))
+
 (defun generate-directed-graph (plan)
-  (remove-duplicates (loop for transformation in plan
-			for signature = (transformation-signature transformation)
-			append (loop for dependency in (convert 'list (signature-input signature))
-				  append (loop for target in (convert 'list (signature-output signature))
-					    collect (list dependency target))))
-		     :test #'equal))
+  (make-plan-graph :edges
+		   (remove-duplicates (loop for transformation in plan
+					 for signature = (transformation-signature transformation)
+					 append (loop for dependency in (convert 'list (signature-input signature))
+						   append (loop for target in (convert 'list (signature-output signature))
+							     collect (list dependency target))))
+				      :test #'equal)))
 
-(defun write-dot-format (directed-graph stream &key base-url)
-  (flet ((make-label (symbol &key url target)
-	   (let* ((symbol-name (symbol-name symbol))
-		  (cleaned (substitute #\_ #\- symbol-name)))
-	     (if url
-		 (format nil "~S~%~S [URL = \"~A#~A\"; TARGET = \"~A\" ] " cleaned cleaned base-url symbol-name target)
-		 cleaned
-		 ))))
-    (format stream "digraph {~%")
-    (loop for (dependency node) in directed-graph
-       do (format stream "~S -> ~A ~%" (make-label dependency) (make-label node :url "xxx" :target "yyy")))
-    (format stream "}~%")))
-
-(defun dot-format (directed-graph &key base-url)
-  (with-output-to-string (out)
-    (write-dot-format directed-graph out :base-url base-url)))
-
-(defun dot (dot-format &key format output-file (layout "dot"))
-  (with-input-from-string (in dot-format)
-    ;; UIOP:RUN-PROGRAM seems to fail with error that file does not exist when we try this on Heroku. Not sure if a linux or Heroku thing or what.
-    #+sbcl
-    (sb-ext:run-program "/bin/sh" (list "-c" (format nil "dot -K~A -T ~A" layout format)) :output output-file :input in :if-output-exists :supersede)
-    #-sbcl
-    (uiop:run-program (format nil "dot -K~A -T ~A" layout format) :output output-file :input in)))
+(defun dot-graph-from-plan (plan)
+  (cl-dot:generate-graph-from-roots (generate-directed-graph plan) '()))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Tests / Examples

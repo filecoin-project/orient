@@ -31,7 +31,9 @@
    :component :component-operation :component-args :component-target :component-transformations
    :constraint-system
    :defconstraint-system :define-constraint :define-simple-constraint :define-system-constraint
-   :display :ensure-tuples :expand-references
+   :display
+   :dot-graph-from-plan :generate-directed-graph
+   :ensure-tuples :expand-references
    ::tuple :tuples :create-tuple-report-step
    :describe-transformation-calculation :defschema
    :deftransformation :deftransformation= :extract

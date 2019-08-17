@@ -238,13 +238,9 @@
   ;; FIXME: There must be a better way.
   ;; Or maybe this is good, and we should cache (based on content).
   (let ((image-file (ensure-directories-exist (merge-pathnames (make-pathname :name tmp-name :type format)
-							       (uiop:default-temporary-directory)))))
-    (orient::dot
-     (orient::dot-format
-      (generate-directed-graph plan) :base-url base-url)
-     :layout layout
-     :format format
-     :output-file image-file)
+							       (uiop:default-temporary-directory))))
+	(dgraph (dot-graph-from-plan plan)))
+    (cl-dot:dot-graph dgraph image-file :format format)
     (hunchentoot:handle-static-file image-file)))
  
 (define-calculation-pages (economic-performance :uri "/filecoin/economic-performance"
