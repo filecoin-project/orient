@@ -1,8 +1,14 @@
 (defpackage orient.base.util
   (:use :common-lisp)
   (:nicknames :util)
-  (:export :comma-list :keywordize :map-tree :transform-tree :transform-tree-if :string-split :project-commit :project-merge :project-sha1
-	   :project-root :*project-root*))
+  (:export :comma-list
+	   :keywordize
+	   :map-tree
+	   :partial
+	   :project-commit :project-merge :project-sha1 :project-root :*project-root*
+	   :string-split
+	   :transform-tree :transform-tree-if 
+	   ))
 
 (defpackage orient
   (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util)

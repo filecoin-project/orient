@@ -29,6 +29,29 @@
 
    ))
 
+(defpackage filecoin.theory
+  (:use :common-lisp :orient :orient.base.util :it.bese.FiveAm :cl-permutation)
+    (:shadowing-import-from :fset
+			  ;; Shadowed type/constructor names
+			  #:set #:map
+			  ;; Shadowed set operations
+			  #:union #:intersection #:set-difference #:complement
+			  ;; Shadowed sequence operations
+			  #:first #:last #:subseq #:reverse #:sort #:stable-sort
+			  #:reduce
+			  #:find #:find-if #:find-if-not
+			  #:count #:count-if #:count-if-not
+			  #:position #:position-if #:position-if-not
+			  #:remove #:remove-if #:remove-if-not
+			  #:substitute #:substitute-if #:substitute-if-not
+			  #:some #:every #:notany #:notevery)
+    (:shadowing-import-from :cl-permutation :cardinality)
+    (:nicknames :fct))
+
+(defpackage filecoin.scratch
+  (:use :common-lisp :orient :orient.base.util :it.bese.FiveAm :filecoin.theory :fct)
+  (:nicknames :fc-scratch))
+  
 (in-package :filecoin)
 
 (def-suite filecoin-suite)
