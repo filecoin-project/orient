@@ -3,7 +3,7 @@
   :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation")
   :components ((:module "base"
 			:serial t
 			:components
@@ -28,6 +28,7 @@
 			 (:file "filecoin")
 			 (:file "systems")
 			 (:file "publish")
+			 (:file "zigzag-theory")
 			 ))
 	       (:module "web"
 			:depends-on ("base" "filecoin")

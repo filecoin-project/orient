@@ -81,3 +81,7 @@
 
 (defun keywordize (string-designator)
   (intern (string-upcase (string string-designator)) :keyword))
+
+(defun partial (function &rest args)
+  (lambda (&rest new-args)
+    (apply function (append args new-args))))

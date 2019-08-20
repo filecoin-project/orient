@@ -4,6 +4,8 @@
 (in-suite presentation-suite)
 
 (defgeneric format-value (format value)
+  (:method ((format t) (thing t))
+    (princ-to-string (representation thing)))
   (:method ((format (eql :org)) (thing t))
     (princ-to-string (representation thing)))
   (:method ((format (eql :org)) (relation relation))
@@ -21,9 +23,15 @@
     (format-value format thing))
   
   (:method ((format t) (thing null) (null null) &key)
-    "NULL"))
- 
+    "NULL")
 
+  (:method ((format (eql :org-html)) (list list) (system t) &rest keys)
+    `((:table :border "none" :padding 0)      
+      ,@(loop for row in list
+	   for i from 0
+	   collect `((:tr ,@(when (oddp i) '(:bgcolor :lightgrey)))
+		     ,@(loop for elt in row collect `(:td ,(format-value format elt))))))))
+  
 (defun org-present (&rest args)
   (apply #'present-data :org args))
 
@@ -37,3 +45,4 @@
   (multiple-value-bind (commit uri)
       (project-commit)
     (link format uri commit)))
+
