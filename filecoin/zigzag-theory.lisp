@@ -346,7 +346,7 @@
 		  (:challenged "Even Challenge")
 		  (:reversed-parent "Even Expander Parent")
 		  (:renumbered-parent "Even DRG Parent")
-		  (t "")))
+		  (t "~~~~~~")))
      (loop for i from 1 to (layer-graph-nodes last-graph)
 	collect (node-label last-graph i :format :plain)))))
 
@@ -355,7 +355,7 @@
    (loop for i from 1 to (layer-graph-nodes graph)
       collect (if (= i (layer-graph-challenged-node graph))
 		  "Even Challenge"
-		  ""))
+		  "~~~~~~"))
    (loop for i from 1 to (layer-graph-nodes graph)
       collect (node-label graph i :format :plain))))
 
