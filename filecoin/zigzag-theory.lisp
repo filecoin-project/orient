@@ -196,7 +196,11 @@
 		  (simple-renumbered-parents graph index)
 		  (simple-reversed-parents graph index)
 		  (simple-renumbered-parents other-graph renumbered-index)
-		  (simple-reversed-parents other-graph renumbered-index))))
+		  (simple-reversed-parents other-graph renumbered-index)
+		  (mapcar (lambda (x) (renumber other-graph x))
+			  (simple-reversed-parents other-graph renumbered-index))
+		  )))
+
 
 (defun classify (graph i)
   (cond
@@ -205,11 +209,12 @@
     ((renumbered-parent-p graph (layer-graph-challenged-node graph) i) :renumbered-parent)
     (t t)))
 
-(defgeneric node-label (graph i &key format)
-  (:method ((graph layer-graph-mixin) (i integer) &key (format :latex))
+(defgeneric node-label (graph i &key format annotate)
+  (:method ((graph layer-graph-mixin) (i integer) &key (format :latex) (annotate nil))
     (case format
-      (:latex (format nil "$e_~d^{(~d)}$" i (layer-graph-layer graph)))
-      (:plain (format nil "(~d, ~d)" (layer-graph-layer graph) i))
+      (:latex (format nil "$e_~D^{(~D)}~@[~A~]$" i (layer-graph-layer graph) (when annotate "^{*}")))
+      (:plain (format nil "(~D, ~D)~@[~a~]" (layer-graph-layer graph) i (when annotate "<sup>*</sup>")))
+      (:simple (format nil "$(~D, ~D)~@[~a~]$" (layer-graph-layer graph) i (when annotate "^{*}")))
       (:both (format nil "~a = ~a" (node-label graph i :format :latex) (node-label graph i :format :plain))))))
 
 (defmethod cl-dot:graph-object-node ((graph comm-d-layer-graph) i)
@@ -313,24 +318,35 @@
 
 (defgeneric columns (graph &key parity)
   (:method ((graph zigzag-graph) &key parity)
-    (list*
-     (let ((first-graph (first (zigzag-graph-layer-graphs graph)))
-	   (second-graph (second (zigzag-graph-layer-graphs graph))))
-       (loop for i from 1 to (layer-graph-nodes first-graph)
+    (let ((first-graph (first (zigzag-graph-layer-graphs graph)))
+	  (second-graph (second (zigzag-graph-layer-graphs graph)))
+	  (odd-expander-index)
+	  (even-expander-index))
+      (list*
+       (setq *dval* (loop for i from 1 to (layer-graph-nodes first-graph)
 	  collect (ecase (classify first-graph i)
 		    (:challenged "Challenges")
 		    (:renumbered-parent "DRG Parents")
-		    (:reversed-parent "Odd Expander Parents")
-		    (t (case (classify second-graph i)
-			 (:reversed-parent "Even Expander Parents")
+		    (:reversed-parent
+		     (setq odd-expander-index i)
+		     "Odd Expander Parents")
+		    (t (case (classify second-graph (renumber second-graph i))
+			 (:reversed-parent
+			  (setq even-expander-index i)
+			  "Even Expander Parents")
 			 (t "~~~~~~"))))))
-     (loop for graph in (butlast (zigzag-graph-layer-graphs graph))
-	unless (case parity
-		 (:odd  (layer-graph-reversed graph))
-		 (:even (not (layer-graph-reversed graph))))
-	  
-	collect (loop for i from 1 to (layer-graph-nodes graph)
-		   collect (node-label graph (maybe-renumber graph i) :format :plain)))))
+
+       (loop for graph in (butlast (zigzag-graph-layer-graphs graph))
+	  unless (case parity
+		   (:odd  (layer-graph-reversed graph))
+		   (:even (not (layer-graph-reversed graph))))
+	    
+	  collect (loop for i from 1 to (layer-graph-nodes graph)
+		     collect (node-label graph (maybe-renumber graph i)
+					 :format :simple
+					 :annotate (= i (if (layer-graph-reversed graph)
+							    odd-expander-index
+							    even-expander-index))))))))
 
   (:method ((graph zigzag-graph) &key &allow-other-keys)
     (loop for layer-graph in (zigzag-graph-layer-graphs graph)
@@ -338,8 +354,7 @@
 		  collect (node-label layer-graph i)))))
 
 (defmethod final-layer ((graph zigzag-graph))
-  (let ((first-graph (first (zigzag-graph-layer-graphs graph)))
-	(last-graph (car (cl:last (zigzag-graph-layer-graphs graph)))))
+  (let ((last-graph (car (cl:last (zigzag-graph-layer-graphs graph)))))
     (list
      (loop for i from 1 to (layer-graph-nodes last-graph)
 	collect (case (classify last-graph i)
@@ -348,28 +363,28 @@
 		  (:renumbered-parent "Even DRG Parent")
 		  (t "~~~~~~")))
      (loop for i from 1 to (layer-graph-nodes last-graph)
-	collect (node-label last-graph i :format :plain)))))
+	collect (node-label last-graph i :format :simple)))))
 
 (defmethod initial-layer ((graph comm-d-layer-graph))
   (list
    (loop for i from 1 to (layer-graph-nodes graph)
       collect (if (= i (layer-graph-challenged-node graph))
-		  "Even Challenge"
+		  "(Odd) Challenge"
 		  "~~~~~~"))
    (loop for i from 1 to (layer-graph-nodes graph)
-      collect (node-label graph i :format :plain))))
+      collect (node-label graph i :format :simple))))
 
 (defun notation-table (graph)
   (loop for layer in (zigzag-graph-layer-graphs graph)
        for j from 1 
      collect (loop for i from 1 upto (zigzag-graph-nodes graph)
-		collect (node-label layer i :format :plain))
+		collect (node-label layer i :format :simple))
      collect (loop for i from 1 upto (zigzag-graph-nodes graph)
 		collect (node-label layer i :format :latex))))
 
 (defun notation-row (graph layer)
   (let ((layer (nth (1- layer) (zigzag-graph-layer-graphs graph))))
     (list (cons "Graph" (loop for i from 1 upto (zigzag-graph-nodes graph)
-	     collect (node-label layer i :format :plain)))
+	     collect (node-label layer i :format :simple)))
 	  (cons "Notation" (loop for i from 1 upto (zigzag-graph-nodes graph)
 			      collect (node-label layer i :format :latex))))))
