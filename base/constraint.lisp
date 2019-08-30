@@ -14,16 +14,16 @@
 (defmacro constraint-system (constraint-definitions)
   `(make-constraint-system ',constraint-definitions))
 (test unwrap-constraint-definitions
-  (is (same '((TMP2% (- D E))
-	      (TMP1% (* B TMP2%))
-	      (TMP3% (/ F G))
-	      (A (+ TMP1% TMP3%)))
+  (is (same '((A.TMP2% (- D E))
+	      (A.TMP1% (* B A.TMP2%))
+	      (A.TMP3% (/ F G))
+	      (A (+ A.TMP1% A.TMP3%)))
 	    (unwrap-constraint-definitions '((a (+ (* b (- d e)) (/ f g))))))))
 
 (test unwrapped-constraint-definitions-system
   (let ((cs (make-constraint-system '((a (+ (* b (- d e)) (/ f g)))))))
-    (is (same (solve-for cs '() (tuple (d 4) (e 2) (b 3) (f 10) (g 2)))
-	      (tuple (A 11) (B 3) (D 4) (E 2) (F 10) (G 2) (TMP1% 6) (TMP2% 2) (TMP3% 5))))))
+    (is (same (tuple (A 11) (B 3) (D 4) (E 2) (F 10) (G 2) (A.TMP1% 6) (A.TMP2% 2) (A.TMP3% 5))
+	      (solve-for cs '() (tuple (d 4) (e 2) (b 3) (f 10) (g 2)))))))
 
 (test complex-unwrapped-example
   (let ((cs (make-constraint-system '((layers
@@ -36,14 +36,14 @@
 							    (- 0.12 (* 2 delta)))))
 					2)
 				       )))))
-    (is (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))
-	(tuple (LAYERS 32.62129322591989d0)))))
+    (is (same (tuple (LAYERS 32.62129322591989d0))
+	      (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))))))
 
 (defparameter *new-definitions* '())
 (defparameter *new-definition-count* 0)
 
-(defun new-target ()
-  (intern (format nil "TMP~D%" (incf *new-definition-count*))))
+(defun new-target (prefix)
+  (intern (format nil "~A.TMP~D%" prefix (incf *new-definition-count*))))
 
 (defun emit-new-definition (def)
   (push def *new-definitions*))
@@ -61,16 +61,16 @@
 (defun %unwrap-constraint-definition (constraint-definition)
   (destructuring-bind (target (op &rest args))
       constraint-definition
-    (emit-new-definition `(,target (,op ,@(mapcar #'unwrap-constraint-form args))))))
+    (emit-new-definition `(,target (,op ,@(mapcar (partial #'unwrap-constraint-form target) args))))))
 
-(defun unwrap-constraint-form (constraint-form)
+(defun unwrap-constraint-form (new-target-prefix constraint-form)
   (typecase constraint-form
     (atom constraint-form)
     (list
      (destructuring-bind (op &rest args)
 	 constraint-form
-       (let ((new-target (new-target)))
-	 (emit-new-definition `(,new-target (,op ,@(mapcar #'unwrap-constraint-form args))))
+       (let ((new-target (new-target new-target-prefix)))
+	 (emit-new-definition `(,new-target (,op ,@(mapcar (partial #'unwrap-constraint-form new-target-prefix) args))))
 	 new-target)))))
 
 (defun make-constraint-system (constraint-definitions)
