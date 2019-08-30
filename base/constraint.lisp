@@ -2,6 +2,7 @@
 (def-suite orient-constraint-suite)
 (in-suite orient-constraint-suite)
 
+(in-readtable cmu-infix:syntax)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Constraints
 
@@ -25,10 +26,16 @@
 	      (tuple (A 11) (B 3) (D 4) (E 2) (F 10) (G 2) (TMP1% 6) (TMP2% 2) (TMP3% 5))))))
 
 (test complex-unwrapped-example
-  (let ((cs (make-constraint-system '((layers (+ (+ (* 2 (log (/ 1 (* 3 (- epsilon (* 2 delta)))) 2))
+  (let ((cs (make-constraint-system '((layers
+				       ;; FIXME: Infix creates variadic plus here – add support in constraint or otherwise accommodate.
+				       ;; #I( 2 * log((1 / 3 * (epsilon - 2 delta))  2)
+				       ;; + 2 * ((0.8 - (epsilon + delta)) / 0.12 - (2 * delta)
+				       ;; + 2))
+				       (+ (+ (* 2 (log (/ 1 (* 3 (- epsilon (* 2 delta)))) 2))
 						    (* 2 (/ (- 0.8 (+ epsilon delta))
 							    (- 0.12 (* 2 delta)))))
-					       2))))))
+					2)
+				       )))))
     (is (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))
 	(tuple (LAYERS 32.62129322591989d0)))))
 
