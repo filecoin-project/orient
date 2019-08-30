@@ -181,14 +181,12 @@
 
 (test select-hash-function-tuple
   (let* ((data (tuple (hf-name :pedersen) (hash-functions (hash-functions))))
-	 (expected (with
-		    (with data 'constraints 1376)
-		    'hf (extract (join (tuple (hash-function-name :pedersen)) (hash-functions)))))
+	 (expected (with data
+			 'hf (extract (join (tuple (hash-function-name :pedersen)) (hash-functions)))))
 	 (system (constraint-system
 		  ((hf (select-hash-function-tuple hf-name hash-functions))
 		   (constraints (tref 'hash-function-constraints hf))))))
-    (is (same expected
-	      (solve-for system '() data)))))
+    (is (same expected (solve-for system '() data)))))
 
 ;; TODO: With the right abstraction, this would be much simpler. Think about it.
 (define-system-constraint select-hash-function

@@ -12,10 +12,64 @@
 
 (defmacro constraint-system (constraint-definitions)
   `(make-constraint-system ',constraint-definitions))
+(test unwrap-constraint-definitions
+  (is (same '((TMP2% (- D E))
+	      (TMP1% (* B TMP2%))
+	      (TMP3% (/ F G))
+	      (A (+ TMP1% TMP3%)))
+	    (unwrap-constraint-definitions '((a (+ (* b (- d e)) (/ f g))))))))
+
+(test unwrapped-constraint-definitions-system
+  (let ((cs (make-constraint-system '((a (+ (* b (- d e)) (/ f g)))))))
+    (is (same (solve-for cs '() (tuple (d 4) (e 2) (b 3) (f 10) (g 2)))
+	      (tuple (A 11) (B 3) (D 4) (E 2) (F 10) (G 2) (TMP1% 6) (TMP2% 2) (TMP3% 5))))))
+
+(test complex-unwrapped-example
+  (let ((cs (make-constraint-system '((layers (+ (+ (* 2 (log (/ 1 (* 3 (- epsilon (* 2 delta)))) 2))
+						    (* 2 (/ (- 0.8 (+ epsilon delta))
+							    (- 0.12 (* 2 delta)))))
+					       2))))))
+    (is (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))
+	(tuple (LAYERS 32.62129322591989d0)))))
+
+(defparameter *new-definitions* '())
+(defparameter *new-definition-count* 0)
+
+(defun new-target ()
+  (intern (format nil "TMP~D%" (incf *new-definition-count*))))
+
+(defun emit-new-definition (def)
+  (push def *new-definitions*))
+
+(defun unwrap-constraint-definitions (constraint-definitions)
+  (let ((*new-definitions* '())
+	(*new-definition-count* 0))
+    (dolist (elt constraint-definitions)
+      (unwrap-constraint-definition elt))
+    (nreverse *new-definitions*)))
+
+(defun unwrap-constraint-definition (constraint-definition)
+  (%unwrap-constraint-definition constraint-definition))
+
+(defun %unwrap-constraint-definition (constraint-definition)
+  (destructuring-bind (target (op &rest args))
+      constraint-definition
+    (emit-new-definition `(,target (,op ,@(mapcar #'unwrap-constraint-form args))))))
+
+(defun unwrap-constraint-form (constraint-form)
+  (typecase constraint-form
+    (atom constraint-form)
+    (list
+     (destructuring-bind (op &rest args)
+	 constraint-form
+       (let ((new-target (new-target)))
+	 (emit-new-definition `(,new-target (,op ,@(mapcar #'unwrap-constraint-form args))))
+	 new-target)))))
 
 (defun make-constraint-system (constraint-definitions)
   "Takes a list of constraint definitions (which may include 'system constraint' definitions) and returns a system containing the corresponding constraint components or constraint subsystems."
-  (let* ((constraints (make-constraints constraint-definitions))
+  (let* ((unwrapped (unwrap-constraint-definitions constraint-definitions))
+	 (constraints (make-constraints unwrapped))
 	 (components)
 	 (systems))
     (dolist (constraint constraints)
@@ -594,7 +648,6 @@
 	      (solve-for system '(a) (tuple (c 5)))))
     (is (same satisfying-assignment
 	      (solve-for system '(c) (tuple (a 3)))))))
-
 
 (defmacro define-simple-constraint (name (target (&rest inputs)) maybe-doc &body body)
   (let ((doc (when (stringp maybe-doc) maybe-doc))
