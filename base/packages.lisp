@@ -11,7 +11,7 @@
 	   ))
 
 (defpackage orient
-  (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util)
+  (:use :common-lisp :it.bese.FiveAm :fset :gmap :orient.base.util :named-readtables)
   (:shadow :join :restrict :relation :tuple)
   ;; Use same shadowing imports as FSET-USER does.
   (:shadowing-import-from :fset
