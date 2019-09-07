@@ -151,6 +151,29 @@
        (setq reversed-permutation (random-perm nodes)
 	     renumbered-permutation (random-perm nodes)))))
 
+(defgeneric dump (thing) (:method-combination append)
+  (:method append ((thing t)) `(:type ,(type-of thing)))
+  (:method append ((graph zigzag-graph))
+	   (list :nodes (zigzag-graph-nodes graph)
+		 :challenged-node (zigzag-graph-challenged-node graph)
+		 :layers (length (zigzag-graph-layer-graphs graph))
+		 :renumbered-permutation (dump (zigzag-graph-renumbered-permutation graph))
+		 :reversed-permutation (dump (zigzag-graph-reversed-permutation graph))))
+  (:method append ((perm perm))
+	   `(:perm-list ,(perm-to-list perm))))
+
+(defgeneric %load (type plist)
+  (:method ((type (eql 'perm)) (plist list))
+    (list-to-perm (getf plist :perm-list)))
+  (:method ((type (eql 'zigzag-graph)) (plist list))
+    (make-zigzag-graph (getf plist :nodes plist)
+		       (getf plist :layers plist)
+		       :reversed-permutation (load-from-plist (getf plist :reversed-permutation))
+		       :renumbered-permutation (load-from-plist (getf plist :renumbered-permutation)))))
+
+(defun load-from-plist (plist)
+  (%load (getf plist :type) plist))
+
 (defclass legend () ((parity :initarg :parity :initform :odd :accessor legend-parity)))
 
 (defmethod cl-dot:graph-object-node ((graph legend) node)
