@@ -140,7 +140,7 @@
 						      :layer i
 						      :reversed (evenp i)
 						      :renumbered-permutation renumbered-permutation
-						      :reversed-permutation reversed-permutation)))
+						      :reversed-permutation (when (not (= i 1)) reversed-permutation))))
 	    (zigzag-graph (make-instance 'zigzag-graph
 					 :nodes nodes
 					 :layer-graphs layer-graphs
@@ -192,7 +192,7 @@
 (defun choose-and-set-challenged-node (zigzag-graph)
   "Choose a suitable challenged node and possibly generate new permutations, returning challenged-node index or NIL if no suitable choice was found. Calling again on returned graph is deterministic and stable (won't allocate if called on previous return value)."
   (let ((challenged-node nil)
-	(forward-layer (first (zigzag-graph-layer-graphs zigzag-graph)))
+	(forward-layer (third (zigzag-graph-layer-graphs zigzag-graph)))
 	(reversed-layer (second (zigzag-graph-layer-graphs zigzag-graph))))
     (loop for i below (zigzag-graph-nodes zigzag-graph)
        until (and (has-all-parents-p forward-layer i)
@@ -304,7 +304,8 @@
 
 (defun reversed-parent-p (graph i j)
   "Is J a reversed-parent of I in graph, GRAPH?"  
-  (when (maybe-graph-parent? graph i j)
+  (when (and (layer-graph-reversed-permutation graph)
+	     (maybe-graph-parent? graph i j))
     (when (layer-graph-reversed graph)
       (psetq i j j i))
     (= (perm-eval (layer-graph-reversed-permutation graph) i) j)))
@@ -341,25 +342,26 @@
 
 (defgeneric columns (graph &key parity)
   (:method ((graph zigzag-graph) &key parity)
-    (let ((first-graph (first (zigzag-graph-layer-graphs graph)))
+    (let ((third-graph (third (zigzag-graph-layer-graphs graph)))
 	  (second-graph (second (zigzag-graph-layer-graphs graph)))
 	  (odd-expander-index)
 	  (even-expander-index))
       (list*
-       (setq *dval* (loop for i from 1 to (layer-graph-nodes first-graph)
-	  collect (ecase (classify first-graph i)
-		    (:challenged "Challenges")
-		    (:renumbered-parent "DRG Parents")
-		    (:reversed-parent
-		     (setq odd-expander-index i)
-		     "Odd Expander Parents")
-		    (t (case (classify second-graph (renumber second-graph i))
-			 (:reversed-parent
-			  (setq even-expander-index i)
-			  "Even Expander Parents")
-			 (t "~~~~~~"))))))
+       (setq *dval* (loop for i from 1 to (layer-graph-nodes third-graph)
+		       collect (ecase (classify third-graph i)
+				 (:challenged "Challenges")
+				 (:renumbered-parent "DRG Parents")
+				 (:reversed-parent
+				  (setq odd-expander-index i)
+				  "Odd Expander Parents")
+				 (t (case (classify second-graph (renumber second-graph i))
+				      (:reversed-parent
+				       (setq even-expander-index i)
+				       "Even Expander Parents")
+				      (t "~~~~~~"))))))
 
        (loop for graph in (butlast (zigzag-graph-layer-graphs graph))
+	  for l from 1
 	  unless (case parity
 		   (:odd  (layer-graph-reversed graph))
 		   (:even (not (layer-graph-reversed graph))))
@@ -367,9 +369,12 @@
 	  collect (loop for i from 1 to (layer-graph-nodes graph)
 		     collect (node-label graph (maybe-renumber graph i)
 					 :format :simple
-					 :annotate (= i (if (layer-graph-reversed graph)
-							    odd-expander-index
-							    even-expander-index))))))))
+					 :annotate (or (and (= l 1)
+							    ;; First layer does not use expander parents.
+							    (eql i odd-expander-index))
+						       (eql i (if (layer-graph-reversed graph)
+								  odd-expander-index
+								  even-expander-index)))))))))
 
   (:method ((graph zigzag-graph) &key &allow-other-keys)
     (loop for layer-graph in (zigzag-graph-layer-graphs graph)
