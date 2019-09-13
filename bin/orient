@@ -1,1 +1,3 @@
-#!/usr/local/bin/cl -Q -sp orient -E 'cli:main' --
+/usr/local/bin/cl -m $(dirname $0)/orient.image -p cli -E main -- $0 $@
+
+

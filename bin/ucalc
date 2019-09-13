@@ -1,3 +1,0 @@
-/usr/local/bin/cl -m $(dirname $0)/ubercalc -p cli -E main -- $0 $@
-
-

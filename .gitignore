@@ -1,4 +1,4 @@
 *.fasl
 *~
 scratch
-bin/ubercalc
+bin/orient.image

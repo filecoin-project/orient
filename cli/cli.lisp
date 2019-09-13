@@ -1,5 +1,5 @@
 (defpackage orient.cli
-  (:use :common-lisp :orient :orient.interface :filecoin :unix-options)
+  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang)
   (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
@@ -26,16 +26,16 @@
   (with-cli-options ((cli-options) t)
       (&parameters (in (in "FILE" "JSON input file, specify -- to use stdin"))
 		   (out (out "FILE" "JSON output file, otherwise stdout"))
-		   (calc (calc  "{filecoin, performance, zigzag, fc-no-zigzag}"  "Calculator to use"))
+		   (system (system "FILE" "URI or filename of system to use"))
 		   (port (port "port-number" "port to listen on"))
 		   (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-		   (command (command "{dump, solve, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+		   (command (command "{dump, graph, solve, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 		   (root (root "project root, so we can find json files"))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
 					    "out" "o"
-					    "calc" "c"
 					    "port" "p"
+					    "system" "s"
 					    "command" "c"
 					    "merge" "m"
 					    "root" "r") ;; Need to include all parameters from WITH-CLI-OPTIONS here.
@@ -53,15 +53,15 @@
 	(when (eql command :test)
 	  (asdf:test-system :orient)
 	  (return-from main t))
-	(with-json-encoding ((find-package :filecoin))
-	  (let* ((*schema-package* (find-package :filecoin))
-		 (calc-spec (maybe-keywordize calc))
-		 (json:*json-symbols-package* 'filecoin) ;; FIXME: remove need to expose use of JSON package here.
+	(with-json-encoding ((find-package :orient.lang))
+	  (let* ((*schema-package* (find-package :orient.lang))
+		 (*package* (find-package :orient.lang))
+		 (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
 		 (input (cond
 			  ((equal in "--") (load-tuple *standard-input*))
 			  (in (load-tuple in))))
 
-		 (system (choose-system calc-spec)))
+		 (system (when system (get-system system))))
 	    (with-output (out)
 	      (case command
 		((:web)
@@ -93,13 +93,21 @@
 		   (system
 		    (let ((override-data (and merge input))
 			  (input (and (not merge) input)))
-		      (handle-calc :system system :input input :override-data override-data)))
+		      (handle-system :system system :input input :override-data override-data)))
 		   (t (format *error-output* "No system specified.~%"))))
+		((:graph)
+		 (cond
+		   (system
+		    (let ((override-data (and merge input))
+			  (input (and (not merge) input)))
+		      (graph-plan :system system :input input :override-data override-data)))
+		   (t (format *error-output* "No system specified.~%")))
+		 )
 		((:dump)
 		 (dump-json :system system *out* :expand-references t))
 		(otherwise
 		 ;; TODO: Generate this list and share with options doc.
-		 (format t "Usage: ~A command~%  command is one of {dump, solve, test, web}~%" (car argv))))
+		 (format t "Usage: ~A command~%  command is one of {dump, graph, solve, test, web}~%" (car argv))))
 	      (terpri))))))))
 
 (defun choose-system (spec)
@@ -109,8 +117,12 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defun handle-calc (&key system vars input override-data)
+(defun handle-system (&key system vars input override-data)
   (let ((solution (solve-for system vars input :override-data override-data)))
     (with-json-encoding ((find-package :filecoin))
       (cl-json:encode-json (ensure-tuples solution) *out*)
       (terpri))))
+
+(defun graph-plan (&key system vars input override-data)
+  (let ((plan (plan-for system vars input :override-data override-data)))
+    (cl-dot:print-graph (dot-graph-from-plan plan))))

@@ -14,8 +14,8 @@
 			 (:file "relation")
 			 (:file "orient")
 			 (:file "constraint")
-			 (:file "syntax")
 			 (:file "interface")
+			 (:file "syntax")
 			 (:file "presentation"))			
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
 	       (:module "filecoin"
