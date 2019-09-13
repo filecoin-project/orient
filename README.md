@@ -226,13 +226,13 @@ Now you can run the CLI and source changes will be immediately reflected, but st
 If you just want to *use* the CLI, first dump an image:
 
 ```bash
-> make ubercalc
+> make image
 ```
 
 Now startup should be very fast:
 
 ```bash
-> ./bin/ucalc ... <args>
+> ./bin/orient ... <args>
 ```
 
 ### Docker

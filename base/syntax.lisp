@@ -1,8 +1,16 @@
-(in-package :orient)
-;; (get-system "https://gist.githubusercontent.com/nicola/90f8e37648043118721dc8c4e9fb8542/raw/649bd8d4b4ad23914dcb365bdeeac650890c15fb/ubercalc-zigzag-model.orient" :as :system)
+(defpackage orient.lang
+  (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-json)
+  (:import-from :fset :wb-map :convert)
+  (:shadowing-import-from :fset :set)
+  (:export :combine-systems :get-system :nested<-parsed :parse-string :source<-nested)
+  (:nicknames :lang))
 
-(def-suite orient-suite)
-(in-suite orient-suite)
+(in-package :orient.lang)
+
+(def-suite orient-lang-suite)
+(in-suite orient-lang-suite)
+
+;;; Reader
 
 (defvar *line-comment* "//")
 
@@ -14,8 +22,17 @@
   (declare (ignore stream))
   (error "Delimiter ~S shouldn't be read alone" char))
 
+(defparameter *lang-readtable-case* :upcase)
+
+(defun make-lang-readtable ()
+  (let ((readtable (copy-readtable nil)))
+    (setf (readtable-case readtable) *lang-readtable-case*)
+    readtable))
+
+(defparameter *lang-readtable* (make-lang-readtable))
+
 (defun make-definition-readtable ()
-  (let ((*readtable* (copy-readtable nil)))
+  (let ((*readtable* (copy-readtable *readtable*)))
     (set-macro-character #\, #'(lambda (stream char)
 				 (declare (ignore stream char))
 				 (values)))
@@ -25,14 +42,30 @@
     (set-macro-character #\[
 			 #'(lambda (stream char)
 			     (declare (ignore char))
-			     (read-delimited-list #\] stream t)))   
+			     (read-delimited-list #\] stream t)))
+    (setf (readtable-case *readtable*) *lang-readtable-case*)
     *readtable*))
 
 (defparameter *definition-readtable* (make-definition-readtable))
 
+(defparameter *lang-read-infix* (editor-hints.named-readtables:ensure-readtable 'cmu-infix:syntax))
+
+(progn (setf (readtable-case cmu-infix::*infix-readtable*) *lang-readtable-case*))
+
+(defun read-with-case (stream &rest args)
+  (case-transform-tree (apply #'read stream args)))
+
 (defun read-infix (stream)
-  (let ((*readtable* (editor-hints.named-readtables:ensure-readtable 'cmu-infix:syntax)))
-    (read stream)))
+  (let* ((*readtable* *lang-read-infix*)
+	 (saved-infix-readtable-case (readtable-case cmu-infix::*infix-readtable*)))
+    ;; This is slightly evil; we temporarily change the READTABLE-CASE of the internal infix readtable.
+    (unwind-protect
+	 (progn
+	   (setf (readtable-case cmu-infix::*infix-readtable*) *lang-readtable-case*)
+	   (read-with-case stream))
+      (setf (readtable-case cmu-infix::*infix-readtable*) saved-infix-readtable-case))))
+
+;;; End Reader
 
 (defun clean-line (string)
   (let* ((comment-start (search *line-comment* string))
@@ -44,6 +77,12 @@
 	 (trimmed (string-right-trim '(#\Space #\Tab #\Newline) without-comment))
 	 (indent-level (position-if (lambda (x) (not (eql x #\space))) trimmed)))
     (values trimmed indent-level comment)))
+
+(defun case-transform-tree (tree)
+  (transform-tree #'(lambda (symbol)
+		      (intern (interface:camel-case-to-lisp* (string-downcase (symbol-name symbol)))
+			      (symbol-package symbol)))
+		  tree :test #'symbolp))
 
 (defun read-infix-from-string (string)
   (with-input-from-string (in (format nil "#I(~a)" string))
@@ -71,16 +110,17 @@
 (defun parse-definition-line (line)
   (let ((*readtable* *definition-readtable*))
     (with-input-from-string (in line)
-      (let ((name (read in nil nil))
-	    (flags (read in nil nil))
-	    (dependencies (read in nil nil)))
+      (let ((name (read-with-case in nil nil))
+	    (flags (read-with-case in nil nil))
+	    (dependencies (read-with-case in nil nil)))
 	(make-definition :name name :flags flags :dependencies dependencies)))))
 
 (defun parse-into-lines (stream)
-  (loop for line = (read-line stream nil)
-     while line
-     when (not (equal line ""))
-     collect (multiple-value-list (parse-line line))))
+  (let ((*readtable* *lang-readtable*))
+    (loop for line = (read-line stream nil)
+       while line
+       when (not (equal line ""))
+       collect (multiple-value-list (parse-line line)))))
 
 (defun group-by-indentation (input-lines &optional (indent-level 0) (acc '()))
   (loop
@@ -110,7 +150,8 @@
     (parse in :group group)))
 
 (defun parse (stream &key (group t))
-  (let ((parsed-lines (parse-into-lines stream)))
+  (let* ((*readtable* *lang-readtable*)
+	 (parsed-lines (parse-into-lines stream)))
     (if group
 	(group-by-indentation parsed-lines)
 	parsed-lines)))
@@ -170,9 +211,10 @@
     ((cons symbol (cons atom)) `(,(car constraint) (== ,(cadr constraint))))
     (t constraint)))
 
-(defun get-system (uri &key (as :system) name)
+(defun get-system (location-spec &key (as :system) name)
+  "Get system definition from LOCATION-SPEC and create a system from it."
   ;; TODO: make some syntax so this can be expressed more cleanly.
-  (let ((raw (dex:get uri)))
+  (let ((raw (get-string location-spec)))
     (when (eql as :raw)
       (return-from get-system raw))
     (let ((parsed (parse-string raw)))
@@ -580,4 +622,3 @@
 		    (SETQ SEAL_COST
 			  (* SEAL_TIME (+ CPU_COST_PER_SECOND MEMORY_COST_PER_SECOND))))))
 		parsed)))) 
-

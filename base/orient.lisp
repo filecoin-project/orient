@@ -664,8 +664,8 @@
     (when solution
       (project output solution))))
 
-(defun plan-for (system output &optional initial-data)
-  (let* ((defaulted (defaulted-initial-data system initial-data))
+(defun plan-for (system output &optional initial-data &key override-data)
+  (let* ((defaulted (defaulted-initial-data system initial-data :override-data override-data))
 	 (sig (make-signature (and defaulted (attributes defaulted)) output)))
     (plan system sig)))
 

@@ -85,3 +85,42 @@
 (defun partial (function &rest args)
   (lambda (&rest new-args)
     (apply function (append args new-args))))
+
+(defun string-starts-with (prefix string)
+  (let ((mismatch (mismatch prefix string)))
+    (if mismatch
+        (when (= mismatch (length prefix))
+          mismatch)
+      t)))
+
+(defun slurp-file (pathname &key (if-does-not-exist :error) (element-type 'character))
+  (with-open-file (in pathname
+                      :direction :input
+                      :if-does-not-exist if-does-not-exist
+                      :element-type element-type)
+    (let* ((size (file-length in))
+           (array (make-array size :element-type element-type :fill-pointer t))
+           (actual-length (read-sequence array in)))
+      (setf (fill-pointer array) actual-length)
+      array)))
+
+(defun slurp-file-lines (pathname &key (if-does-not-exist :error))
+  "Read lines from file desginated by pathname.  Uses the first line terminator
+ (#\newline, #\linefeed, or #\newline #\linefeed) found for the entire file."
+  (with-open-file-or-stream (in pathname :direction :input :if-does-not-exist if-does-not-exist)
+    (multiple-value-bind (first-line missing-p line-terminator)
+                         (smart-read-line in nil nil)
+      (declare (ignore missing-p))
+      (values `(,@(when first-line (list first-line))
+                ,@(loop for line = (smart-read-line in nil nil nil line-terminator)
+                        while line collect line))
+              line-terminator))))
+
+(defun get-string (location-spec)
+  "Get text from LOCATION-SPEC. LOCATION-SPEC can be a URI with scheme HTTP, HTTPS, or FILE — or a pathspec."
+  (cond
+    ((or (string-starts-with "HTTP://" (string-upcase location-spec))
+	 (string-starts-with "HTTPS://" (string-upcase location-spec)))
+     (dex:get location-spec))
+    ((string-starts-with "FILE://" (string-upcase location-spec)) (slurp-file (subseq location-spec 7)))
+    (t (slurp-file location-spec))))

@@ -2,6 +2,7 @@
   (:use :common-lisp)
   (:nicknames :util)
   (:export :comma-list
+	   :get-string
 	   :keywordize
 	   :map-tree
 	   :partial

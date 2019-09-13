@@ -5,13 +5,13 @@ test : utest
 # So we'll just dump an image and run tests with that, since this avoids the problem. The added overhead is a drag, but it's not bad.
 
 docker :
-	docker build . -t ubercalc
+	docker build . -t orient
 
-ubercalc : always
-	cl -Q -sp orient --dump bin/ubercalc
+image : always
+	cl -Q -sp orient --dump bin/orient.image
 
-utest : ubercalc
-	./bin/ucalc test
+utest : image
+	./bin/orient test
 
 dtest : docker
 	./bin/dcalc test
