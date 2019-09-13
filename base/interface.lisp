@@ -2,7 +2,7 @@
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
-  (:export :camel-case-to-lisp* :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
+  (:export :camel-case-to-lisp* :get-json :get-json-data :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
 	   :test-roundtrip :with-json-encoding
 	   :*schema-package*)
   (:nicknames :interface))
@@ -62,24 +62,20 @@
     (is (string= "ASDF-FDSA" (camel-case-to-lisp* "asdf_fdsa")))
     (is (string= "ASDF-FDSA" (camel-case-to-lisp* "asdfFdsa"))))
 
-(defgeneric load-json (type-spec json-pathspec)
-  (:method :around ((type-spec t) (json-pathspec t))
-	   (let ((*json-identifier-name-to-lisp* #'camel-case-to-lisp*))
-	     (call-next-method)))
-  (:method ((type-spec t) (stream stream))
-    (%load-json type-spec stream))
-  (:method ((type-spec t) (json-pathspec t))
-    (load-json type-spec (pathname json-pathspec)))
-  (:method ((type-spec t) (json-pathname pathname))
-    (%load-json type-spec (pathname json-pathname))))
+(defun get-json (type-spec spec &key (*schema-package* *package*))
+  (load-json type-spec (resolve-json-input spec)))
+
+(defun get-json-data (spec &rest keys)
+  (apply #'get-json :data spec keys))
 
 (deftype tuple-pair () '(cons symbol (not cons)))
 
 ;; FIXME: Should probably change this name.
 (deftype tuple () '(cons tuple-pair t))
 
-(defun %load-json (type-spec source)
-  (let* ((*json-symbols-package* *schema-package*)
+(defun load-json (type-spec source)
+  (let* ((*json-identifier-name-to-lisp* #'camel-case-to-lisp*)
+	 (*json-symbols-package* *schema-package*)
 	 (json (decode-json-from-source source)))
     (<-json type-spec json)))
 

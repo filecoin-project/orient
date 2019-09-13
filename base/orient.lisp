@@ -565,6 +565,7 @@
 		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
 	    (destructuring-bind (result report-results) reduce-result
 	      (values result plan (synthesize-report-steps report report-results) initial-value)))
+	  
 	  (values nil plan nil initial-value)))))
 
 (defun make-pipeline-reducer (system &key report)
@@ -643,7 +644,7 @@
 		  solution)
 	      plan report defaulted-data))))
 
-(defun report-solution-for (output &key (system *current-construction*) initial-data (format t) override-data project-solution return-plan return-defaulted-data)
+(defun report-solution-for (output &key system initial-data (format t) override-data project-solution return-plan return-defaulted-data)
   (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
 									:report format
 									:override-data override-data
@@ -678,7 +679,9 @@
 			     base))))
     (make-relation tuples)))
 
-
+(defun clean-tmps (attributed)
+  (project (filter #'tmp-p (attributes attributed)) attributed :invert t))
+  
 (defstruct plan-graph (edges))
 
 (defmethod cl-dot:graph-object-node ((graph plan-graph) attribute)

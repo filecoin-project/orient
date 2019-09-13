@@ -3,6 +3,7 @@
   (:nicknames :util)
   (:export :comma-list
 	   :get-string
+	   :resolve-json-input
 	   :keywordize
 	   :map-tree
 	   :partial
@@ -32,6 +33,7 @@
   (:export
 
    :all-system-schemas :assignments
+   :clean-tmps
    :dbg :display :aif :apply-transformation :ask :attributes :awhen
    :dbreak :*dval*
    :cardinality

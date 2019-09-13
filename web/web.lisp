@@ -3,7 +3,7 @@
   (:import-from :fset :wb-map :image :filter :contains? :convert)
   (:shadowing-import-from :fset :reduce  :union)
   (:nicknames :web)
-  (:export :start-web :stop-web))
+  (:export :serve-report-page :start-web :stop-web :report-page-for))
 
 (in-package :orient.web)
 (def-suite web-suite)
@@ -30,16 +30,19 @@
 (defun stop-web ()
   (hunchentoot:stop *acceptor*))
 
-(defmacro with-page ((title) &body body)
-  `(let ((*package* (find-package :filecoin)))
-     (setf (hunchentoot:content-type*) "text/html")
+(defmacro with-page ((title-var) &body body)
+  `(let ((*package* (find-package :filecoin))
+	 (title ,title-var))
+     (when (boundp '*acceptor*) (setf (hunchentoot:content-type*) "text/html"))
      (with-output-to-string (*html-output-stream*)
        (html
 	(:html
-	 (:head (:title ,title)
-		(:h1 ,title)
-		((:a href "/") "INDEX"))
-	 (:body ,@body))))))
+	 (:head (:title title))
+	 (:body
+	  (when title
+	    `(:div (:h1 ,title)
+		   ((:a href "/") "INDEX")))
+	  ,@body))))))
 
 (defmacro with-report-page ((title &key vars system initial-data override-data) &body body)
   `(serve-report-page :title ,title
@@ -50,9 +53,9 @@
 		      :body-html (with-output-to-string (*html-output-stream*)
 				   (html ,@body))))
 
-(defun report-page (&key vars system initial-data override-data)
+(defun report-page (&key vars system initial-data override-data project-solution)
   (multiple-value-bind (report solution defaulted-data plan)
-      (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data :project-solution t
+      (report-solution-for vars :system system :initial-data initial-data :format :html :override-data override-data :project-solution project-solution
 			   :return-plan t :return-defaulted-data t)
     (let* ((signature (pipeline-signature plan))
 	   (parameters (and signature (union (signature-input signature) (signature-output signature)))))
@@ -62,7 +65,7 @@
 	    (list `(:div (:p ,(format nil "Supplied: ~s" override-data))
 			 (:hr))))
 	((:div :style "background-color:lightgrey")
-	 (:p (:h3 "Solution ") ,(present-data :html solution system :alt-bgcolor "white" ))
+	 (:p (:h3 "Solution ") ,(present-data :html solution system :alt-bgcolor "white"))
 	 (:hr))
 	((:div :style "background-color:lightblue")
 	 (:p (:h3 "Initial data ") ,(present-data :html defaulted-data system :alt-bgcolor "white"))
@@ -71,14 +74,15 @@
 	 (:p  ,report)
 	 (:hr))))))
 
-(defun serve-report-page (&key title vars system initial-data override-data body-html)
+(defun serve-report-page (&key title vars system initial-data override-data body-html project-solution)
   (with-page (title)
     body-html
-    (:p "Solving for " (comma-list vars) ".")
+    (:p "Solving for " (if vars (comma-list vars) "all vars") ".")
     (:hr)
     (:pre
-     (report-page :vars vars :system system :initial-data initial-data :override-data override-data))))
+     (report-page :vars vars :system system :initial-data initial-data :override-data override-data :project-solution project-solution))))
 
+#+(or)
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
     (html-print
@@ -105,16 +109,21 @@
 	    collect `(:div
 		      ,@(loop for step in (car steps)
 			   collect step
-			     collect :hr)))))))
+			   collect :hr)))))))
 
-#+(or)
 (defmethod synthesize-report-steps ((format (eql :html)) (steps list))
   (with-output-to-string (*html-output-stream*)
     (html-print
      `(:div
        ,@(loop for step in steps
-	    collect step
-	    collect :hr)))))
+	    if (cdr step)
+	    collect `((:table :border 1) (:tr (:td (:div ,@(loop for s in step collect s collect :hr)))))
+
+	    else
+	    collect `(:div
+		      ,@(loop for step in step
+			   collect step
+			   collect :hr)))))))
 
 (defmethod format-value ((format (eql :html)) (value t))
   (if (keywordp value)
