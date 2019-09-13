@@ -39,8 +39,22 @@
     (is (same (tuple (LAYERS 32.62129322591989d0))
 	      (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))))))
 
-(defparameter *new-definitions* '())
-(defparameter *new-definition-count* 0)
+(defvar *new-definitions*)
+(defvar *new-definition-count*)
+
+(defmacro within-new-definitions (&body body)
+  `(let ((*new-definitions* '())
+	 (*new-definition-count* (if (boundp '*new-definition-count*) *new-definition-count* 0)))
+     ,@body))
+
+(defmacro within-new-definitions (&body body)
+  `(cond
+     ((boundp '*new-definitions*)
+      ,@body)
+     (t
+      (let ((*new-definitions* '())
+	    (*new-definition-count* 0))
+	,@body))))
 
 (defun new-target (prefix)
   (intern (format nil "~A.TMP~D%" prefix (incf *new-definition-count*))))
@@ -49,8 +63,7 @@
   (push def *new-definitions*))
 
 (defun unwrap-constraint-definitions (constraint-definitions)
-  (let ((*new-definitions* '())
-	(*new-definition-count* 0))
+  (within-new-definitions
     (dolist (elt constraint-definitions)
       (unwrap-constraint-definition elt))
     (nreverse *new-definitions*)))
@@ -73,10 +86,83 @@
 	 (emit-new-definition `(,new-target (,op ,@(mapcar (partial #'unwrap-constraint-form new-target-prefix) args))))
 	 new-target)))))
 
+(defun transform-constraint-definitions (constraint-definitions)
+  (mapcan #'transform-constraint-definition constraint-definitions))
+
+;; TODO: Expand this to encompass extensible constraint macros.
+(defun transform-constraint-definition (constraint-definition)
+  "Optionally transform CONSTRAINT-DEFINITION. Returns a list of new constraint definitions."
+  (destructuring-bind (target (op &rest args))
+      constraint-definition
+    (case op
+      (- (if (= 1 (length args))
+	     (list `(,target (- 0 ,(car args))))
+	     (list constraint-definition)))
+      ((+ *) (transform-commutative target op args))
+      (t (list constraint-definition)))))
+
+(defun transform-commutative (target op args)
+  ;; Could get identity from a zero-arg call to op, but be explicit instead.
+  (let ((identity (ecase op
+		    (+ 0)
+		    (* 1))))
+    
+     (case (length args)
+      (0 (list `(,target (== ,identity))))
+      (1 (list `(,target (== ,(car args)))))
+      (2 (list `(,target (,op ,@args))))
+      (t ;; FIXME: expand variadic.
+       (within-new-definitions
+	 (let ((new-target (new-target target)))
+	   `((,new-target (,op ,(first args) ,(second args)))
+	     ,@(transform-commutative target op `(,new-target ,@(cddr args))))))))))
+
+(test commutative-transformations
+  (flet ((test-case (source expected-result)
+	   (is (same (transform-constraint-definitions source)
+		     expected-result))))
+    (test-case '((x (* y))) '((x (== y))))
+    (test-case '((x (+ y))) '((x (== y))))
+    (test-case '((x (*))) '((x (== 1))))
+    (test-case '((x (+))) '((x (== 0))))
+    (test-case '((x (* a b c d e))) '((x.tmp1% (* a b))
+				      (x.tmp2% (* x.tmp1% c))
+				      (x.tmp3% (* x.tmp2% d))
+				      (x (* x.tmp3% e))))
+    (test-case '((x (+ a b c d e))) '((x.tmp1% (+ a b))
+				      (x.tmp2% (+ x.tmp1% c))
+				      (x.tmp3% (+ x.tmp2% d))
+				      (x (+ x.tmp3% e))))))
+
+(defun preprocess-constraint-definitions (constraint-definitions)
+  (within-new-definitions
+    (transform-constraint-definitions (unwrap-constraint-definitions constraint-definitions))))
+    
+(test preprocess-constraint-definitions
+  (let* ((def `(EPSILON
+		(+ (- (* 3 DELTA))
+		   0.24)))
+	 (processed (preprocess-constraint-definitions (list def)))
+	 (expected `((EPSILON.TMP2% (* 3 DELTA))
+		     (EPSILON.TMP1% (- 0 EPSILON.TMP2%))
+		     (EPSILON (+ EPSILON.TMP1% 0.24)))))
+    (is (equalp expected processed))))
+
+(test regression-test-preprocessing
+  (let ((defs '((opening_per_challenge (+ DEGREE_BASE
+					(* 2 DEGREE_EXPANDER)
+					1))))
+	(expected-unwrapped '((opening_per_challenge.tmp1% (* 2 degree_expander))
+			      (opening_per_challenge.tmp2% (+ degree_base opening_per_challenge.tmp1%))
+			      (opening_per_challenge (+ opening_per_challenge.tmp2% 1)))))
+    (is
+     (same expected-unwrapped
+	  (preprocess-constraint-definitions defs)))))
+
 (defun make-constraint-system (constraint-definitions)
   "Takes a list of constraint definitions (which may include 'system constraint' definitions) and returns a system containing the corresponding constraint components or constraint subsystems."
-  (let* ((unwrapped (unwrap-constraint-definitions constraint-definitions))
-	 (constraints (make-constraints unwrapped))
+  (let* ((processed (preprocess-constraint-definitions constraint-definitions))
+	 (constraints (make-constraints processed))
 	 (components)
 	 (systems))
     (dolist (constraint constraints)
@@ -556,6 +642,17 @@
 
     ;; Inconsistent data are not produced.
     (is (null (solve-for system '(a b) (tuple (a 1) (b 2)))))))
+
+(test constant-equality-constraint
+  "Test CONSTRAINT-SYSTEM with an equality constraint assigning to a constant."
+  (let ((system (constraint-system ((a (== 8)))))
+	(satisfying-assignment (tuple (a 8))))
+
+    (is (same satisfying-assignment
+	      ;; FIXME: This should pass, but this is returning (tuple (8 8) (a 8)).
+	      ;(solve-for system '(a) (tuple (a 8)))
+	      (ask system '(a) (tuple (a 8)))
+	      ))))
 
 (define-constraint < (result (< a b))
   "RESULT == A < B." 

@@ -1,0 +1,13 @@
+ZigZag:
+  Graph:
+    DRG:
+      declare(degree_base, integer)
+      drg_e = 0.80
+      drg_d = 1/4
+    Chung:
+      declare(degree_chung, integer)
+    declare(block_size, integer)
+    declare(size, integer)
+    declare(nodes, integer)
+    nodes = size / block_size
+    degree = degree_base + degree_chung

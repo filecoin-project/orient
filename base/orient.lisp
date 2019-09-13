@@ -510,7 +510,10 @@
   ;; TODO: allow merging of provided data.
   (let ((defaulted (or provided
 		       (and (all-system-data system)
-			    (apply #'join (all-system-data system))))))
+			    (apply #'join (all-system-data system)))
+		       ;; Default default is an empty tuple, since APPLY-TRANSFORMATION
+		       ;; treats NIL as an empty *relation*.
+		       (tuple))))
     (when override-data
       (do-map (attr val override-data)
 	(adjoinf defaulted attr val)))

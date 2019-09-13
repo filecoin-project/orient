@@ -313,12 +313,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Constraints
 
-(defmacro defconstraint-system (name constraint-definitions &key schema)
+(defmacro defconstraint-system (name constraint-definitions &key schema subsystems)
   `(eval-when (:load-toplevel :compile-toplevel :execute)
      (let ((system (constraint-system ,constraint-definitions)))
        (setf (system-name system) ',name)
        (awhen ,schema
 	 (setf (system-schema system) it))
+       (awhen ,subsystems
+	 (setf (system-subsystems system) it))
        (deftoplevel ,name (:system) system))))
 
 (defun arg-eval (arg)
