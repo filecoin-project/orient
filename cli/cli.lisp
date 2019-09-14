@@ -1,5 +1,5 @@
 (defpackage orient.cli
-  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang)
+  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang :orient.web.html)
   (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
@@ -29,7 +29,7 @@
 		   (system (system "FILE" "URI or filename of system to use"))
 		   (port (port "port-number" "port to listen on"))
 		   (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-		   (command (command "{dump, graph, solve, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+		   (command (command "{dump, graph, solve, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 		   (root (root "project root, so we can find json files"))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
@@ -58,8 +58,9 @@
 		 (*package* (find-package :orient.lang))
 		 (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
 		 (input (cond
-			  ((equal in "--") (load-tuple *standard-input*))
-			  (in (load-tuple in))))
+			  ((equal in "--") (get-json *standard-input*))
+			  (in			   
+			   (get-json-data in))))
 
 		 (system (when system (get-system system))))
 	    (with-output (out)
@@ -93,7 +94,14 @@
 		   (system
 		    (let ((override-data (and merge input))
 			  (input (and (not merge) input)))
-		      (handle-system :system system :input input :override-data override-data)))
+		      (solve-system :system system :input input :override-data override-data)))
+		   (t (format *error-output* "No system specified.~%"))))
+		((:report)
+		 (cond
+		   (system
+		    (let ((override-data (and merge input))
+			  (input (and (not merge) input)))
+		      (report-system :system system :initial-data input :override-data override-data)))
 		   (t (format *error-output* "No system specified.~%"))))
 		((:graph)
 		 (cond
@@ -107,7 +115,7 @@
 		 (dump-json :system system *out* :expand-references t))
 		(otherwise
 		 ;; TODO: Generate this list and share with options doc.
-		 (format t "Usage: ~A command~%  command is one of {dump, graph, solve, test, web}~%" (car argv))))
+		 (format t "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
 	      (terpri))))))))
 
 (defun choose-system (spec)
@@ -117,11 +125,15 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defun handle-system (&key system vars input override-data)
+(defun solve-system (&key system vars input override-data report)  
   (let ((solution (solve-for system vars input :override-data override-data)))
     (with-json-encoding ((find-package :filecoin))
       (cl-json:encode-json (ensure-tuples solution) *out*)
       (terpri))))
+
+(defun report-system (&key system vars initial-data override-data)
+  (princ
+   (web:serve-report-page :system system :vars vars :initial-data initial-data :override-data override-data)))
 
 (defun graph-plan (&key system vars input override-data)
   (let ((plan (plan-for system vars input :override-data override-data)))

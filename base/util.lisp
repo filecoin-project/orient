@@ -116,11 +116,31 @@
                         while line collect line))
               line-terminator))))
 
+;; TODO: This is a quick hack for now, use real URI parsing, etc. later.
+(defun string-uri-p (string)
+  (let ((upcased (string-upcase string)))
+    (or (string-starts-with "HTTP://" upcased)
+	(string-starts-with "HTTPS://" upcased)
+	(string-starts-with "FILE://" upcased))))
+  
 (defun get-string (location-spec)
   "Get text from LOCATION-SPEC. LOCATION-SPEC can be a URI with scheme HTTP, HTTPS, or FILE — or a pathspec."
-  (cond
-    ((or (string-starts-with "HTTP://" (string-upcase location-spec))
-	 (string-starts-with "HTTPS://" (string-upcase location-spec)))
-     (dex:get location-spec))
-    ((string-starts-with "FILE://" (string-upcase location-spec)) (slurp-file (subseq location-spec 7)))
-    (t (slurp-file location-spec))))
+  (let ((upcased (string-upcase location-spec)))
+    (cond
+      ((or (string-starts-with "HTTP://" upcased)
+	   (string-starts-with "HTTPS://" upcased))
+       (dex:get location-spec))
+      ((string-starts-with "FILE://" upcased) (slurp-file (subseq location-spec 7)))
+      (t (slurp-file location-spec)))))
+
+(defun resolve-json-input (spec)
+  "Resolve STRING eiher to string content via URI lookup, pathname, or stream. For use with CL-JSON:DECODE-JSON."
+  (let ((upcased (string-upcase spec)))
+    (cond ((streamp spec) spec)
+	  ((or (string-starts-with "HTTP://" upcased)
+	       (string-starts-with "HTTPS://" upcased))
+	   (dex:get spec))
+	  ((string-starts-with "FILE://" upcased)
+	   (slurp-file (subseq location-spec 7)))
+	  (t (pathname spec)))))
+  

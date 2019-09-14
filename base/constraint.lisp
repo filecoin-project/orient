@@ -59,6 +59,10 @@
 (defun new-target (prefix)
   (intern (format nil "~A.TMP~D%" prefix (incf *new-definition-count*))))
 
+(defun tmp-p (symbol)
+  (let ((name (symbol-name symbol)))
+    (char= #\% (char name (1- (length name))))))
+
 (defun emit-new-definition (def)
   (push def *new-definitions*))
 
