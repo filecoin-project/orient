@@ -23,6 +23,7 @@
   (error "Delimiter ~S shouldn't be read alone" char))
 
 (defparameter *lang-readtable-case* :upcase)
+(defparameter *lang-definition-readtable-case* :preserve)
 
 (defun make-lang-readtable ()
   (let ((readtable (copy-readtable nil)))
@@ -43,7 +44,7 @@
 			 #'(lambda (stream char)
 			     (declare (ignore char))
 			     (read-delimited-list #\] stream t)))
-    (setf (readtable-case *readtable*) *lang-readtable-case*)
+    (setf (readtable-case *readtable*) *lang-definition-readtable-case*)
     *readtable*))
 
 (defparameter *definition-readtable* (make-definition-readtable))
@@ -80,7 +81,7 @@
 
 (defun case-transform-tree (tree)
   (transform-tree #'(lambda (symbol)
-		      (intern (interface:camel-case-to-lisp* (string-downcase (symbol-name symbol)))
+		      (intern (interface:camel-case-to-lisp* (symbol-name symbol)); (string-downcase (symbol-name symbol)))
 			      (symbol-package symbol)))
 		  tree :test #'symbolp))
 
@@ -172,6 +173,9 @@
        (dolist (sub (cdr input))
 	 (typecase sub
 	   ((sexp declare) (push-end sub (definition-declarations definition)))
+	   ((sexp assert)
+	    ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
+	    )
 	   ((sexp assume) (push-end sub (definition-assumptions definition)))
 	   ((sexp setq) (push-end (cdr sub) (definition-constraints definition)))
 	   (definition (push-end sub (definition-sub-definitions definition)))

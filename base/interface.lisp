@@ -52,9 +52,14 @@
 
 ;; Also snake_case to lisp, with snake_case being the canonical orient-lang form.
 (defun camel-case-to-lisp* (name)
-  (if (all-upper-case-p name)
-      (substitute #\- #\_ name)
-      (deduplicate-dashes (camel-case-to-lisp name))))
+  (let ((x  (if (all-upper-case-p name)
+	      (substitute #\- #\_ name)
+	      (deduplicate-dashes (camel-case-to-lisp name)))))
+    (cond
+      ;; Remove + chars created when CAMEL-CASE-TO-LISP constantizes
+      ((string= "+" name) x)
+      ;; But not for +. TODO: better filtering, maybe check whether + is present before calling CAMEL-CASE-TO-LISP.
+      (t (remove #\+ x )))))
 
 (test camel-case-to-lisp*
     (is (string= "ASDF-FDSA" (camel-case-to-lisp* "asdf-fdsa")))
