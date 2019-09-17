@@ -11,8 +11,8 @@
 (defun find-constraint (name &key (constraint-factories *constraint-factories*))
   (tref name constraint-factories))
 
-(defmacro constraint-system (constraint-definitions)
-  `(make-constraint-system ',constraint-definitions))
+(defmacro constraint-system (constraint-definitions &rest keys)
+  `(make-constraint-system ',constraint-definitions ,@keys))
 (test unwrap-constraint-definitions
   (is (same '((A.TMP2% (- D E))
 	      (A.TMP1% (* B A.TMP2%))
@@ -31,9 +31,9 @@
 				       ;; #I( 2 * log((1 / 3 * (epsilon - 2 delta))  2)
 				       ;; + 2 * ((0.8 - (epsilon + delta)) / 0.12 - (2 * delta)
 				       ;; + 2))
-				       (+ (+ (* 2 (log (/ 1 (* 3 (- epsilon (* 2 delta)))) 2))
-						    (* 2 (/ (- 0.8 (+ epsilon delta))
-							    (- 0.12 (* 2 delta)))))
+				       (+ (+ (* 2 (log2 (/ 1 (* 3 (- epsilon (* 2 delta))))))
+					     (* 2 (/ (- 0.8 (+ epsilon delta))
+						     (- 0.12 (* 2 delta)))))
 					2)
 				       )))))
     (is (same (tuple (LAYERS 32.62129322591989d0))
@@ -163,7 +163,7 @@
      (same expected-unwrapped
 	  (preprocess-constraint-definitions defs)))))
 
-(defun make-constraint-system (constraint-definitions)
+(defun make-constraint-system (constraint-definitions &rest keys)
   "Takes a list of constraint definitions (which may include 'system constraint' definitions) and returns a system containing the corresponding constraint components or constraint subsystems."
   (let* ((processed (preprocess-constraint-definitions constraint-definitions))
 	 (constraints (make-constraints processed))
@@ -173,9 +173,10 @@
       (typecase constraint
 	(component (push constraint components))
 	(system (push constraint systems))))
-    (make-instance 'system
+    (apply #'make-instance 'system
 		   :components (nreverse components)
-		   :subsystems (nreverse systems))))
+		   :subsystems (nreverse systems)
+		   keys)))
 
 (defun make-constraints (constraint-definitions)
   (mapcar #'make-constraint constraint-definitions))
@@ -537,15 +538,67 @@
     (is (same satisfying-assignment
 	      (solve-for system '(y) (tuple (x 12) (z 8)))))))
 
-(define-constraint log (log (log n base))
+(define-constraint log (log (log n))
     "LOG = (LOG N BASE)"
+  ((transformation* ((n) -> (log)) == (log n))
+   ;; TODO: (transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
+   (transformation* ((log) -> (n)) == (exp log))))
+
+(define-constraint log2 (log (log2 n))
+    "LOG = (LOG N BASE)"
+  ((transformation* ((n) -> (log)) == (log n 2))
+   (transformation* ((log) -> (n)) == (expt 2 log))))
+
+(define-constraint logn (log (logn n base))
+    "LOG = (LOGN N BASE)"
   ((transformation* ((n base) -> (log)) == (log n base))
    ;; TODO: (transformation ((,n ,log) -> (,base)) == ;; need log-th root of n) 
    (transformation* ((base log) -> (n)) == (expt base log))))
 
+
+;;; Define LOG2 and LOGN, since they might be used in SIMPLE-CONSTRAINTs on the assumption the functions exist.
+(defun log2 (x)
+  (log x 2))
+
+(defun logn (x base)
+  (log x base))
+
 (test log-constraint
   "Test CONSTRAINT-SYSTEM with a log constraint."
-  (let* ((system (constraint-system ((l (log n base)))))
+  (let* ((system (constraint-system ((l (log n)))))
+	 (satisfying-assignment (tuple (n 8.0) (l 2.0794415))))
+
+    (is (same satisfying-assignment
+	      (solve-for system '(l) (tuple (n 8.0)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(n) (tuple (l 2.0794415)))))
+
+    (is (not (same satisfying-assignment
+		   (solve-for system '(l) (tuple (n 9.0))))))
+
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (base 3) (n 8.0) (l 5.0)))))
+    ))
+
+(test log2-constraint
+	  "Test CONSTRAINT-SYSTEM with a LOGN constraint."
+  (let* ((system (constraint-system ((l (log2 n)))))
+	 (satisfying-assignment (tuple (n 8.0) (l 3.0))))
+
+    (is (same satisfying-assignment
+	      (solve-for system '(l) (tuple  (n 8.0)))))
+    (is (same satisfying-assignment
+	      (solve-for system '(n) (tuple (l 3.0)))))
+
+    (is (not (same satisfying-assignment
+		   (solve-for system '(l) (tuple (n 9.0))))))
+
+    ;; Inconsistent data are not produced.
+    (is (null (solve-for system '() (tuple (n 8.0) (l 5.0)))))))
+
+(test logn-constraint
+	  "Test CONSTRAINT-SYSTEM with a LOGN constraint."
+  (let* ((system (constraint-system ((l (logn n base)))))
 	 (satisfying-assignment (tuple (base 2) (n 8.0) (l 3.0))))
 
     (is (same satisfying-assignment
@@ -560,10 +613,24 @@
     (is (null (solve-for system '() (tuple (base 3) (n 8.0) (l 5.0)))))
     ))
 
-;; IT would probably be clearer to make this primary and define the log constraint as an alias.
+;; IT would probably be clearer to make this primary and define the LOG constraint as an alias.
+(define-alias-constraint exp (result (exp pow))
+    "RESULT = (EXP POW)"
+    (pow (log result)))
+
+;; IT would probably be clearer to make this primary and define the LOG2 constraint as an alias.
+(define-alias-constraint exp2 (result (exp2 pow))
+    "RESULT = (EXP BASE 2)"
+    (pow (log result 2)))
+
+;; IT would probably be clearer to make this primary and define the LOGN constraint as an alias.
 (define-alias-constraint expt (result (expt base pow))
     "RESULT = (EXPT BASE POW)"
-    (pow (log result base)))
+    (pow (logn result base)))
+
+
+(defun exp2 (pow)
+  (expt 2 pow))
 
 (test expt-constraint
   "Test CONSTRAINT-SYSTEM with an exp constraint."

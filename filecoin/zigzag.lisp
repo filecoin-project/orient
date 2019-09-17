@@ -107,7 +107,7 @@
   ;; Calculate LEAVES outside and take that as input.
   ((leaves (/ sector-size node-bytes)
 	   :description "Number of leaves in the merkle tree.")
-   (height-raw (log leaves 2)
+   (height-raw (log2 leaves)
 	       :description "Height of the merkle tree. Unit: float which MUST be integer-valued")
    (height (integer height-raw)
 	   :description "Height of the merkle tree, including leaves and root.")
@@ -134,7 +134,7 @@
     (-- (hybrid-merkle-tree sector-size node-bytes beta-height))
   ((leaves (/ sector-size node-bytes)
 	   :description "Number of leaves in the merkle tree.")
-   (height-raw (log leaves 2)
+   (height-raw (log2 leaves)
 	       :description "Height of the merkle tree. Unit: float which MUST be integer-valued")
    (height (integer height-raw)
 	   :description "Height of the merkle tree, including leaves and root.")
@@ -205,9 +205,8 @@
 ;; TODO: Add support for (schema) description.
 (define-simple-constraint compute-zigzag-layers
     (zigzag-layers (zigzag-epsilon zigzag-delta))
-    (floor (+ (log (/ 1
-		      (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
-		   2)
+    (floor (+ (log2 (/ 1
+		      (* 3 (- zigzag-epsilon (* 2 zigzag-delta)))))
 	      4)))
 
 (deftransformation compute-zigzag-tapered-layers

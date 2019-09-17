@@ -31,7 +31,6 @@
 			  #:substitute #:substitute-if #:substitute-if-not
 			  #:some #:every #:notany #:notevery)
   (:export
-
    :all-system-schemas :assignments
    :clean-tmps
    :dbg :display :aif :apply-transformation :ask :attributes :awhen
@@ -43,6 +42,7 @@
    :display
    :dot-graph-from-plan :generate-directed-graph
    :ensure-tuples :expand-references
+   :exp2
    ::tuple :tuples :create-tuple-report-step
    :describe-transformation-calculation :defschema
    :deftransformation :deftransformation= :extract
@@ -50,13 +50,14 @@
    :forget :generate-directed-graph :it
    :implementation :implementation-module :implementation-name :isetq
    :link
+   :log2 :logn
    :tref :join :lookup-description :make-relation
    :make-signature :make-tuple :operation
    :orient-tests :optimal-heights
    :org-present
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p :project-commit-link
-   :present-data :project :publish
+   :present-data :project :publish :prune-system-for-flags
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation :restrict
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system

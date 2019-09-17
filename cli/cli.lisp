@@ -25,6 +25,7 @@
 (defun main (&optional argv)
   (with-cli-options ((cli-options) t)
       (&parameters (in (in "FILE" "JSON input file, specify -- to use stdin"))
+		   (flags (flags "FLAGS" "provided flags select components so labeled in system."))
 		   (out (out "FILE" "JSON output file, otherwise stdout"))
 		   (system (system "FILE" "URI or filename of system to use"))
 		   (port (port "port-number" "port to listen on"))
@@ -33,6 +34,7 @@
 		   (root (root "project root, so we can find json files"))
 		   &free commands)
     (map-parsed-options (cli-options) nil '("in" "i"
+					    "flags" "f"
 					    "out" "o"
 					    "port" "p"
 					    "system" "s"
@@ -58,11 +60,12 @@
 		 (*package* (find-package :orient.lang))
 		 (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
 		 (input (cond
-			  ((equal in "--") (get-json *standard-input*))
+			  ((equal in "--") (get-json :data *standard-input*))
 			  (in			   
 			   (get-json-data in))))
-
-		 (system (when system (get-system system))))
+		 (flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
+		 (raw-system (when system (get-system system)))
+		 (system (when raw-system (prune-system-for-flags raw-system flags))))
 	    (with-output (out)
 	      (case command
 		((:web)
