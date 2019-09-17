@@ -21,7 +21,8 @@
    (schema :initarg :schema :initform nil :accessor system-schema)
    (components :initarg :components :initform '() :accessor system-components)
    (subsystems :initarg :subsystems :initform '() :accessor system-subsystems)
-   (data :initarg :data :initform '() :accessor system-data)))
+   (data :initarg :data :initform '() :accessor system-data)
+   (flags :initarg :flags :initform '() :accessor system-flags)))
 
 (defclass transformation ()
   ((signature :initarg :signature :initform (make-signature '() '()) :accessor transformation-signature)

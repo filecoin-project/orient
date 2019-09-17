@@ -89,6 +89,17 @@
 (defmethod print-object ((comp component) (stream t))
   (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
+(defun prune-system-for-flags (system flags)
+  (when (or (not flags)
+	    (intersection flags (system-flags system) :test #'string=))
+    (make-instance 'system
+		   :name (system-name system)
+		   :schema (system-schema system)
+		   :components (system-components system)
+		   :subsystems (remove nil (mapcar (lambda (x) (prune-system-for-flags x flags))
+						   (system-subsystems system)))
+		   :data (system-data system))))
+
 (defgeneric all-system-components (system)
   (:method ((system system))
     (reduce #'append (cons (mapcan (lambda (maybe-component)

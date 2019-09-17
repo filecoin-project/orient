@@ -11,8 +11,8 @@
 (defun find-constraint (name &key (constraint-factories *constraint-factories*))
   (tref name constraint-factories))
 
-(defmacro constraint-system (constraint-definitions)
-  `(make-constraint-system ',constraint-definitions))
+(defmacro constraint-system (constraint-definitions &rest keys)
+  `(make-constraint-system ',constraint-definitions ,@keys))
 (test unwrap-constraint-definitions
   (is (same '((A.TMP2% (- D E))
 	      (A.TMP1% (* B A.TMP2%))
@@ -163,7 +163,7 @@
      (same expected-unwrapped
 	  (preprocess-constraint-definitions defs)))))
 
-(defun make-constraint-system (constraint-definitions)
+(defun make-constraint-system (constraint-definitions &rest keys)
   "Takes a list of constraint definitions (which may include 'system constraint' definitions) and returns a system containing the corresponding constraint components or constraint subsystems."
   (let* ((processed (preprocess-constraint-definitions constraint-definitions))
 	 (constraints (make-constraints processed))
@@ -173,9 +173,10 @@
       (typecase constraint
 	(component (push constraint components))
 	(system (push constraint systems))))
-    (make-instance 'system
+    (apply #'make-instance 'system
 		   :components (nreverse components)
-		   :subsystems (nreverse systems))))
+		   :subsystems (nreverse systems)
+		   keys)))
 
 (defun make-constraints (constraint-definitions)
   (mapcar #'make-constraint constraint-definitions))

@@ -57,7 +57,7 @@
    :org-present
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p :project-commit-link
-   :present-data :project :publish
+   :present-data :project :publish :prune-system-for-flags
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation :restrict
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
    :synthesize-report-steps :symbolconc :sys :system

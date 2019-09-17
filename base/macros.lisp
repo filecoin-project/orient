@@ -313,9 +313,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Constraints
 
-(defmacro defconstraint-system (name constraint-definitions &key schema subsystems)
+(defmacro defconstraint-system (name constraint-definitions &rest keys &key schema subsystems &allow-other-keys)
   `(eval-when (:load-toplevel :compile-toplevel :execute)
-     (let ((system (constraint-system ,constraint-definitions)))
+     (let ((system (constraint-system ,constraint-definitions ,@keys)))
        (setf (system-name system) ',name)
        (awhen ,schema
 	 (setf (system-schema system) it))

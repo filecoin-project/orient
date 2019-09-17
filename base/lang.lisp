@@ -194,7 +194,8 @@
      `(defconstraint-system ,(definition-name nested)
 	  (,@(mapcan #'expand-declaration (definition-declarations nested))
 	     ,@(mapcar #'expand-constraint (definition-constraints nested)))
-	,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))))
+	,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))
+	:flags ',(definition-flags nested)))
     (list `(list ,@(mapcar #'source<-nested nested)))))
 
 (defun combine-systems (systems &key name)
