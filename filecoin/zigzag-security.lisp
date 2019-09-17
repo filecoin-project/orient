@@ -16,7 +16,7 @@
   )
 
 (defconstraint-system zigzag-security-constraint-system
-    ((zigzag-lambda (log zigzag-soundness 0.5))
+    ((zigzag-lambda (logn zigzag-soundness 0.5))
      (zigzag-space-gap (+ zigzag-epsilon zigzag-delta))
      (zigzag-basic-layer-challenge-factor (/ 1 zigzag-delta))
      (zigzag-basic-layer-challenges (* zigzag-lambda zigzag-basic-layer-challenge-factor))
@@ -24,9 +24,8 @@
      (total-untapered-challenges (* zigzag-layers zigzag-basic-layer-challenges))
 
      #+(or) ;; TODO: Allow specifying like this.
-     (zigzag-layers (+ (log (/ 1
-			       (* 3 (- zigzag-epsilon (* 2 zigzag-delta))))
-			    2)
+     (zigzag-layers (+ (log2 (/ 1
+			       (* 3 (- zigzag-epsilon (* 2 zigzag-delta)))))
 		       4))
      (total-challenges (== total-zigzag-challenges)))
   :schema 'zigzag-security-schema)
