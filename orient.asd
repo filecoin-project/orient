@@ -51,6 +51,7 @@
 			    (orient-constraint (run-suite :orient-constraint-suite :orient))
 			    (orient (run-suite :orient-suite :orient))
 			    (interface (run-suite :interface-suite :orient.interface))
+			    (orient-lang (run-suite :orient-lang-suite :orient.lang))
 			    (filecoin (run-suite :filecoin-suite :filecoin))			    
 			    (web (run-suite :web-suite :orient.web)))
 			(unless (and orient-relation orient-constraint orient interface filecoin web)

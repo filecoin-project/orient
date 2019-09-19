@@ -118,10 +118,10 @@
 
 (defun parse-into-lines (stream)
   (let ((*readtable* *lang-readtable*))
-    (loop for line = (read-line stream nil)
-       while line
-       when (not (equal line ""))
-       collect (multiple-value-list (parse-line line)))))
+    (remove nil (loop for line = (read-line stream nil)
+		   while line
+		   when (not (equal line ""))
+		   collect (multiple-value-list (parse-line line))) :key #'car)))
 
 (defun group-by-indentation (input-lines &optional (indent-level 0) (acc '()))
   (loop
@@ -172,7 +172,8 @@
      (let ((definition (car input)))
        (dolist (sub (cdr input))
 	 (typecase sub
-	   ((sexp declare) (push-end sub (definition-declarations definition)))
+	   ((sexp declare)
+	    (push-end sub (definition-declarations definition)))
 	   ((sexp assert)
 	    ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
 	    )
@@ -250,7 +251,7 @@
     degree = degree_base + degree_chung
 ")
 	 (expected-parse  '((#S(DEFINITION
-				:NAME ZIGZAG
+				:NAME *ZIG-ZAG
 				:FLAGS NIL
 				:DEPENDENCIES NIL
 				:DECLARATIONS NIL
@@ -259,7 +260,7 @@
 				:CONSTRAINTS NIL
 				:SUB-DEFINITIONS NIL)
 			     (#S(DEFINITION
-				    :NAME GRAPH
+				    :NAME *GRAPH
 				  :FLAGS NIL
 				  :DEPENDENCIES NIL
 				  :DECLARATIONS NIL
@@ -269,18 +270,18 @@
 				  :SUB-DEFINITIONS NIL)
 			      (#S(DEFINITION
 				     :NAME DRG
-				   :FLAGS (FLAG OTHER)
-				   :DEPENDENCIES (DEPENDENCY DEP2)
+				   :FLAGS (*FLAG *OTHER)
+				   :DEPENDENCIES (*DEPENDENCY *DEP-2)
 				   :DECLARATIONS NIL
 				   :DESCRIPTIONS NIL
 				   :ASSUMPTIONS NIL
 				   :CONSTRAINTS NIL
 				   :SUB-DEFINITIONS NIL)
-				 (DECLARE DEGREE_BASE
+				 (DECLARE DEGREE-BASE
 					  INTEGER)
-				 (SETQ DRG_E 0.8) (SETQ DRG_D (/ 1 4)))
+				 (SETQ DRG-E 0.8) (SETQ DRG-D (/ 1 4)))
 			      (#S(DEFINITION
-				     :NAME CHUNG
+				     :NAME *CHUNG
 				   :FLAGS NIL
 				   :DEPENDENCIES NIL
 				   :DECLARATIONS NIL
@@ -288,19 +289,19 @@
 				   :ASSUMPTIONS NIL
 				   :CONSTRAINTS NIL
 				   :SUB-DEFINITIONS NIL)
-				 (DECLARE DEGREE_CHUNG
+				 (DECLARE DEGREE-CHUNG
 					  INTEGER))
-			      (DECLARE BLOCK_SIZE
+			      (DECLARE BLOCK-SIZE
 				       INTEGER)
 			      (DECLARE SIZE
 				       INTEGER)
 			      (DECLARE NODES
 				       INTEGER)
-			      (SETQ NODES (/ SIZE BLOCK_SIZE))
-			      (SETQ DEGREE (+ DEGREE_BASE DEGREE_CHUNG))))))
+			      (SETQ NODES (/ SIZE BLOCK-SIZE))
+			      (SETQ DEGREE (+ DEGREE-BASE DEGREE-CHUNG))))))
 	 (expected-nested
 	  `(#S(DEFINITION
-		  :NAME ZIGZAG
+		  :NAME *ZIG-ZAG
 		:FLAGS NIL
 		:DEPENDENCIES NIL
 		:DECLARATIONS NIL
@@ -308,10 +309,10 @@
 		:ASSUMPTIONS NIL
 		:CONSTRAINTS NIL
 		:SUB-DEFINITIONS (#S(DEFINITION
-					:NAME GRAPH
+					:NAME *GRAPH
 				      :FLAGS NIL
 				      :DEPENDENCIES NIL
-				      :DECLARATIONS ((DECLARE BLOCK_SIZE
+				      :DECLARATIONS ((DECLARE BLOCK-SIZE
 							      INTEGER)
 						     (DECLARE SIZE
 							      INTEGER)
@@ -319,45 +320,58 @@
 							      INTEGER))
 				      :DESCRIPTIONS NIL
 				      :ASSUMPTIONS NIL
-				      :CONSTRAINTS ((NODES (/ SIZE BLOCK_SIZE))
-						    (DEGREE (+ DEGREE_BASE DEGREE_CHUNG)))
+				      :CONSTRAINTS ((NODES (/ SIZE BLOCK-SIZE))
+						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
 				      :SUB-DEFINITIONS (#S(DEFINITION
 							      :NAME DRG
-							    :FLAGS (FLAG OTHER)
-							    :DEPENDENCIES (DEPENDENCY DEP2)
+							    :FLAGS (*FLAG *OTHER)
+							    :DEPENDENCIES (*DEPENDENCY
+									   *DEP-2)
 							    :DECLARATIONS ((DECLARE
-									    DEGREE_BASE
+									    DEGREE-BASE
 									    INTEGER))
 							    :DESCRIPTIONS NIL
 							    :ASSUMPTIONS NIL
-							    :CONSTRAINTS ((DRG_E 0.8)
-									  (DRG_D (/ 1 4)))
+							    :CONSTRAINTS ((DRG-E 0.8)
+									  (DRG-D (/ 1 4)))
 							    :SUB-DEFINITIONS NIL)
 							  #S(DEFINITION
-								:NAME CHUNG
+								:NAME *CHUNG
 							      :FLAGS NIL
 							      :DEPENDENCIES NIL
 							      :DECLARATIONS ((DECLARE
-									      DEGREE_CHUNG
+									      DEGREE-CHUNG
 									      INTEGER))
 							      :DESCRIPTIONS NIL
 							      :ASSUMPTIONS NIL
 							      :CONSTRAINTS NIL
 							      :SUB-DEFINITIONS NIL)))))))
-	 (expected-source '(list
-			    (defconstraint-system zigzag ()
-			     :subsystems (list
-					  (defconstraint-system graph
-					      ((block_size-integer% (integer block_size))
-					       (size-integer% (integer size))
-					       (nodes-integer% (integer nodes))
-					       (nodes (/ size block_size))
-					       (degree (+ degree_base degree_chung)))
-					    :subsystems (list
-							 (defconstraint-system drg ((degree_base-integer% (integer degree_base))
-										    (drg_e (== 0.8))
-										    (drg_d (/ 1 4))))
-							 (defconstraint-system chung ((degree_chung-integer% (integer degree_chung)))))))))))
+	 (expected-source '(LIST
+			    (DEFCONSTRAINT-SYSTEM *ZIG-ZAG NIL :SUBSYSTEMS
+			     (LIST
+			      (DEFCONSTRAINT-SYSTEM *GRAPH
+				  ((BLOCK-SIZE-INTEGER%
+				    (INTEGER BLOCK-SIZE))
+				   (SIZE-INTEGER% (INTEGER SIZE))
+				   (NODES-INTEGER% (INTEGER NODES))
+				   (NODES (/ SIZE BLOCK-SIZE))
+				   (DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
+				:SUBSYSTEMS
+				(LIST
+				 (DEFCONSTRAINT-SYSTEM DRG
+				     ((DEGREE-BASE-INTEGER%
+				       (INTEGER DEGREE-BASE))
+				      (DRG-E (== 0.8))
+				      (DRG-D (/ 1 4)))
+				   :FLAGS '(*FLAG *OTHER))
+				 (DEFCONSTRAINT-SYSTEM *CHUNG
+				     ((DEGREE-CHUNG-INTEGER%
+				       (INTEGER DEGREE-CHUNG)))
+				   :FLAGS
+				   'NIL))
+				:FLAGS 'NIL))
+			     :FLAGS 'NIL))))
+    
     (let ((parsed (parse-string input)))
       (is (equalp expected-parse parsed)))
 
@@ -371,7 +385,7 @@
   (let* ((input (project-merge "base/systems/zigzag.orient"))
 	 (parsed (parse-file input)))
     (is (equalp '((#S(DEFINITION
-		      :NAME ZIGZAG
+		      :NAME *ZIG-ZAG
 		      :FLAGS NIL
 		      :DEPENDENCIES NIL
 		      :DECLARATIONS NIL
@@ -380,7 +394,7 @@
 		      :CONSTRAINTS NIL
 		      :SUB-DEFINITIONS NIL)
 		   (#S(DEFINITION
-			  :NAME GRAPH
+			  :NAME *GRAPH
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -397,11 +411,11 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (DECLARE DEGREE_BASE
+		       (DECLARE DEGREE-BASE
 				INTEGER)
-		       (SETQ DRG_E 0.8) (SETQ DRG_D (/ 1 4)))
+		       (SETQ DRG-E 0.8) (SETQ DRG-D (/ 1 4)))
 		    (#S(DEFINITION
-			   :NAME CHUNG
+			   :NAME *CHUNG
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -409,17 +423,17 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (DECLARE DEGREE_CHUNG
+		       (DECLARE DEGREE-CHUNG
 				INTEGER))
-		    (DECLARE BLOCK_SIZE
+		    (DECLARE BLOCK-SIZE
 			     INTEGER)
 		    (DECLARE SIZE
 			     INTEGER)
 		    (DECLARE NODES
 			     INTEGER)
-		    (SETQ NODES (/ SIZE BLOCK_SIZE)) (SETQ DEGREE (+ DEGREE_BASE DEGREE_CHUNG)))
+		    (SETQ NODES (/ SIZE BLOCK-SIZE)) (SETQ DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
 		   (#S(DEFINITION
-			  :NAME PARAMETERS
+			  :NAME *PARAMETERS
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -428,7 +442,7 @@
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (#S(DEFINITION
-			   :NAME SOUNDNESS
+			   :NAME *SOUNDNESS
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -441,7 +455,7 @@
 		       (ASSUME (> SOUNDNESS 0)) (ASSUME (< SOUNDNESS 0.5))
 		       (SETQ SOUNDNESS (EXPT (/ 1 2) (- LAMBDA))))
 		    (#S(DEFINITION
-			   :NAME LAYERS
+			   :NAME *LAYERS
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -456,7 +470,7 @@
 			  (+ (* 2 (LOG2 (/ 1 (* 3 (- EPSILON (* 2 DELTA))))))
 			     (/ (* 2 (+ (- 0.8 EPSILON) DELTA)) (- 0.12 (* 2 DELTA))) 2)))
 		    (#S(DEFINITION
-			   :NAME SPACEGAP
+			   :NAME *SPACE-GAP
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -468,7 +482,7 @@
 		       (SETQ SPACEGAP (+ EPSILON (* 2 DELTA)))
 		       (SETF (+ EPSILON (* 3 DELTA)) 0.24))
 		    (#S(DEFINITION
-			   :NAME CHALLENGES
+			   :NAME *CHALLENGES
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -477,7 +491,7 @@
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (#S(DEFINITION
-			      :NAME OFFLINECHALLENGES
+			      :NAME *OFFLINE-CHALLENGES
 			    :FLAGS NIL
 			    :DEPENDENCIES NIL
 			    :DECLARATIONS NIL
@@ -485,16 +499,16 @@
 			    :ASSUMPTIONS NIL
 			    :CONSTRAINTS NIL
 			    :SUB-DEFINITIONS NIL)
-			  (DECLARE OFFLINE_CHALLENGES
+			  (DECLARE OFFLINE-CHALLENGES
 				   INTEGER)
-			  (DECLARE OFFLINE_CHALLENGES_ALL
+			  (DECLARE OFFLINE-CHALLENGES-ALL
 				   INTEGER)
-			  (ASSUME (> OFFLINE_CHALLENGES 0))
-			  (> OFFLINE_CHALLENGES
+			  (ASSUME (> OFFLINE-CHALLENGES 0))
+			  (> OFFLINE-CHALLENGES
 			     (- (/ LAMBDA (- (LOG2 (- 2 EPSILON (* 3 DELTA))) 1))))
-			  (> OFFLINE_CHALLENGES_ALL (* LAYERS OFFLINE_CHALLENGES)))
+			  (> OFFLINE-CHALLENGES-ALL (* LAYERS OFFLINE-CHALLENGES)))
 		       (#S(DEFINITION
-			      :NAME ONLINECHALLENGES
+			      :NAME *ONLINE-CHALLENGES
 			    :FLAGS NIL
 			    :DEPENDENCIES NIL
 			    :DECLARATIONS NIL
@@ -502,12 +516,12 @@
 			    :ASSUMPTIONS NIL
 			    :CONSTRAINTS NIL
 			    :SUB-DEFINITIONS NIL)
-			  (DECLARE ONLINE_CHALLENGES
+			  (DECLARE ONLINE-CHALLENGES
 				   INTEGER)
-			  (ASSUME (> ONLINE_CHALLENGES 0))
-			  (> ONLINE_CHALLENGES (LOG2 (/ 1 (* 3 (- EPSILON (* 2 DELTA)))))))))
+			  (ASSUME (> ONLINE-CHALLENGES 0))
+			  (> ONLINE-CHALLENGES (LOG2 (/ 1 (* 3 (- EPSILON (* 2 DELTA)))))))))
 		   (#S(DEFINITION
-			  :NAME ENCODING
+			  :NAME *ENCODING
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -515,37 +529,37 @@
 			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
-		    (ASSUME (> KDF_CONTENT 0)) (ASSUME (> ENCODING_TIME 0))
-		    (ASSUME (> POLLING_TIME 0)) (SETQ KDF_CONTENT (+ DEGREE 1))
-		    (SETQ ENCODING_TIME
-			  (* LAYERS NODES (* KDF_CONTENT BLOCK_SIZE) KDF_HASH_TIME))
-		    (SETQ MALICIOUS_ENCODING (/ ENCODING_TIME ENCODING_AMAX))
-		    (SETQ POLLING_TIME (* MALICIOUS_ENCODING DRG_D)))
+		    (ASSUME (> KDF-CONTENT 0)) (ASSUME (> ENCODING-TIME 0))
+		    (ASSUME (> POLLING-TIME 0)) (SETQ KDF-CONTENT (+ DEGREE 1))
+		    (SETQ ENCODING-TIME
+			  (* LAYERS NODES (* KDF-CONTENT BLOCK-SIZE) KDF-HASH-TIME))
+		    (SETQ MALICIOUS-ENCODING (/ ENCODING-TIME ENCODING-AMAX))
+		    (SETQ POLLING-TIME (* MALICIOUS-ENCODING DRG-D)))
 		   (#S(DEFINITION
-			  :NAME COMMITMENT
-			:FLAGS (ZIGZAGCOMMITMENT)
+			  :NAME *COMMITMENT
+			:FLAGS (*ZIG-ZAG-COMMITMENT)
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
 			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
-		    (ASSUME (> REPLICA_COMMIT_TIME 0))
-		    (SETQ REPLICA_COMMIT_TIME (* COMMIT_TIME 3)))
+		    (ASSUME (> REPLICA-COMMIT-TIME 0))
+		    (SETQ REPLICA-COMMIT-TIME (* COMMIT-TIME 3)))
 		   (#S(DEFINITION
 			  :NAME SNARK
-			:FLAGS (ZIGZAGCOMMITMENT)
+			:FLAGS (*ZIG-ZAG-COMMITMENT)
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
 			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
-		    (ASSUME (> OPENING_TIME 0))
-		    (SETQ OPENING_PER_CHALLENGE (+ DEGREE_BASE (* 2 DEGREE_CHUNG) 1))
-		    (SETQ OPENINGS (* OFFLINE_CHALLENGES_ALL OPENING_PER_CHALLENGE))
+		    (ASSUME (> OPENING-TIME 0))
+		    (SETQ OPENING-PER-CHALLENGE (+ DEGREE-BASE (* 2 DEGREE-CHUNG) 1))
+		    (SETQ OPENINGS (* OFFLINE-CHALLENGES-ALL OPENING-PER-CHALLENGE))
 		    (#S(DEFINITION
-			   :NAME LEAF
+			   :NAME *LEAF
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -553,11 +567,11 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (SETQ LEAF_ELEMENTS LAYERS) (SETQ LEAF_SIZE (* LEAF_ELEMENTS BLOCK_SIZE))
-		       (SETQ LEAF_CONSTRAINTS (* LEAF_SIZE LEAF_HASH_CONSTRAINTS))
-		       (SETQ LEAF_TIME (* LEAF_ELEMENTS LEAF_HASH_CIRCUIT_TIME)))
+		       (SETQ LEAF-ELEMENTS LAYERS) (SETQ LEAF-SIZE (* LEAF-ELEMENTS BLOCK-SIZE))
+		       (SETQ LEAF-CONSTRAINTS (* LEAF-SIZE LEAF-HASH-CONSTRAINTS))
+		       (SETQ LEAF-TIME (* LEAF-ELEMENTS LEAF-HASH-CIRCUIT-TIME)))
 		    (#S(DEFINITION
-			   :NAME INCLUSION
+			   :NAME *INCLUSION
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -565,7 +579,7 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (SETQ INCLUSION_CIRCUIT_TIME (* TREE_DEPTH MERKLE_HASH_TIME_CIRCUIT)))
+		       (SETQ INCLUSION-CIRCUIT-TIME (* TREE-DEPTH MERKLE-HASH-TIME-CIRCUIT)))
 		    (#S(DEFINITION
 			   :NAME SNARK
 			 :FLAGS NIL
@@ -575,13 +589,13 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (SETQ SNARK_TIME_PER_TREE (* (+ LEAF_TIME INCLUSION_CIRCUIT_TIME) OPENING))
-		       (SETQ SNARK_CIRCUIT_PER_TREE
-			     (* (+ LEAF_CONSTRAINTS INCLUSION_CONSTRAINTS) OPENINGS))
-		       (SETQ SNARK_TIME (* SNARK_CIRCUIT_PER_TREE 3))
-		       (SETQ SNARK_CIRCUIT (* SNARK_CIRCUIT_PER_TREE 3))))
+		       (SETQ SNARK-TIME-PER-TREE (* (+ LEAF-TIME INCLUSION-CIRCUIT-TIME) OPENING))
+		       (SETQ SNARK-CIRCUIT-PER-TREE
+			     (* (+ LEAF-CONSTRAINTS INCLUSION-CONSTRAINTS) OPENINGS))
+		       (SETQ SNARK-TIME (* SNARK-CIRCUIT-PER-TREE 3))
+		       (SETQ SNARK-CIRCUIT (* SNARK-CIRCUIT-PER-TREE 3))))
 		   (#S(DEFINITION
-			  :NAME INCLUSIONPROOF
+			  :NAME *INCLUSION-PROOF
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -590,7 +604,7 @@
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (#S(DEFINITION
-			   :NAME MERKLEINCLUSIONPROOF
+			   :NAME *MERKLE-INCLUSION-PROOF
 			 :FLAGS NIL
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
@@ -598,13 +612,13 @@
 			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
-		       (DECLARE TREE_DEPTH
+		       (DECLARE TREE-DEPTH
 				INTEGER)
-		       (SETQ TREE_DEPTH (LOG2 NODES))
-		       (SETQ INCLUSION_CONSTRAINTS (* TREE_DEPTH MERKLE_HASH_CONSTRAINTS))
-		       (SETQ COMMIT_TIME (* NODES VC_HASH_CONSTRAINTS))))
+		       (SETQ TREE-DEPTH (LOG2 NODES))
+		       (SETQ INCLUSION-CONSTRAINTS (* TREE-DEPTH MERKLE-HASH-CONSTRAINTS))
+		       (SETQ COMMIT-TIME (* NODES VC-HASH-CONSTRAINTS))))
 		   (#S(DEFINITION
-			  :NAME SEAL
+			  :NAME *SEAL
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -612,11 +626,11 @@
 			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
-		    (SETQ SEAL_TIME (+ COMMIT_TIME SNARK_TIME ENCODING_TIME))
-		    (SETQ PARALLEL_SEAL_TIME
-			  (+ (/ (+ SNARK_TIME COMMIT_TIME) CORES) ENCODING_TIME)))
+		    (SETQ SEAL-TIME (+ COMMIT-TIME SNARK-TIME ENCODING-TIME))
+		    (SETQ PARALLEL-SEAL-TIME
+			  (+ (/ (+ SNARK-TIME COMMIT-TIME) CORES) ENCODING-TIME)))
 		   (#S(DEFINITION
-			  :NAME COST
+			  :NAME *COST
 			:FLAGS NIL
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
@@ -624,6 +638,6 @@
 			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
-		    (SETQ SEAL_COST
-			  (* SEAL_TIME (+ CPU_COST_PER_SECOND MEMORY_COST_PER_SECOND))))))
+		    (SETQ SEAL-COST
+			  (* SEAL-TIME (+ CPU-COST-PER-SECOND MEMORY-COST-PER-SECOND))))))
 		parsed)))) 
