@@ -118,10 +118,10 @@
 
 (defun parse-into-lines (stream)
   (let ((*readtable* *lang-readtable*))
-    (loop for line = (read-line stream nil)
-       while line
-       when (not (equal line ""))
-       collect (multiple-value-list (parse-line line)))))
+    (remove nil (loop for line = (read-line stream nil)
+		   while line
+		   when (not (equal line ""))
+		   collect (multiple-value-list (parse-line line))) :key #'car)))
 
 (defun group-by-indentation (input-lines &optional (indent-level 0) (acc '()))
   (loop
