@@ -27,7 +27,6 @@
 
 (test complex-unwrapped-example
   (let ((cs (make-constraint-system '((layers
-				       ;; FIXME: Infix creates variadic plus here – add support in constraint or otherwise accommodate.
 				       ;; #I( 2 * log((1 / 3 * (epsilon - 2 delta))  2)
 				       ;; + 2 * ((0.8 - (epsilon + delta)) / 0.12 - (2 * delta)
 				       ;; + 2))
@@ -99,9 +98,9 @@
   (destructuring-bind (target (op &rest args))
       constraint-definition
     (case op
-      (- (if (= 1 (length args))
-	     (list `(,target (- 0 ,(car args))))
-	     (list constraint-definition)))
+      (- (cond ((= 1 (length args))
+		(list `(,target (- 0 ,(car args)))))
+	       (t (transform-variadic target op args))))
       ((+ *) (transform-commutative target op args))
       (t (list constraint-definition)))))
 
@@ -115,8 +114,7 @@
       (0 (list `(,target (== ,identity))))
       (1 (list `(,target (== ,(car args)))))
       (2 (list `(,target (,op ,@args))))
-      (t ;; FIXME: expand variadic.
-       (within-new-definitions
+      (t (within-new-definitions
 	 (let ((new-target (new-target target)))
 	   `((,new-target (,op ,(first args) ,(second args)))
 	     ,@(transform-commutative target op `(,new-target ,@(cddr args))))))))))
@@ -137,6 +135,33 @@
 				      (x.tmp2% (+ x.tmp1% c))
 				      (x.tmp3% (+ x.tmp2% d))
 				      (x (+ x.tmp3% e))))))
+
+(defun transform-variadic (target op args)
+  (within-new-definitions
+    (let ((new-target (new-target target)))
+      (if (<= (length args) 2)
+	  `((,target (,op ,@args)))
+	  `((,new-target (,op ,(first args) ,(second args)))
+	    ,@(transform-variadic target op `(,new-target ,@(cddr args))))))))
+
+(test variadic-transformations
+  (flet ((test-case (source expected-result)
+	   (is
+	    (same expected-result
+		  (transform-constraint-definitions source)))))
+    (test-case '((x (- a b c d e))) '((x.tmp1% (- a b))
+				      (x.tmp2% (- x.tmp1% c))
+				      (x.tmp3% (- x.tmp2% d))
+				      (x (- x.tmp3% e))))))
+
+(test minus-transformation
+  (flet ((test-case (source expected-result)
+	   (is
+	    (same expected-result
+		  (transform-constraint-definitions source)))))
+    (test-case '((x (- y))) '((x (- 0 y))))))
+
+
 
 (defun preprocess-constraint-definitions (constraint-definitions)
   (within-new-definitions
