@@ -43,7 +43,9 @@
     (set-macro-character #\[
 			 #'(lambda (stream char)
 			     (declare (ignore char))
-			     (read-delimited-list #\] stream t)))
+			     (awhen (read-delimited-list #\] stream t)
+			       (coerce it 'vector))))
+			       
     (setf (readtable-case *readtable*) *lang-definition-readtable-case*)
     *readtable*))
 
@@ -104,16 +106,24 @@
 		 (values parsed indent-level)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defstruct definition name flags dependencies declarations descriptions assumptions constraints sub-definitions)
+  (defstruct definition name flags dependencies declarations descriptions constraints sub-definitions)
   (defmethod make-load-form ((d definition) &optional environment)
     (make-load-form-saving-slots d :environment environment)))
 
 (defun parse-definition-line (line)
   (let ((*readtable* *definition-readtable*))
     (with-input-from-string (in line)
-      (let ((name (read-with-case in nil nil))
-	    (flags (read-with-case in nil nil))
-	    (dependencies (read-with-case in nil nil)))
+      (let* ((name (read-with-case in nil nil))
+	     (first (read-with-case in nil nil))
+	     (second (read-with-case in nil nil))
+	     (flags (when (listp first) first))
+	     (dependencies (cond
+			     ;; Any (Flags, F2) must precede [Dependencies, D2] — though both are optional.
+			     ((vectorp first)
+			      (assert (not (vectorp second)))
+			      first)
+			     (t (awhen (vectorp second)
+				  (coerce second 'list))))))
 	(make-definition :name name :flags flags :dependencies dependencies)))))
 
 (defun parse-into-lines (stream)
@@ -196,7 +206,8 @@
 	  (,@(mapcan #'expand-declaration (definition-declarations nested))
 	     ,@(mapcar #'expand-constraint (definition-constraints nested)))
 	,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))
-	:flags ',(definition-flags nested)))
+	:flags ',(definition-flags nested)
+	:dependencies ',(definition-dependencies nested)))
     (list `(list ,@(mapcar #'source<-nested nested)))))
 
 (defun combine-systems (systems &key name)
@@ -256,7 +267,6 @@
 				:DEPENDENCIES NIL
 				:DECLARATIONS NIL
 				:DESCRIPTIONS NIL
-				:ASSUMPTIONS NIL
 				:CONSTRAINTS NIL
 				:SUB-DEFINITIONS NIL)
 			     (#S(DEFINITION
@@ -265,16 +275,14 @@
 				  :DEPENDENCIES NIL
 				  :DECLARATIONS NIL
 				  :DESCRIPTIONS NIL
-				  :ASSUMPTIONS NIL
 				  :CONSTRAINTS NIL
 				  :SUB-DEFINITIONS NIL)
 			      (#S(DEFINITION
 				     :NAME DRG
 				   :FLAGS (*FLAG *OTHER)
-				   :DEPENDENCIES (*DEPENDENCY *DEP-2)
+				   :DEPENDENCIES (|Dependency| |Dep2|)
 				   :DECLARATIONS NIL
 				   :DESCRIPTIONS NIL
-				   :ASSUMPTIONS NIL
 				   :CONSTRAINTS NIL
 				   :SUB-DEFINITIONS NIL)
 				 (DECLARE DEGREE-BASE
@@ -286,7 +294,6 @@
 				   :DEPENDENCIES NIL
 				   :DECLARATIONS NIL
 				   :DESCRIPTIONS NIL
-				   :ASSUMPTIONS NIL
 				   :CONSTRAINTS NIL
 				   :SUB-DEFINITIONS NIL)
 				 (DECLARE DEGREE-CHUNG
@@ -306,7 +313,6 @@
 		:DEPENDENCIES NIL
 		:DECLARATIONS NIL
 		:DESCRIPTIONS NIL
-		:ASSUMPTIONS NIL
 		:CONSTRAINTS NIL
 		:SUB-DEFINITIONS (#S(DEFINITION
 					:NAME *GRAPH
@@ -319,19 +325,17 @@
 						     (DECLARE NODES
 							      INTEGER))
 				      :DESCRIPTIONS NIL
-				      :ASSUMPTIONS NIL
 				      :CONSTRAINTS ((NODES (/ SIZE BLOCK-SIZE))
 						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
 				      :SUB-DEFINITIONS (#S(DEFINITION
 							      :NAME DRG
 							    :FLAGS (*FLAG *OTHER)
-							    :DEPENDENCIES (*DEPENDENCY
-									   *DEP-2)
+							    :DEPENDENCIES (|Dependency|
+									   |Dep2|)
 							    :DECLARATIONS ((DECLARE
 									    DEGREE-BASE
 									    INTEGER))
 							    :DESCRIPTIONS NIL
-							    :ASSUMPTIONS NIL
 							    :CONSTRAINTS ((DRG-E 0.8)
 									  (DRG-D (/ 1 4)))
 							    :SUB-DEFINITIONS NIL)
@@ -343,7 +347,6 @@
 									      DEGREE-CHUNG
 									      INTEGER))
 							      :DESCRIPTIONS NIL
-							      :ASSUMPTIONS NIL
 							      :CONSTRAINTS NIL
 							      :SUB-DEFINITIONS NIL)))))))
 	 (expected-source '(LIST
@@ -355,22 +358,36 @@
 				   (SIZE-INTEGER% (INTEGER SIZE))
 				   (NODES-INTEGER% (INTEGER NODES))
 				   (NODES (/ SIZE BLOCK-SIZE))
-				   (DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
+				   (DEGREE
+				    (+ DEGREE-BASE DEGREE-CHUNG)))
 				:SUBSYSTEMS
 				(LIST
 				 (DEFCONSTRAINT-SYSTEM DRG
 				     ((DEGREE-BASE-INTEGER%
-				       (INTEGER DEGREE-BASE))
-				      (DRG-E (== 0.8))
-				      (DRG-D (/ 1 4)))
-				   :FLAGS '(*FLAG *OTHER))
+				       (INTEGER
+					DEGREE-BASE))
+				      (DRG-E
+				       (==
+					0.8))
+				      (DRG-D
+				       (/ 1
+					  4)))
+				   :FLAGS
+				   '(*FLAG
+				     *OTHER)
+				   :DEPENDENCIES
+				   '(|Dependency|
+				     |Dep2|))
 				 (DEFCONSTRAINT-SYSTEM *CHUNG
 				     ((DEGREE-CHUNG-INTEGER%
-				       (INTEGER DEGREE-CHUNG)))
+				       (INTEGER
+					DEGREE-CHUNG)))
 				   :FLAGS
+				   'NIL
+				   :DEPENDENCIES
 				   'NIL))
-				:FLAGS 'NIL))
-			     :FLAGS 'NIL))))
+				:FLAGS 'NIL :DEPENDENCIES 'NIL))
+			     :FLAGS 'NIL :DEPENDENCIES 'NIL))))
     
     (let ((parsed (parse-string input)))
       (is (equalp expected-parse parsed)))
@@ -390,7 +407,6 @@
 		      :DEPENDENCIES NIL
 		      :DECLARATIONS NIL
 		      :DESCRIPTIONS NIL
-		      :ASSUMPTIONS NIL
 		      :CONSTRAINTS NIL
 		      :SUB-DEFINITIONS NIL)
 		   (#S(DEFINITION
@@ -399,7 +415,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (#S(DEFINITION
@@ -408,7 +423,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (DECLARE DEGREE-BASE
@@ -420,7 +434,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (DECLARE DEGREE-CHUNG
@@ -438,7 +451,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (#S(DEFINITION
@@ -447,7 +459,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (DECLARE LAMBDA
@@ -460,7 +471,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (DECLARE LAYERS
@@ -475,7 +485,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (ASSUME (> SPACEGAP 0)) (ASSUME (< SPACEGAP 0.5))
@@ -487,7 +496,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (#S(DEFINITION
@@ -496,7 +504,6 @@
 			    :DEPENDENCIES NIL
 			    :DECLARATIONS NIL
 			    :DESCRIPTIONS NIL
-			    :ASSUMPTIONS NIL
 			    :CONSTRAINTS NIL
 			    :SUB-DEFINITIONS NIL)
 			  (DECLARE OFFLINE-CHALLENGES
@@ -513,7 +520,6 @@
 			    :DEPENDENCIES NIL
 			    :DECLARATIONS NIL
 			    :DESCRIPTIONS NIL
-			    :ASSUMPTIONS NIL
 			    :CONSTRAINTS NIL
 			    :SUB-DEFINITIONS NIL)
 			  (DECLARE ONLINE-CHALLENGES
@@ -526,7 +532,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (ASSUME (> KDF-CONTENT 0)) (ASSUME (> ENCODING-TIME 0))
@@ -541,7 +546,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (ASSUME (> REPLICA-COMMIT-TIME 0))
@@ -552,7 +556,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (ASSUME (> OPENING-TIME 0))
@@ -564,7 +567,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (SETQ LEAF-ELEMENTS LAYERS) (SETQ LEAF-SIZE (* LEAF-ELEMENTS BLOCK-SIZE))
@@ -576,7 +578,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (SETQ INCLUSION-CIRCUIT-TIME (* TREE-DEPTH MERKLE-HASH-TIME-CIRCUIT)))
@@ -586,7 +587,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (SETQ SNARK-TIME-PER-TREE (* (+ LEAF-TIME INCLUSION-CIRCUIT-TIME) OPENING))
@@ -600,7 +600,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (#S(DEFINITION
@@ -609,7 +608,6 @@
 			 :DEPENDENCIES NIL
 			 :DECLARATIONS NIL
 			 :DESCRIPTIONS NIL
-			 :ASSUMPTIONS NIL
 			 :CONSTRAINTS NIL
 			 :SUB-DEFINITIONS NIL)
 		       (DECLARE TREE-DEPTH
@@ -623,7 +621,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (SETQ SEAL-TIME (+ COMMIT-TIME SNARK-TIME ENCODING-TIME))
@@ -635,7 +632,6 @@
 			:DEPENDENCIES NIL
 			:DECLARATIONS NIL
 			:DESCRIPTIONS NIL
-			:ASSUMPTIONS NIL
 			:CONSTRAINTS NIL
 			:SUB-DEFINITIONS NIL)
 		    (SETQ SEAL-COST
