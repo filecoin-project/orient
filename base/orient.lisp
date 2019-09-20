@@ -90,8 +90,11 @@
   (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
 (defun prune-system-for-flags (system flags)
-  (when (or (not flags)
-	    (intersection flags (system-flags system) :test #'string=))
+  ;; Include system if: 
+  (when (or (not flags) ;; no flags are specified;
+	    (not (system-flags system)) ;; system has not flags; 
+	    (intersection flags (system-flags system) :test #'string=) ;; Or one of the specified flags is a system flag.
+	    )
     (make-instance 'system
 		   :name (system-name system)
 		   :schema (system-schema system)
