@@ -187,7 +187,6 @@
 	   ((sexp assert)
 	    ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
 	    )
-	   ((sexp assume) (push-end sub (definition-assumptions definition)))
 	   ((sexp setq) (push-end (cdr sub) (definition-constraints definition)))
 	   (definition (push-end sub (definition-sub-definitions definition)))
 	   ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
