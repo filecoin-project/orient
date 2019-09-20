@@ -46,7 +46,7 @@
   (:method ((tuples set))
     (let ((attributes (awhen (arb tuples) (attributes it))))
       (and (every (lambda (tuple) (equal? (attributes tuple) attributes)) tuples)
-       (make-instance 'simple-relation :tuples tuples)))))
+	   (make-instance 'simple-relation :tuples tuples)))))
 
 (defgeneric %make-relation (tuples)
   (:documentation
@@ -56,7 +56,6 @@
   (:method ((tuples set))
     (let ((attributes (awhen (arb tuples) (attributes it))))
       (make-instance 'simple-relation :tuples tuples))))
-
 
 (defgeneric cardinality (relation)
   (:method ((r relation))

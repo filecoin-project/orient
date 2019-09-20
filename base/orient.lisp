@@ -519,7 +519,11 @@
 
 (defmethod defaulted-initial-data ((system system) (provided t) &key override-data)
   ;; TODO: allow merging of provided data.
-  (let ((defaulted (or provided
+  (let ((defaulted (or (typecase provided
+			 (wb-map provided)
+			 (relation provided)
+			 ((cons (or wb-map relation))
+			  (apply #'join provided)))
 		       (and (all-system-data system)
 			    (apply #'join (all-system-data system)))
 		       ;; Default default is an empty tuple, since APPLY-TRANSFORMATION

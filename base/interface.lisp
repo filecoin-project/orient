@@ -2,7 +2,8 @@
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
-  (:export :camel-case-to-lisp* :get-json :get-json-data :dump-json :load-pipeline :load-transformation :load-tuple :load-json :<-json
+  (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-relation-list :dump-json
+	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
 	   :test-roundtrip :with-json-encoding
 	   :*schema-package*)
   (:nicknames :interface))
@@ -73,10 +74,22 @@
 (defun get-json-data (spec &rest keys)
   (apply #'get-json :data spec keys))
 
+(defun get-json-relation-list (spec &rest keys)
+  (make-relation-list (apply #'get-json :data spec keys)))
+
 (deftype tuple-pair () '(cons symbol (not cons)))
 
 ;; FIXME: Should probably change this name.
 (deftype tuple () '(cons tuple-pair t))
+
+(defun make-relation-list (spec)
+  (etypecase spec
+    (wb-map (make-relation (list spec)))
+    ((cons wb-map) (or 
+		    (and (every (lambda (x) (typep x 'wb-map)) spec)
+			 (make-relation spec))
+		    (mapcar #'make-relation-list spec)))
+    (list (mapcar #'make-relation-list spec))))
 
 (defun load-json (type-spec source)
   (let* ((*json-identifier-name-to-lisp* #'camel-case-to-lisp*)
@@ -94,6 +107,8 @@
     (typecase json
       (atom json)
       (tuple (<-json :tuple (intern-schema-symbols json)))
+      (list (mapcar (partial #'<-json :data) json))
+
       ;; TODO: relations
     ))
   (:method ((type-spec (eql :tuple)) (json list))
