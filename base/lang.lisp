@@ -14,6 +14,16 @@
 
 (defvar *line-comment* "//")
 
+(defvar *parse-line* 0)
+
+(define-condition lang-error (error)
+  ((line :initarg :line :initform *parse-line* :accessor lang-error-line)
+   (description :initarg :description :initform nil :accessor lang-error-description))
+  (:report (lambda (condition stream)
+	     (format stream "Error parsing Orient lang at line ~d ~@[: ~a~]"
+		     (lang-error-line condition)
+		     (lang-error-description condition)))))
+
 (defun comma-reader (stream char)
   (declare (ignore stream char))
   (values))
@@ -176,6 +186,21 @@
 (defmacro push-end (value place)
   `(setf ,place (reverse (cons ,value (reverse ,place)))))
 
+(defun constraint<-lang-form (form)
+  (handler-case
+      (etypecase form
+	((cons symbol)
+	 (handler-case
+	     (etypecase (cdr form)
+	       ((cons symbol)
+		`(,(second form) (,(first form) ,@(cddr form)))))
+	   (type-error ()
+	     (error 'lang-error
+		    :description (format nil "Could not parse as constraint. Target attribute must be a symbol: ~s" (cadr form)))))))
+	(type-error ()
+		    (error 'lang-error
+			   :description (format nil "Constraint name must be a symbol: ~s" (car form))))))
+
 (defun %nested<-parsed (input)
   (typecase input
     ((cons definition)
@@ -184,13 +209,15 @@
 	 (typecase sub
 	   ((sexp declare)
 	    (push-end sub (definition-declarations definition)))
-	   ((sexp assert)
+	   ((sexp assume)
 	    ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
 	    )
 	   ((sexp setq) (push-end (cdr sub) (definition-constraints definition)))
 	   (definition (push-end sub (definition-sub-definitions definition)))
 	   ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
-	   (t (push-end sub (definition-constraints definition)))))
+	   (t
+	    (let ((constraint-form (constraint<-lang-form sub)))
+	      (push-end constraint-form (definition-constraints definition))))))
        definition))
     (t (nested<-parsed input))))
 
@@ -227,6 +254,24 @@
     ((cons symbol (cons atom)) `(,(car constraint) (== ,(cadr constraint))))
     (t constraint)))
 
+(defun build-system (string &key (as :system) name)
+  "Get system definition from LOCATION-SPEC and create a system from it."
+  ;; TODO: make some syntax so this can be expressed more cleanly.
+  (let ((raw string))
+    (when (eql as :raw)
+      (return-from build-system raw))
+    (let ((parsed (parse-string raw)))
+      (when (eql as :parsed)
+	(return-from build-system parsed))
+      (let ((nested (nested<-parsed parsed)))
+	(when (eql as :nested)
+	  (return-from build-system nested))
+	(let ((source (source<-nested nested)))
+	  (when (eql as :source)
+	    (return-from build-system source))
+	  (assert (or (null as) (eql as :system)))
+	  (combine-systems (eval source) :name name))))))
+
 (defun get-system (location-spec &key (as :system) name)
   "Get system definition from LOCATION-SPEC and create a system from it."
   ;; TODO: make some syntax so this can be expressed more cleanly.
@@ -259,6 +304,8 @@
     declare(nodes, integer)
     nodes = size / block_size
     degree = degree_base + degree_chung
+    apple <= orange
+    assume(dog < cat)
 ")
 	 (expected-parse  '((#S(DEFINITION
 				:NAME *ZIG-ZAG
@@ -304,7 +351,9 @@
 			      (DECLARE NODES
 				       INTEGER)
 			      (SETQ NODES (/ SIZE BLOCK-SIZE))
-			      (SETQ DEGREE (+ DEGREE-BASE DEGREE-CHUNG))))))
+			      (SETQ DEGREE (+ DEGREE-BASE DEGREE-CHUNG))
+			      (<= APPLE ORANGE)
+			      (ASSUME (< DOG CAT))))))
 	 (expected-nested
 	  `(#S(DEFINITION
 		  :NAME *ZIG-ZAG
@@ -325,7 +374,8 @@
 							      INTEGER))
 				      :DESCRIPTIONS NIL
 				      :CONSTRAINTS ((NODES (/ SIZE BLOCK-SIZE))
-						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG)))
+						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG))
+						    (APPLE (<=  ORANGE)))
 				      :SUB-DEFINITIONS (#S(DEFINITION
 							      :NAME DRG
 							    :FLAGS (*FLAG *OTHER)
@@ -358,7 +408,8 @@
 				   (NODES-INTEGER% (INTEGER NODES))
 				   (NODES (/ SIZE BLOCK-SIZE))
 				   (DEGREE
-				    (+ DEGREE-BASE DEGREE-CHUNG)))
+				    (+ DEGREE-BASE DEGREE-CHUNG))
+				   (APPLE (<=  ORANGE)))
 				:SUBSYSTEMS
 				(LIST
 				 (DEFCONSTRAINT-SYSTEM DRG

@@ -22,6 +22,8 @@
    (components :initarg :components :initform '() :accessor system-components)
    (subsystems :initarg :subsystems :initform '() :accessor system-subsystems)
    ;; Dependencies can be specified and are resolved/tracked but don't currently affect computation.
+   (declarations :initarg :declarations :initform '() :accessor system-declarations)
+   (assumptions :initarg :assumptions :initform '() :accessor system-assumptions)
    (dependencies :initarg :dependencies :initform '() :accessor system-dpendencies)
    (data :initarg :data :initform '() :accessor system-data)
    (flags :initarg :flags :initform '() :accessor system-flags)))

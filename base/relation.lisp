@@ -8,6 +8,13 @@
 (defun make-tuple (&optional pairs dotted)
   (convert 'wb-map pairs :value-fn (if dotted #'cdr #'cadr)))
 
+(defun make-tuple* (attributes values)
+  (make-tuple (mapcar #'list attributes values)))
+
+;; Useful for org-mode tabular input.
+(defun make-tuple+ (input)
+  (make-tuple* (first input) (second input)))
+
 (defclass relation () ())
 
 (deftype strict-data () '(or null tuple relation))
@@ -48,6 +55,14 @@
       (and (every (lambda (tuple) (equal? (attributes tuple) attributes)) tuples)
 	   (make-instance 'simple-relation :tuples tuples)))))
 
+;; Useful for org-mode tabular input
+(defun make-relation+ (input)
+  (let* ((attributes (mapcar #'read-from-string (car input)))
+	 (value-rows (cdr input))
+	 (tuples (loop for row in value-rows
+		    collect (make-tuple* attributes row))))
+    (make-relation tuples)))    
+  
 (defgeneric %make-relation (tuples)
   (:documentation
    "Create relation from tuples, removing duplicates. TUPLES must all have same attributes. This is not checked.")

@@ -30,7 +30,19 @@
       ,@(loop for row in list
 	   for i from 0
 	   collect `((:tr ,@(when (oddp i) '(:bgcolor :lightgrey)))
-		     ,@(loop for elt in row collect `(:td ,(format-value format elt))))))))
+		     ,@(loop for elt in row collect `(:td ,(format-value format elt)))))))
+
+  (:method ((format (eql :org)) (tuple wb-map) (system t) &rest keys)
+    (let ((attr-list (convert 'list (attributes tuple))))
+	  (list attr-list
+		(loop for attr in attr-list
+		   collect (tref attr tuple)))))
+  (:method ((format (eql :org)) (relation relation) (system t) &rest keys)
+    (let ((attr-list (convert 'list (attributes relation))))
+      (cons attr-list
+	    (loop for tuple in (convert 'list (tuples relation))
+	       collect (loop for attr in attr-list
+			  collect (tref attr tuple)))))))
   
 (defun org-present (&rest args)
   (apply #'present-data :org args))
