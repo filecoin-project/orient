@@ -186,40 +186,54 @@
 (defmacro push-end (value place)
   `(setf ,place (reverse (cons ,value (reverse ,place)))))
 
+(defvar *constraint-counter* nil)
+
+(defmacro with-constraint-counter (&body body)
+  `(cond (*constraint-counter* ,@body)
+	 (t (let ((*constraint-counter* 0))
+	      ,@body))))
+
+(defun new-constraint (symbol)
+  (intern (format nil "~A.CONSTRAINT~D%" symbol (incf *constraint-counter*))))
+
 (defun constraint<-lang-form (form)
-  (handler-case
-      (etypecase form
-	((cons symbol)
-	 (handler-case
-	     (etypecase (cdr form)
-	       ((cons symbol)
-		`(,(second form) (,(first form) ,@(cddr form)))))
-	   (type-error ()
-	     (error 'lang-error
-		    :description (format nil "Could not parse as constraint. Target attribute must be a symbol: ~s" (cadr form)))))))
-	(type-error ()
-		    (error 'lang-error
-			   :description (format nil "Constraint name must be a symbol: ~s" (car form))))))
+  ;; This is to catch constraints which are not equality. Those will be parsed as (SETQ …).
+  (with-constraint-counter
+    (handler-case
+	(etypecase form
+	  ((cons symbol)
+	   (handler-case
+	       (etypecase (cdr form)
+		 ((cons symbol)
+		  `(,(new-constraint (cadr form)) ,form)))
+	     (type-error ()
+	       (error 'lang-error
+		      :description (format nil "Could not parse as constraint. Target attribute must be a symbol: ~s" (cadr form)))))))
+      (type-error ()
+	(error 'lang-error
+	       :description (format nil "Constraint name must be a symbol: ~s" (car form)))))))
 
 (defun %nested<-parsed (input)
-  (typecase input
-    ((cons definition)
-     (let ((definition (car input)))
-       (dolist (sub (cdr input))
-	 (typecase sub
-	   ((sexp declare)
-	    (push-end sub (definition-declarations definition)))
-	   ((sexp assume)
-	    ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
-	    )
-	   ((sexp setq) (push-end (cdr sub) (definition-constraints definition)))
-	   (definition (push-end sub (definition-sub-definitions definition)))
-	   ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
-	   (t
-	    (let ((constraint-form (constraint<-lang-form sub)))
-	      (push-end constraint-form (definition-constraints definition))))))
-       definition))
-    (t (nested<-parsed input))))
+  (with-constraint-counter
+    (typecase input
+      ((cons definition)
+       (let ((definition (car input)))
+	 (dolist (sub (cdr input))
+	   (typecase sub
+	     ((sexp declare)
+	      (push-end sub (definition-declarations definition)))
+	     ((sexp assume)
+	      ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
+	      )
+	     ((sexp setq)
+	      (push-end (cdr sub) (definition-constraints definition)))
+	     (definition (display :d) (push-end sub (definition-sub-definitions definition)))
+	     ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
+	     (t
+	      (let ((constraint-form (constraint<-lang-form sub)))
+		(push-end constraint-form (definition-constraints definition))))))
+	 definition))
+      (t (nested<-parsed input)))))
 
 (defun nested<-parsed (parsed)
   "Compile from parsed syntax to correctly populated and nested definitions. Mutates definitions to accomplish this."
@@ -375,7 +389,7 @@
 				      :DESCRIPTIONS NIL
 				      :CONSTRAINTS ((NODES (/ SIZE BLOCK-SIZE))
 						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG))
-						    (APPLE (<=  ORANGE)))
+						    (APPLE.CONSTRAINT1% (<= APPLE ORANGE)))
 				      :SUB-DEFINITIONS (#S(DEFINITION
 							      :NAME DRG
 							    :FLAGS (*FLAG *OTHER)
@@ -409,7 +423,7 @@
 				   (NODES (/ SIZE BLOCK-SIZE))
 				   (DEGREE
 				    (+ DEGREE-BASE DEGREE-CHUNG))
-				   (APPLE (<=  ORANGE)))
+				   (APPLE.CONSTRAINT1% (<= APPLE ORANGE)))
 				:SUBSYSTEMS
 				(LIST
 				 (DEFCONSTRAINT-SYSTEM DRG
