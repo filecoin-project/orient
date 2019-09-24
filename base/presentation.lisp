@@ -32,11 +32,15 @@
 	   collect `((:tr ,@(when (oddp i) '(:bgcolor :lightgrey)))
 		     ,@(loop for elt in row collect `(:td ,(format-value format elt)))))))
 
+  (:method ((format (eql :org)) (thing null) (system t) &key)
+    (list))
+
   (:method ((format (eql :org)) (tuple wb-map) (system t) &rest keys)
     (let ((attr-list (convert 'list (attributes tuple))))
 	  (list attr-list
 		(loop for attr in attr-list
 		   collect (tref attr tuple)))))
+  
   (:method ((format (eql :org)) (relation relation) (system t) &rest keys)
     (let ((attr-list (convert 'list (attributes relation))))
       (cons attr-list

@@ -1,13 +1,3 @@
-(defpackage orient.interface
-  (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
-  (:import-from :fset :wb-map :convert)
-  (:shadowing-import-from :fset :set)
-  (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-relation-list :dump-json
-	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
-	   :test-roundtrip :with-json-encoding
-	   :*schema-package*)
-  (:nicknames :interface))
-
 (in-package "INTERFACE")
 (def-suite interface-suite)
 (in-suite interface-suite)

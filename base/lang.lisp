@@ -1,10 +1,3 @@
-(defpackage orient.lang
-  (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-json)
-  (:import-from :fset :wb-map :convert)
-  (:shadowing-import-from :fset :set)
-  (:export :combine-systems :get-system :nested<-parsed :parse-string :source<-nested)
-  (:nicknames :lang))
-
 (in-package :orient.lang)
 
 (def-suite orient-lang-suite)

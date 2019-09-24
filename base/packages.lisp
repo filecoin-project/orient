@@ -68,6 +68,23 @@
    :where :with-attributes :with-construction :write-dot-format
    :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group &group-by &into :!>))
 
+(defpackage orient.interface
+  (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
+  (:import-from :fset :wb-map :convert)
+  (:shadowing-import-from :fset :set)
+  (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-relation-list :dump-json
+	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
+	   :test-roundtrip :with-json-encoding
+	   :*schema-package*)
+  (:nicknames :interface))
+
+(defpackage orient.lang
+  (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-json)
+  (:import-from :fset :wb-map :convert)
+  (:shadowing-import-from :fset :set)
+  (:export :combine-systems :get-system :nested<-parsed :parse-string :source<-nested :assume)
+  (:nicknames :lang))
+
 (defpackage orient.scratch
   (:use :common-lisp :orient :orient.base.util :orient.interface :orient.lang :it.bese.FiveAm :fset :gmap)
   (:nicknames :scratch)
