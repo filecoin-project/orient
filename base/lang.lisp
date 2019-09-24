@@ -189,6 +189,9 @@
 (defmacro push-end (value place)
   `(setf ,place (reverse (cons ,value (reverse ,place)))))
 
+(defmacro append-end (list place)
+  `(setf ,place (append ,place ,list)))
+
 (defvar *constraint-counter* nil)
 
 (defmacro with-constraint-counter (&body body)
@@ -199,7 +202,7 @@
 (defun new-constraint (symbol)
   (intern (format nil "~A.CONSTRAINT~D%" symbol (incf *constraint-counter*))))
 
-(defun constraint<-lang-form (form)
+(defun constraints<-lang-form (form)
   ;; This is to catch constraints which are not equality. Those will be parsed as (SETQ …).
   (with-constraint-counter
     (handler-case
@@ -208,7 +211,9 @@
 	   (handler-case
 	       (etypecase (cdr form)
 		 ((cons symbol)
-		  `(,(new-constraint (cadr form)) ,form)))
+		  (let ((new-constraint (new-constraint (cadr form))))
+		    `((,new-constraint ,form)
+		      (,new-constraint (== true))))))
 	     (type-error ()
 	       (error 'lang-error
 		      :description (format nil "Could not parse as constraint. Target attribute must be a symbol: ~s" (cadr form)))))))
@@ -233,8 +238,8 @@
 	     (definition (push-end sub (definition-sub-definitions definition)))
 	     ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
 	     (t
-	      (let ((constraint-form (constraint<-lang-form sub)))
-		(push-end constraint-form (definition-constraints definition))))))
+	      (let ((constraint-forms (constraints<-lang-form sub)))
+		(append-end constraint-forms (definition-constraints definition))))))
 	 definition))
       (t (nested<-parsed input)))))
 
@@ -393,7 +398,8 @@
 				      :DESCRIPTIONS NIL
 				      :CONSTRAINTS ((NODES (/ SIZE BLOCK-SIZE))
 						    (DEGREE (+ DEGREE-BASE DEGREE-CHUNG))
-						    (APPLE.CONSTRAINT1% (<= APPLE ORANGE)))
+						    (APPLE.CONSTRAINT1% (<= APPLE ORANGE))
+						    (APPLE.CONSTRAINT1% (== TRUE)))
 				      :SUB-DEFINITIONS (#S(DEFINITION
 							      :NAME DRG
 							    :FLAGS (*FLAG *OTHER)
@@ -427,7 +433,8 @@
 				   (NODES (/ SIZE BLOCK-SIZE))
 				   (DEGREE
 				    (+ DEGREE-BASE DEGREE-CHUNG))
-				   (APPLE.CONSTRAINT1% (<= APPLE ORANGE)))
+				   (APPLE.CONSTRAINT1% (<= APPLE ORANGE))
+				   (APPLE.CONSTRAINT1% (== TRUE)))
 				:SUBSYSTEMS
 				(LIST
 				 (DEFCONSTRAINT-SYSTEM DRG
