@@ -1,0 +1,4 @@
+SystemA:
+  :include-a.orient
+B:
+  c = 1 + a

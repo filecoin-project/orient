@@ -15,6 +15,7 @@
 (defvar *line-comment* "//")
 
 (defvar *parse-line* 0)
+(defvar *lang-load-pathname* nil)
 
 (define-condition lang-error (error)
   ((line :initarg :line :initform *parse-line* :accessor lang-error-line)
@@ -105,15 +106,24 @@
   (multiple-value-bind (cleaned indent-level comment)
       (clean-line string)
     (declare (ignore comment))
+    
     (let ((last-pos (1- (length cleaned))))
-      (cond ((zerop (length cleaned)) nil)
-	    ((eql (aref cleaned last-pos) #\:)
-	     (values (parse-definition-line (subseq string 0 last-pos)) indent-level))
+      (cond ((zerop (length cleaned)) (list nil))	
+	    ((eql (aref (string-left-trim '(#\space #\tab) cleaned) 0) #\:) ;; First char is colon means this is an include.
+	     (let* ((sub-system-pathname (pathname (string-left-trim '(#\space #\tab #\:) cleaned)))
+		    (parsed-sub-system (get-system sub-system-pathname
+						   :base-location *lang-load-pathname*
+						   :as :parsed
+						   :group nil)))
+	       (loop for (parsed parsed-indent-level) in parsed-sub-system
+		    collect (list parsed (+ indent-level parsed-indent-level)))))
+	    ((eql (aref cleaned last-pos) #\:) ;; Last char is colon means this is a definition.
+	     (list (list (parse-definition-line (subseq string 0 last-pos)) indent-level)))
 	    (t (let* ((infix (read-infix-from-string cleaned))
 		      (parsed (typecase infix
 				(symbol infix)
 				(t infix))))
-		 (values parsed indent-level)))))))
+		 (list (list parsed indent-level))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defstruct definition name flags dependencies declarations descriptions constraints sub-definitions)
@@ -141,11 +151,11 @@
     (remove nil (loop for line = (read-line stream nil)
 		   while line
 		   when (not (equal line ""))
-		   collect (multiple-value-list (parse-line line))) :key #'car)))
+		   append (parse-line line)) :key #'car)))
 
 (defun group-by-indentation (input-lines &optional (indent-level 0) (acc '()))
   (loop
-     (let ((input-line (pop input-lines)))
+     (let ((input-line	(pop input-lines)))
        (destructuring-bind (&optional parsed line-indent-level comment)
 	   input-line
 	 (declare (ignore comment))
@@ -177,9 +187,9 @@
 	(group-by-indentation parsed-lines)
 	parsed-lines)))
 
-(defun parse-string (input)
+(defun parse-string (input &key (group t))
   (with-input-from-string (in input)
-    (parse in)))
+    (parse in :group group)))
 
 (deftype sexp (name) `(cons (eql ,name) list))
 
@@ -227,7 +237,7 @@
 	      )
 	     ((sexp setq)
 	      (push-end (cdr sub) (definition-constraints definition)))
-	     (definition (display :d) (push-end sub (definition-sub-definitions definition)))
+	     (definition (push-end sub (definition-sub-definitions definition)))
 	     ((cons definition) (push-end (%nested<-parsed sub) (definition-sub-definitions definition)))
 	     (t
 	      (let ((constraint-form (constraint<-lang-form sub)))
@@ -286,13 +296,14 @@
 	  (assert (or (null as) (eql as :system)))
 	  (combine-systems (eval source) :name name))))))
 
-(defun get-system (location-spec &key (as :system) name)
+(defun get-system (location-spec &key (as :system) name base-location (group t))
   "Get system definition from LOCATION-SPEC and create a system from it."
   ;; TODO: make some syntax so this can be expressed more cleanly.
-  (let ((raw (get-string location-spec)))
+  (multiple-value-bind (raw *lang-load-pathname*)
+      (get-string location-spec :base-location base-location)
     (when (eql as :raw)
       (return-from get-system raw))
-    (let ((parsed (parse-string raw)))
+    (let ((parsed (parse-string raw :group group)))
       (when (eql as :parsed)
 	(return-from get-system parsed))
       (let ((nested (nested<-parsed parsed)))
