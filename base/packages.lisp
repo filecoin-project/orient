@@ -69,7 +69,7 @@
    :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group &group-by &into :!>))
 
 (defpackage orient.scratch
-  (:use :common-lisp :orient :orient.base.util :it.bese.FiveAm :fset :gmap)
+  (:use :common-lisp :orient :orient.base.util :orient.interface :orient.lang :it.bese.FiveAm :fset :gmap)
   (:nicknames :scratch)
   (:shadowing-import-from :orient #:join #:restrict #:relation #:tuple)
   (:shadowing-import-from :fset
