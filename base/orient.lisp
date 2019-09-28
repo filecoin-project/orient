@@ -717,12 +717,12 @@
   
 (defmethod cl-dot:graph-object-node ((graph plan-graph) attribute)
   (intern-node graph attribute))
-  ;; (make-instance 'cl-dot:node
-  ;; 		 :attributes (list :label (node-label attribute))))
 
 (defmethod cl-dot:graph-object-edges ((graph plan-graph))
   (coerce (loop for (from to) in (plan-graph-edges graph)
-	     unless (equal from to)
+	     unless (or (equal from to)
+			(null from)
+			(null to))
 	     collect (list from to))
 	  'vector))
 
