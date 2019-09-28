@@ -230,6 +230,8 @@
 	   (typecase sub
 	     ((sexp declare)
 	      (push-end sub (definition-declarations definition)))
+	     ((sexp describe)
+	      (push sub (definition-descriptions definition)))
 	     ((sexp assume)
 	      ;; TODO: Extract constraint from assert and add as normal constraint with metadata.
 	      )
@@ -255,8 +257,24 @@
 	     ,@(mapcar #'expand-constraint (definition-constraints nested)))
 	,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))
 	:flags ',(definition-flags nested)
-	:dependencies ',(definition-dependencies nested)))
+	:dependencies ',(definition-dependencies nested)
+	,@(awhen (definition-descriptions nested)
+	    (list :schema `(maybe-create-schema ',it)))))
     (list `(list ,@(mapcar #'source<-nested nested)))))
+
+(defun maybe-create-schema (descriptions)
+  (when descriptions
+    (let ((schema (make-instance 'schema)))
+      (loop for description-form in (reverse descriptions)
+	 for parameter = (destructuring-bind (d name description &optional type)
+			     description-form
+			     (declare (ignore d))
+			   (make-instance 'parameter
+					  :name name
+					  :description description
+					  :type type))
+	 do (push parameter (schema-parameters schema)))
+      schema)))
 
 (defun combine-systems (systems &key name)
   (make-instance 'system
@@ -319,6 +337,7 @@
     DRG (Flag, Other) [Dependency, Dep2]:
       declare(degree_base, integer)
       drg_e = 0.80
+      describe(drg_e, \"Epsilon\")
       drg_d = 1/4
     Chung:
       declare(degree_chung, integer)
@@ -356,7 +375,7 @@
 				   :SUB-DEFINITIONS NIL)
 				 (DECLARE DEGREE-BASE
 					  INTEGER)
-				 (SETQ DRG-E 0.8) (SETQ DRG-D (/ 1 4)))
+				 (SETQ DRG-E 0.8) (DESCRIBE DRG-E "Epsilon") (SETQ DRG-D (/ 1 4)))
 			      (#S(DEFINITION
 				     :NAME *CHUNG
 				   :FLAGS NIL
@@ -408,7 +427,7 @@
 							    :DECLARATIONS ((DECLARE
 									    DEGREE-BASE
 									    INTEGER))
-							    :DESCRIPTIONS NIL
+							    :DESCRIPTIONS ((DESCRIBE DRG-E "Epsilon"))
 							    :CONSTRAINTS ((DRG-E 0.8)
 									  (DRG-D (/ 1 4)))
 							    :SUB-DEFINITIONS NIL)
@@ -452,7 +471,12 @@
 				     *OTHER)
 				   :DEPENDENCIES
 				   '(|Dependency|
-				     |Dep2|))
+				     |Dep2|)
+				   :SCHEMA
+				   (MAYBE-CREATE-SCHEMA
+				    '((DESCRIBE
+				       DRG-E
+				       "Epsilon"))))
 				 (DEFCONSTRAINT-SYSTEM *CHUNG
 				     ((DEGREE-CHUNG-INTEGER%
 				       (INTEGER
