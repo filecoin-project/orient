@@ -62,6 +62,19 @@
   (let ((name (symbol-name symbol)))
     (char= #\% (char name (1- (length name))))))
 
+(defun attr-base-name (symbol)
+  "If SYMBOL names a temp var, return just the name from which it is derived, or NIL if it is an atomic name, like NAME%."
+  (let ((name (symbol-name symbol)))
+    (if (tmp-p symbol)
+	(let ((last-segment-start-pos (position #\. name :from-end t)))
+	  (cond
+	    ((not last-segment-start-pos)
+	     nil)
+	    (t
+	     (let ((last-segment (subseq name (1+ last-segment-start-pos) (1- (length name)))))
+	       (subseq name 0 last-segment-start-pos)))))
+	name)))
+
 (defun emit-new-definition (def)
   (push def *new-definitions*))
 

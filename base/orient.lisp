@@ -700,16 +700,31 @@
 (defun clean-tmps (attributed)
   (project (filter #'tmp-p (attributes attributed)) attributed :invert t))
   
-(defstruct plan-graph (edges))
+(defstruct plan-graph (edges) (nodes))
 
+(defun node-label (symbol &key include-tmps)
+  (let ((name (symbol-name symbol)))
+    (if include-tmps
+	name
+	(attr-base-name symbol))))
+
+(defmethod intern-node ((graph plan-graph) label)
+;  (let ((label (node-label attribute)))
+    (or (gethash label (plan-graph-nodes graph))
+	(setf (gethash label (plan-graph-nodes graph))
+	      (make-instance 'cl-dot:node
+			     :attributes (list :label label)))));)
+  
 (defmethod cl-dot:graph-object-node ((graph plan-graph) attribute)
-  (make-instance 'cl-dot:node
-		 :attributes (list :label (symbol-name attribute))))
+  (intern-node graph attribute))
+  ;; (make-instance 'cl-dot:node
+  ;; 		 :attributes (list :label (node-label attribute))))
 
 (defmethod cl-dot:graph-object-edges ((graph plan-graph))
   (coerce (loop for (from to) in (plan-graph-edges graph)
-	      collect (list from to))
-		  'vector))
+	     unless (equal from to)
+	     collect (list from to))
+	  'vector))
 
 (defun generate-directed-graph (plan)
   (make-plan-graph :edges
@@ -717,8 +732,9 @@
 					 for signature = (transformation-signature transformation)
 					 append (loop for dependency in (convert 'list (signature-input signature))
 						   append (loop for target in (convert 'list (signature-output signature))
-							     collect (list dependency target))))
-				      :test #'equal)))
+							     collect (list (node-label dependency) (node-label target)))))
+				      :test #'equal)
+		   :nodes (make-hash-table :test #'equal)))
 
 (defun dot-graph-from-plan (plan)
   (cl-dot:generate-graph-from-roots (generate-directed-graph plan) '()))

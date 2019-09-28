@@ -35,16 +35,17 @@
   (:method ((format (eql :org)) (thing null) (system t) &key)
     (list))
 
-  (:method ((format (eql :org)) (tuple wb-map) (system t) &rest keys)
+  (:method ((format (eql :org)) (tuple wb-map) (system t) &rest keys &key attribute-order)
     (let ((attr-list (convert 'list (attributes tuple))))
 	  (list attr-list
 		(loop for attr in attr-list
 		   collect (tref attr tuple)))))
   
-  (:method ((format (eql :org)) (relation relation) (system t) &rest keys)
-    (let ((attr-list (convert 'list (attributes relation))))
-      (cons attr-list
-	    (loop for tuple in (convert 'list (tuples relation))
+  (:method ((format (eql :org)) (relation relation) (system t) &rest keys &key sort-by key)
+    (let ((attr-list (convert 'list (attributes relation)))
+	  (tuples (convert 'list (tuples relation))))
+      (cons attr-list	    
+	    (loop for tuple in (if sort-by (sort tuples sort-by :key key) tuples)				   
 	       collect (loop for attr in attr-list
 			  collect (tref attr tuple)))))))
   
@@ -61,4 +62,17 @@
   (multiple-value-bind (commit uri)
       (project-commit)
     (link format uri commit)))
+
+(defun org-present-tuple (tuple system &key include-tmps)
+  (let* ((all-attributes (sort (convert 'list (attributes tuple)) #'string< :key #'symbol-name))
+	 (attrs-to-use (if include-tmps
+			   all-attributes
+			   (remove-if (lambda (attr)
+					(let ((name (symbol-name attr)))
+					  (eql (char name (1- (length name))) #\%)))
+				      all-attributes))))
+    (cons
+     '("Parameter" "Value" "Description")
+     (loop for attr in attrs-to-use
+	collect (list attr (tref attr tuple) (or (lookup-description attr system) ""))))))
 

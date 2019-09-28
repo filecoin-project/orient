@@ -421,3 +421,6 @@
 			(1 2 3 4)
 			(2 3 4 5))
 	      (unwrap r 'x)))))
+
+(defun trf (attr tuple)
+  (tref attr tuple))
