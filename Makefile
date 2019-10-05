@@ -1,6 +1,8 @@
 .PHONY: always
 
-image : always
+image: bin/orient.image
+
+bin/orient.image : $(shell find . | grep .lisp)
 	cl -Q -sp orient --dump bin/orient.image
 
 test : utest
