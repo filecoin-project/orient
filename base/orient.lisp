@@ -149,8 +149,15 @@
 	      (system-subsystems system)))))
 
 (defun lookup-description (attribute schemable)
-  (let ((parameter (lookup- attribute schemable)))
+  (let ((parameter (lookup-parameter attribute schemable)))
     (and parameter (parameter-description parameter))))
+
+(defun lookup-type (attribute schemable)
+  (let ((parameter (lookup-parameter attribute schemable)))
+    (and parameter (parameter-type parameter))))
+
+(defun lookup-parameter (attribute schemable)
+  (lookup- attribute schemable))
 
 (defgeneric implementation-function (implementation)
   (:method ((impl implementation))

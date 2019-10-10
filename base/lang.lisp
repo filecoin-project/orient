@@ -337,7 +337,7 @@
     DRG (Flag, Other) [Dependency, Dep2]:
       declare(degree_base, integer)
       drg_e = 0.80
-      describe(drg_e, \"Epsilon\")
+      describe(drg_e, \"Epsilon\", number)
       drg_d = 1/4
     Chung:
       declare(degree_chung, integer)
@@ -375,7 +375,7 @@
 				   :SUB-DEFINITIONS NIL)
 				 (DECLARE DEGREE-BASE
 					  INTEGER)
-				 (SETQ DRG-E 0.8) (DESCRIBE DRG-E "Epsilon") (SETQ DRG-D (/ 1 4)))
+				 (SETQ DRG-E 0.8) (DESCRIBE DRG-E "Epsilon" number) (SETQ DRG-D (/ 1 4)))
 			      (#S(DEFINITION
 				     :NAME *CHUNG
 				   :FLAGS NIL
@@ -427,7 +427,7 @@
 							    :DECLARATIONS ((DECLARE
 									    DEGREE-BASE
 									    INTEGER))
-							    :DESCRIPTIONS ((DESCRIBE DRG-E "Epsilon"))
+							    :DESCRIPTIONS ((DESCRIBE DRG-E "Epsilon" number))
 							    :CONSTRAINTS ((DRG-E 0.8)
 									  (DRG-D (/ 1 4)))
 							    :SUB-DEFINITIONS NIL)
@@ -476,7 +476,7 @@
 				   (MAYBE-CREATE-SCHEMA
 				    '((DESCRIBE
 				       DRG-E
-				       "Epsilon"))))
+				       "Epsilon" number))))
 				 (DEFCONSTRAINT-SYSTEM *CHUNG
 				     ((DEGREE-CHUNG-INTEGER%
 				       (INTEGER

@@ -72,7 +72,7 @@
 					  (eql (char name (1- (length name))) #\%)))
 				      all-attributes))))
     (cons
-     '("Parameter" "Value" "Description")
+     '("Parameter" "Type" "Value" "Description")
      (loop for attr in attrs-to-use
-	collect (list attr (tref attr tuple) (or (lookup-description attr system) ""))))))
+	collect (list attr (or (lookup-type attr system) "") (tref attr tuple) (or (lookup-description attr system) ""))))))
 

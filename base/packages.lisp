@@ -51,7 +51,7 @@
    :implementation :implementation-module :implementation-name :isetq
    :link
    :log2 :logn
-   :tref :trf :join :lookup-description :make-relation :make-relation+
+   :tref :trf :join :lookup-description :lookup-type :make-relation :make-relation+
    :make-signature :make-tuple :make-tuple* :make-tuple+ :operation
    :orient-tests :optimal-heights
    :org-present :org-present-tuple

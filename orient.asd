@@ -29,7 +29,7 @@
 			 (:file "filecoin")
 			 (:file "systems")
 			 (:file "publish")
-			 (:file "zigzag-theory")
+			 (:file "spec")
 			 ))
 	       (:module "web"
 			:depends-on ("base" "filecoin")
