@@ -115,6 +115,8 @@
 		(list `(,target (- 0 ,(car args)))))
 	       (t (transform-variadic target op args))))
       ((+ *) (transform-commutative target op args))
+      (static-range (expand-range-constraint target op args))
+      (reduce-range (expand-reduce-range-constraint target op args))
       (t (list constraint-definition)))))
 
 (defun transform-commutative (target op args)
@@ -175,6 +177,57 @@
     (test-case '((x (- y))) '((x (- 0 y))))))
 
 
+(defun expand-static-range-constraint (target op args)
+  (declare (ignore op))
+  (within-new-definitions
+    (destructuring-bind (start end &rest more) args
+      (declare (ignore more))
+      (loop for i from start below end
+           for new-target = (new-target target)
+         collect `(,new-target (== ,i))))))
+
+(test expand-static-range-constraint
+  (is (same '((X.TMP1% (== 0))
+              (X.TMP2% (== 1))
+              (X.TMP3% (== 2))
+              (X.TMP4% (== 3))
+              (X.TMP5% (== 4)))
+            (expand-static-range-constraint 'x 'range '(0 5)))))
+
+(defun expand-reduce-range-constraint (target op args)
+  (within-new-definitions
+    (destructuring-bind (start end initial reduce-operator-name) args
+      (let* ((range-expansion (expand-static-range-constraint target op args))
+             (range-tmps (mapcar #'car range-expansion))
+             (arg2-vals range-tmps)
+             (prev-target initial)
+             (reduce-operator (find-symbol reduce-operator-name)))
+        (append range-expansion
+                (loop for i from start below end
+                   for arg2 in arg2-vals
+                   for arg1 = (or prev-target initial)
+                   for new-target = (if (= i (1- end)) target (new-target target))
+                   collect `(,new-target (,reduce-operator ,arg1 ,arg2))
+                     do (setq prev-target new-target)))))))
+
+(test expand-reduce-range-constraint
+  (is (same '((X.TMP1% (== 0))
+              (X.TMP2% (== 1))
+              (X.TMP3% (== 2))
+              (X.TMP4% (== 3))
+              (X.TMP5% (== 4))
+              (X.TMP6% (+ 3 X.TMP1%))
+              (X.TMP7% (+ X.TMP6% X.TMP2%))
+              (X.TMP8% (+ X.TMP7% X.TMP3%))
+              (X.TMP9% (+ X.TMP8% X.TMP4%))
+              (X (+ X.TMP9% X.TMP5%)))
+            (expand-reduce-range-constraint 'x 'range '(0 5 3 "+")))))
+
+(test reduce-range-constraint
+  (let* ((system (constraint-system
+                  ((x (reduce-range 3 7 0 "+"))))))
+    (is (same (tuple (x 18))
+              (ask system '(x) nil)))))
 
 (defun preprocess-constraint-definitions (constraint-definitions)
   (within-new-definitions
@@ -901,11 +954,6 @@
 	      (solve-for system '(j) (tuple (a (tuple (a 1) (b 2)))
 					    (b (tuple (b 2) (c 3)))))))))
 
-
-
-
-
-
 (define-simple-constraint extract (tuple (relation)) (extract relation))
 
 (test extract-constraint
@@ -915,3 +963,4 @@
 				       (x (tuple (a 1) (b 2))))))
     (is (same satisfying-assignment
 	      (solve-for system '(x) (tuple (r (relation (a b) (1 2)))))))))
+
