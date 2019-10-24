@@ -514,6 +514,7 @@
 
 (defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)
 						       source-operator source-name source-args)
+  (display operator name args source-operator source-name source-args)
   (awhen (tref operator constraint-factories)
     (if source-operator
 	;; Only pass alias-related keywords if this is an alias, which means it has a SOURCE-OPERATOR.
@@ -859,7 +860,7 @@
     (is (same (tuple (x nil)) (ask system '(x) (tuple (a 1) (b 2)))))))
 
 (define-constraint and (conjunction (and a b))
-    "CONJUCTION = A && B"
+    "CONJUNCTION = A && B"
   ((transformation* ((a b) -> (conjunction)) == (and a b))
    (transformation* ((a conjunction) => (b)) == (if a
 						    `((,(and conjunction a)))
@@ -896,6 +897,29 @@
     ;; Inconsistent data are not produced.
     (is (null (solve-for system '() (tuple (a t) (b nil) (c t)))))
     ))
+
+(define-constraint range (index (range low-inclusive high-exclusive))
+  "Returns multiple tuples where INDEX takes on all integer values such that LOW-INCLUSIVE <= INDEX < HIGH-EXCLUSIVE."
+  ((transformation* ((low-inclusive high-exclusive) => (index)) == (progn
+                                                                     (display low-inclusive high-exclusive)
+                                                                     (loop for i from low-inclusive below high-exclusive
+                                                                        collect `(,i))))))
+
+(test range-constraint
+  "test CONSTRAINT-SYSTEM with RANGE constraint."
+  (let* ((system (constraint-system ((i (range a b))))))
+    (is (same (relation (a b i)
+                        (1 4 1)
+                        (1 4 2)
+                        (1 4 3))
+              (solve-for system '() (tuple (a 1) (b 4))))))
+  #+(or) ;; FIXME: Make this work with constant range values, as below.
+  (let* ((system (constraint-system ((i (range a 4))))))
+    (is (same (relation (a b i)
+                        (1 4 1)
+                        (1 4 2)
+                        (1 4 3))
+              (solve-for system '() (tuple (a 1)))))))
 
 (test minimal-constraint-constants
   (is (same (apply-transformation
