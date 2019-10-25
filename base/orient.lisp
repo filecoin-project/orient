@@ -90,18 +90,19 @@
   (format stream "(COMPONENT ~S)" (component-transformations comp)))
 
 (defun prune-system-for-flags (system flags)
-  ;; Include system if: 
-  (when (or (not flags) ;; no flags are specified;
+  ;; Include system if:
+  (when (or ;(not flags) ;; no flags are specified;
 	    (not (system-flags system)) ;; system has not flags; 
 	    (intersection flags (system-flags system) :test #'string=) ;; Or one of the specified flags is a system flag.
 	    )
-    (make-instance 'system
-		   :name (system-name system)
-		   :schema (system-schema system)
-		   :components (system-components system)
-		   :subsystems (remove nil (mapcar (lambda (x) (prune-system-for-flags x flags))
-						   (system-subsystems system)))
-		   :data (system-data system))))
+    (let ((pruned (make-instance 'system
+                                 :name (system-name system)
+                                 :schema (system-schema system)
+                                 :components (system-components system)
+                                 :subsystems (remove nil (mapcar (lambda (x) (prune-system-for-flags x flags))
+                                                                 (system-subsystems system)))
+                                 :data (system-data system))))
+      pruned)))
 
 (defgeneric all-system-components (system)
   (:method ((system system))
@@ -527,13 +528,48 @@
        (make-signature (union (signature-input signature) (signature-output to-signature))
 		       (signature-output to-signature))))))
 
+(defun flagp (symbol)
+  (eql #\! (char (symbol-name symbol) 0)))
+
+(defun make-flag (symbol)
+  (symbolconc '! symbol))
+
+(defun flags (attributed)
+  (filter #'flagp (attributes attributed)))
+
+(defun flag-symbol (tagged-flag-symbol)
+  (assert (flagp tagged-flag-symbol))
+  (intern (subseq (symbol-name tagged-flag-symbol) 1)))
+
+(defun separate-by-flag-combinations (relation)
+  (let* ((separated (make-relation (image (lambda (tpl)
+                                            (let ((f (flags tpl)))
+                                              (tuple (flags (project f tpl))
+                                                     (non-flags (project f tpl :invert t)))))
+                                          (tuples relation))))
+         (grouped (group separated '(flags) 'relation)))
+    (map-relation (tfn (flags relation)
+                    (tuple (flags flags)
+                           (relation (unwrap relation 'non-flags))))
+                  grouped)))
+
+(test separate-by-flag-combinations
+  (let* ((j (LIST (RELATION (X !A !B) (10 NIL T) (10 T NIL))
+                  (RELATION (X Y !C) (10 88 T) (10 99 T))))
+         (joined (apply #'join j))
+         (separated (separate-by-flag-combinations joined)))
+    (is (same (RELATION (FLAGS RELATION)
+                        ((TUPLE (!A NIL) (!B T) (!C T)) (RELATION (X Y) (10 88) (10 99)))
+                        ((TUPLE (!A T) (!B NIL) (!C T)) (RELATION (X Y) (10 88) (10 99))))
+              separated))))
+
 (defmethod defaulted-initial-data ((system system) (provided t) &key override-data)
   ;; TODO: allow merging of provided data.
   (let ((defaulted (or (typecase provided
 			 (wb-map provided)
 			 (relation provided)
 			 ((cons (or wb-map relation))
-			  (apply #'join provided)))
+			  (apply #'join provided)))                       
 		       (and (all-system-data system)
 			    (apply #'join (all-system-data system)))
 		       ;; Default default is an empty tuple, since APPLY-TRANSFORMATION

@@ -39,6 +39,7 @@
    :component :component-operation :component-args :component-target :component-transformations
    :constraint-system
    :defconstraint-system :define-constraint :define-simple-constraint :define-system-constraint
+   :defaulted-initial-data
    :display
    :dot-graph-from-plan :generate-directed-graph
    :ensure-tuples :expand-references
@@ -46,13 +47,13 @@
    ::tuple :tuples :create-tuple-report-step
    :describe-transformation-calculation :defschema
    :deftransformation :deftransformation= :extract
-   :find-component :find-constraint :find-schema :find-system :find-transformation :format-value
+   :find-component :find-constraint :find-schema :find-system :find-transformation :flags :flag-symbol :format-value
    :forget :generate-directed-graph :it
    :implementation :implementation-module :implementation-name :isetq
    :link
    :log2 :logn
    :tref :trf :join :lookup-description :lookup-type :make-relation :make-relation+
-   :make-signature :make-tuple :make-tuple* :make-tuple+ :operation
+   :make-flag :make-signature :make-tuple :make-tuple* :make-tuple+ :operation
    :orient-tests :optimal-heights
    :org-present :org-present-tuple
    :parameter :parameter-name :parameter-description :parameter-type
@@ -61,6 +62,7 @@
    :range :reduce-range
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation :restrict
    :same :schema :schema-parameters :schema-description :sig :signature :signature-input :signature-output :solve :solve-for
+   :separate-by-flag-combinations
    :synthesize-report-steps :symbolconc :sys :system
    :system-components :system-data :system-name :system-schema :system-subsystems
    :tpl :transformation :transformation*

@@ -51,7 +51,6 @@
 			      (lambda (free-val) (declare (ignore free-val))))
 	  (when root
 	    (setq orient.base.util:*project-root* (truename root)))
-	  
 	  (destructuring-bind (&optional arg0 free-command &rest subcommands) commands
 	    (declare (ignore arg0 subcommands))
 	    (let ((command (keywordize (if command
@@ -69,9 +68,9 @@
 				((equal in "--") (get-json-relation-list *standard-input*))
 				(in			   
 				 (get-json-relation-list in))))
-		       (flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
+		       (raw-flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
 		       (raw-system (when system (get-system system)))
-		       (system (when raw-system (prune-system-for-flags raw-system flags))))
+		       (system (when raw-system (prune-system-for-flags raw-system raw-flags))))
 		  (with-output (out)
 		    (case command
 		      ((:web)
@@ -101,9 +100,24 @@
 		      ((:solve)
 		       (cond
 			 (system
-			  (let ((override-data (and merge input))
-				(input (and (not merge) input)))
-			    (solve-system :system system :input input :override-data override-data)))
+			  (let* ((override-data (and merge input))
+                                 (input (and (not merge) input))
+                                 (defaulted (defaulted-initial-data system input :override-data override-data))
+                                 (combinations (separate-by-flag-combinations defaulted)))
+                            (json:with-array ()
+                              (orient::map-relation (orient::tfn (flags relation)
+                                                      (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                                               (when (cdr f) (flag-symbol (car f))))
+                                                                                             (fset:convert 'list flags))))
+                                                             (merged-flags (union true-flags raw-flags))
+                                                             (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                                                (list (make-flag f) t))
+                                                                                              merged-flags)))
+                                                             (final-system (prune-system-for-flags raw-system merged-flags)))
+                                                          (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
+                                                    combinations)
+			    ;(solve-system :system system :input input :override-data override-data)
+                            )))
 			 (t (format-error "No system specified.~%"))))
 		      ((:report)
 		       (cond
@@ -125,11 +139,11 @@
 		      (otherwise
 		       ;; TODO: Generate this list and share with options doc.
 		       (format-error "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
-		    (terpri)
-
-		    ))))))
+		    (terpri)))))))
 	(sb-ext:exit :code 0))
-    (error () (sb-ext:exit :code 1))
+    (error (e)
+      (format t "ERROR: ~A" e)
+      (sb-ext:exit :code 1))
     (condition () (sb-ext:exit :code 0))))
 
 (defun choose-system (spec)
@@ -139,10 +153,10 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defun solve-system (&key system vars input override-data report)  
+(defun solve-system (&key system vars input override-data report)
   (let ((solution (solve-for system vars input :override-data override-data)))
     (with-json-encoding ((find-package :filecoin))
-      (cl-json:encode-json (ensure-tuples solution) *out*)
+      (cl-json:encode-array-member (ensure-tuples solution) *out*)
       (terpri))))
 
 (defun report-system (&key system vars initial-data override-data)

@@ -514,7 +514,6 @@
 
 (defun make-operation-constraint (operator name args &key (constraint-factories *constraint-factories*)
 						       source-operator source-name source-args)
-  (display operator name args source-operator source-name source-args)
   (awhen (tref operator constraint-factories)
     (if source-operator
 	;; Only pass alias-related keywords if this is an alias, which means it has a SOURCE-OPERATOR.
@@ -901,7 +900,6 @@
 (define-constraint range (index (range low-inclusive high-exclusive))
   "Returns multiple tuples where INDEX takes on all integer values such that LOW-INCLUSIVE <= INDEX < HIGH-EXCLUSIVE."
   ((transformation* ((low-inclusive high-exclusive) => (index)) == (progn
-                                                                     (display low-inclusive high-exclusive)
                                                                      (loop for i from low-inclusive below high-exclusive
                                                                         collect `(,i))))))
 
