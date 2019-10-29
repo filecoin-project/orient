@@ -38,6 +38,11 @@
   ;; (with a way of setting up read table appropiately).
   (format stream "#<RELATION ~S>" (tuples relation)))
 
+(defun empty-relation (&optional attributes)
+  ;; FIXME: Make relation supported attributes but no tuples.
+  (declare (ignore attributes))
+  (make-instance 'simple-relation))
+
 (defgeneric ensure-tuples (attributed)
   (:method ((tuple wb-map))
     (set tuple))

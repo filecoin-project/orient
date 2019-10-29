@@ -626,8 +626,11 @@
 		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
 	    (destructuring-bind (result report-results) reduce-result
 	      (values result plan (synthesize-report-steps report report-results) initial-value)))
-	  
-	  (values nil plan nil initial-value)))))
+	  (values (awhen plan
+                    (awhen (pipeline-signature it)
+                      (awhen (signature-output it)
+                        (empty-relation it))))
+                  plan nil initial-value)))))
 
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
@@ -838,7 +841,7 @@
     ;; 	"(solve s2 sig1 r1)")
     ;;
     
-    (is (same (solve s2 sig2 d1) nil) "(solve s2 sig2 d1)")
+    (is (same (solve s2 sig2 d1) (empty-relation)) "(solve s2 sig2 d1)")
     (is (same (solve s2 sig2 d2) (tuple (a 2)(b 3)(c 4)(d 5)(e 36)(f 48))) " (solve s2 sig2 d2)")
     (is (same (solve s2 sig3 d1) (tuple (a 2)(b 3)(c 4)(d 24)(e 93)(f 124))) "(solve s2 sig3 d1)")))
 

@@ -104,7 +104,9 @@
                                  (input (and (not merge) input))
                                  (defaulted (defaulted-initial-data system input :override-data override-data))
                                  (combinations (separate-by-flag-combinations defaulted)))
-                            (json:with-array ()
+                            ;; All the logic for generating flag combinations from data and instantiating multiple systems
+                            ;; should move into orient.lisp.
+                            (json:with-array ()                              
                               (orient::map-relation (orient::tfn (flags relation)
                                                       (let* ((true-flags (remove nil (mapcar (lambda (f)
                                                                                                (when (cdr f) (flag-symbol (car f))))
