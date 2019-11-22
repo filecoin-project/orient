@@ -91,10 +91,7 @@
 
 (defun prune-system-for-flags (system flags)
   ;; Include system if:
-  (when (or ;(not flags) ;; no flags are specified;
-	    (not (system-flags system)) ;; system has not flags; 
-	    (intersection flags (system-flags system) :test #'string=) ;; Or one of the specified flags is a system flag.
-	    )
+  (when (subsetp (system-flags system) flags :test #'string=) ;; All of SYSTEM's flags (which may be none) are included in FLAGS.
     (let ((pruned (make-instance 'system
                                  :name (system-name system)
                                  :schema (system-schema system)
