@@ -1,1 +1,1 @@
-docker run orient dcalc $@
+docker run -v $(pwd):/orientd orient dcalc $@
