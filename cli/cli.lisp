@@ -66,7 +66,7 @@
 		       (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
 		       (input (cond
 				((equal in "--") (get-json-relation-list *standard-input*))
-				(in			   
+				(in
 				 (get-json-relation-list in))))
 		       (raw-flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
 		       (raw-system (when system (get-system system)))
@@ -95,7 +95,6 @@
 				  (uiop:quit)))
 			   (error (c) (format-error "Woops, an unknown error occured:~&~a~&" c)))
 			 (let ((*package* (find-package :orient.web)))
-			   
 			   (sb-impl::toplevel-repl nil))))
 		      ((:solve)
 		       (cond
@@ -106,7 +105,7 @@
                                  (combinations (separate-by-flag-combinations defaulted)))
                             ;; All the logic for generating flag combinations from data and instantiating multiple systems
                             ;; should move into orient.lisp.
-                            (json:with-array ()                              
+                            (json:with-array ()
                               (orient::map-relation (orient::tfn (flags relation)
                                                       (let* ((true-flags (remove nil (mapcar (lambda (f)
                                                                                                (when (cdr f) (flag-symbol (car f))))
@@ -117,9 +116,7 @@
                                                                                               merged-flags)))
                                                              (final-system (prune-system-for-flags raw-system merged-flags)))
                                                           (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
-                                                    combinations)
-			    ;(solve-system :system system :input input :override-data override-data)
-                            )))
+                                                    combinations))))
 			 (t (format-error "No system specified.~%"))))
 		      ((:report)
 		       (cond
@@ -156,7 +153,8 @@
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
 (defun solve-system (&key system vars input override-data report)
-  (let ((solution (solve-for system vars input :override-data override-data)))
+  (let ((solution (solve-for system vars input :override-data override-data))
+        (*alpha-sort-tuples* t))
     (with-json-encoding ((find-package :filecoin))
       (cl-json:encode-array-member (ensure-tuples solution) *out*)
       (terpri))))

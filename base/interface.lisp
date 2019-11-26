@@ -152,8 +152,14 @@
 (defun load-tuple (json-source)
   (load-json :tuple json-source))
 
+(defparameter *alpha-sort-tuples* nil)
+
 (defmethod encode-json ((tuple wb-map) &optional stream)
-  (encode-json-alist (convert 'list tuple) stream))
+  (let* ((plist (convert 'list tuple))
+         (maybe-sorted (if *alpha-sort-tuples*
+                           (sort plist #'string< :key #'car)
+                           plist)))
+    (encode-json-alist maybe-sorted stream)))
 
 (defmethod encode-json ((set set) &optional stream)
   (encode-json (convert 'list set) stream))

@@ -78,7 +78,7 @@
   (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-relation-list :dump-json
 	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
 	   :test-roundtrip :with-json-encoding
-	   :*schema-package*)
+	   :*alpha-sort-tuples* :*schema-package*)
   (:nicknames :interface))
 
 (defpackage orient.lang
