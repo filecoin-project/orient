@@ -286,7 +286,7 @@
 			     (*schema-package* (package-name *schema-package*))
 			     (t (package-name *package*))))
 	 (implementation-symbol-name (cdr (assoc :name implementation-spec)))
-	 (implementation (make-instance 'implementation :name implementation-symbol-name :module package-name))
+	 (implementation (make-instance 'internal-implementation :name implementation-symbol-name :module package-name))
 	 (signature (<-json :signature transformation-json)))
     (make-instance 'transformation :signature signature :implementation implementation)))
 

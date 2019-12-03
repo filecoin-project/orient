@@ -39,17 +39,19 @@
    :component :component-operation :component-args :component-target :component-transformations
    :constraint-system
    :defconstraint-system :define-constraint :define-simple-constraint :define-system-constraint
+   :defexternal-constraint-system :defexternal-system
    :defaulted-initial-data
    :display
    :dot-graph-from-plan :generate-directed-graph
    :ensure-tuples :expand-references
    :exp2
+   :extern
    ::tuple :tuples :create-tuple-report-step
    :describe-transformation-calculation :defschema
    :deftransformation :deftransformation= :extract
    :find-component :find-constraint :find-schema :find-system :find-transformation :flags :flag-symbol :format-value
    :forget :generate-directed-graph :it
-   :implementation :implementation-module :implementation-name :isetq
+   :internal-implementation :external-implementation :implementation :implementation-module :implementation-name :isetq
    :link
    :log2 :logn
    :tref :trf :join :lookup-description :lookup-type :make-relation :make-relation+
@@ -69,7 +71,7 @@
    :transformation-implementation :transformation-name :transformation-signature :tref :trem :try-with
    :use-construction :use-attribute
    :where :with-attributes :with-construction :write-dot-format
-   :*current-construction* :*trace-plan* :-> :=> :~> :=== :== &acc &all &group &group-by &into :!>))
+   :*current-construction* :*trace-plan* :-> :=> :~> :~=> :=== :== &acc &all &group &group-by &into :!>))
 
 (defpackage orient.interface
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)

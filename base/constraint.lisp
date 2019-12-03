@@ -13,6 +13,7 @@
 
 (defmacro constraint-system (constraint-definitions &rest keys)
   `(make-constraint-system ',constraint-definitions ,@keys))
+
 (test unwrap-constraint-definitions
   (is (same '((A.TMP2% (- D E))
 	      (A.TMP1% (* B A.TMP2%))
@@ -37,6 +38,9 @@
 				       )))))
     (is (same (tuple (LAYERS 32.62129322591989d0))
 	      (ask cs '(layers) (tuple (epsilon 0.007d0) (delta 0.003d0)))))))
+
+(defmacro external-system (component-definitions &rest keys)
+  `(make-external-system ',component-definitions ,@keys))
 
 (defvar *new-definitions*)
 (defvar *new-definition-count*)
@@ -232,7 +236,7 @@
 (defun preprocess-constraint-definitions (constraint-definitions)
   (within-new-definitions
     (transform-constraint-definitions (unwrap-constraint-definitions constraint-definitions))))
-    
+
 (test preprocess-constraint-definitions
   (let* ((def `(EPSILON
 		(+ (- (* 3 DELTA))
@@ -272,11 +276,23 @@
 (defun make-constraints (constraint-definitions)
   (mapcar #'make-constraint constraint-definitions))
 
-(defun make-constraint (constraint-definition)		
+(defun make-constraint (constraint-definition)
   "Takes a constraint definition and returns a component."
   (destructuring-bind (name (operator &rest args))
       constraint-definition
     (make-operation-constraint operator name args)))
+
+(defun make-external-system (component-definitions &rest keys)
+  (let ((components (make-components component-definitions)))
+    (apply #'make-instance 'system :components components keys)))
+
+(defun make-components (component-definitions)
+  (mapcar #'make-component component-definitions))
+
+(defun make-component (component-definition)
+  ;;  This assumes components will be of the form `(component …)
+  (eval component-definition)
+  )
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun expand-constraint-forms (constraint-forms)
@@ -297,7 +313,7 @@
       (declare (ignore constraint-factories))
       (let ((expansion
       ;;; WITH-NAMESPACE must be lexically bound in containing expression.
-	     `(let ((namespaced-target (with-namespace ',target)))	 
+	     `(let ((namespaced-target (with-namespace ',target)))
 		(prog1
 		    (make-operation-constraint ',op namespaced-target
 					       (list ,@(mapcar (lambda (input)

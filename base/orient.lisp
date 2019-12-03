@@ -132,10 +132,11 @@
 		   :data (system-data system))))
 
 (defmethod print-object ((sys system) (stream t))
-  (format stream "#<SYSTEM ~S>" (list :components (system-components sys)
-				     :subsystems (system-subsystems sys)
-				     :schema (system-schema sys)
-				     :data (system-data sys))))
+  (format stream "#<SYSTEM ~S>" `(,@(awhen (system-name sys) (list :name it))
+                                    :components ,(system-components sys)
+                                    :subsystems ,(system-subsystems sys)
+                                    :schema ,(system-schema sys)
+                                    :data ,(system-data sys))))
 
 (defgeneric lookup- (attribute schemable)
   (:method ((attribute symbol) (schema schema))
@@ -158,7 +159,7 @@
   (lookup- attribute schemable))
 
 (defgeneric implementation-function (implementation)
-  (:method ((impl implementation))
+  (:method ((impl internal-implementation))
     (awhen (find-symbol (implementation-name impl) (implementation-module impl))
       (symbol-function it))))
 
@@ -290,9 +291,12 @@
     ;;; Transformation functions which do not implement a reduction can ignore this value.
     (let* ((result (funcall f tuple acc)))
       (join tuple result)))
-  (:method ((impl implementation) (tuple t) &optional acc)
+  (:method ((impl internal-implementation) (tuple t) &optional acc)
     (awhen (implementation-function impl)
       (apply-transformation it tuple acc)))
+  (:method ((impl external-implementation) (tuple t) &optional acc)
+    ;; FIXME: implement
+    )
   (:method ((transformation-name symbol) (tuple t) &optional acc)
     (awhen (find-transformation transformation-name) (apply-transformation it tuple acc)))
   (:method ((transformation t) (null null) &optional acc)
