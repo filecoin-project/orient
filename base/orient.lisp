@@ -132,10 +132,11 @@
 		   :data (system-data system))))
 
 (defmethod print-object ((sys system) (stream t))
-  (format stream "#<SYSTEM ~S>" (list :components (system-components sys)
-				     :subsystems (system-subsystems sys)
-				     :schema (system-schema sys)
-				     :data (system-data sys))))
+  (format stream "#<SYSTEM ~S>" `(,@(awhen (system-name sys) (list :name it))
+                                    :components ,(system-components sys)
+                                    :subsystems ,(system-subsystems sys)
+                                    :schema ,(system-schema sys)
+                                    :data ,(system-data sys))))
 
 (defgeneric lookup- (attribute schemable)
   (:method ((attribute symbol) (schema schema))
@@ -158,9 +159,28 @@
   (lookup- attribute schemable))
 
 (defgeneric implementation-function (implementation)
-  (:method ((impl implementation))
+  (:documentation "Returns a function which transforms an input tuple to a tuple, relation, or nil according to IMPLEMENTATION's logic.")
+  (:method ((impl internal-implementation))
     (awhen (find-symbol (implementation-name impl) (implementation-module impl))
-      (symbol-function it))))
+      (symbol-function it)))
+  (:method ((impl external-implementation))
+    (lambda (in acc)
+    ;;; From APPLY-TRANSFORMATION:
+    ;;; If ACC is a tuple (not NIL), then it is the accumulator value of a reduction.
+    ;;; Transformation functions which do not implement a reduction can ignore this value.
+      (execute-external-implementation impl in acc))))
+
+(defgeneric execute-external-implementation (impl in &optional acc)
+  (:method ((impl external-implementation) (in wb-map) &optional acc)
+    (declare (ignore acc))
+    (let* ((external-input-json (interface:dump-json-to-string :tuple in))
+           ;; We could get rid of these explicit strings and just pipe to/from streams, but this is easy, especially for debugging and light testing.
+           (external-output-json (with-input-from-string (in external-input-json)
+                                   (uiop:run-program (format nil "~A" (implementation-external-path impl))
+                                                     :input in
+                                                     :output 'string)))
+           (output (interface:get-json-data-from-string external-output-json)))
+      output)))
 
 (defclass engine () ())
 
@@ -290,7 +310,10 @@
     ;;; Transformation functions which do not implement a reduction can ignore this value.
     (let* ((result (funcall f tuple acc)))
       (join tuple result)))
-  (:method ((impl implementation) (tuple t) &optional acc)
+  (:method ((impl internal-implementation) (tuple t) &optional acc)
+    (awhen (implementation-function impl)
+      (apply-transformation it tuple acc)))
+  (:method ((impl external-implementation) (tuple t) &optional acc)
     (awhen (implementation-function impl)
       (apply-transformation it tuple acc)))
   (:method ((transformation-name symbol) (tuple t) &optional acc)
@@ -742,7 +765,7 @@
 
 (defun clean-tmps (attributed)
   (project (filter #'tmp-p (attributes attributed)) attributed :invert t))
-  
+
 (defstruct plan-graph (edges) (nodes))
 
 (defun node-label (symbol &key include-tmps)
@@ -757,7 +780,7 @@
 	(setf (gethash label (plan-graph-nodes graph))
 	      (make-instance 'cl-dot:node
 			     :attributes (list :label label)))));)
-  
+
 (defmethod cl-dot:graph-object-node ((graph plan-graph) attribute)
   (intern-node graph attribute))
 

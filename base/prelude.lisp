@@ -26,7 +26,8 @@
    (assumptions :initarg :assumptions :initform '() :accessor system-assumptions)
    (dependencies :initarg :dependencies :initform '() :accessor system-dpendencies)
    (data :initarg :data :initform '() :accessor system-data)
-   (flags :initarg :flags :initform '() :accessor system-flags)))
+   (flags :initarg :flags :initform '() :accessor system-flags)
+   (external-path :initarg :external-path :initform nil :accessor system-external-path)))
 
 (defclass transformation ()
   ((signature :initarg :signature :initform (make-signature '() '()) :accessor transformation-signature)
@@ -40,14 +41,20 @@
    (target :initarg :target :accessor component-target)
    (args :initarg :args :accessor component-args)))
 
-(defclass implementation ()
+;; Mixin
+(defclass implementation () ())
+
+(defclass internal-implementation (implementation)
   ((module :initarg :module :initform *package* :accessor implementation-module)
    (name :initarg :name :accessor implementation-name)))
+
+(defclass external-implementation ()
+  ((external-path :initarg :external-path :accessor implementation-external-path)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; TODO: remove boilerplate with macros
 
-(deftype toplevel-things () '(member :schema :system :transformation :component))    
+(deftype toplevel-things () '(member :schema :system :transformation :component))
 
 (defun toplevel-hash-table (type)
   (ecase type
@@ -87,3 +94,5 @@
   (if (typep component-spec 'component)
       component-spec
       (gethash component-spec *components*)))
+
+(defvar *external-path*)

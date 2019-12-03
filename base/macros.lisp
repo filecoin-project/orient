@@ -104,11 +104,12 @@
   (assert (eql arrow '->))
   `(make-signature ',input ',output))
 
-(deftype tlambda-arrow () '(eql ->))
-(deftype xlambda-arrow () '(eql =>))
-(deftype literal-arrow () '(eql ~>))
+(deftype tlambda-arrow () '(eql ->))   ;; Returns single-tuple.
+(deftype xlambda-arrow () '(eql =>))   ;; Returns relation.
+(deftype literal-arrow () '(eql ~>))   ;; Names function.
+(deftype external-arrow () '(eql ~=>)) ;; Names external path to executable transforming json to json.
 
-(deftype transformation-arrow () '(or tlambda-arrow xlambda-arrow literal-arrow))
+(deftype transformation-arrow () '(or tlambda-arrow xlambda-arrow literal-arrow external-arrow))
 
 (defmacro transformation (((&rest input-lambda-list) arrow (&rest output) &key source name) eqmark implementation)
   (check-type arrow transformation-arrow)
@@ -157,11 +158,22 @@
 					 :name ',name
 					 :signature sig
 					 :source ',source
-					 :implementation ,(make-instance 'implementation
+					 :implementation ,(make-instance 'internal-implementation
 									 :module (package-name
 										  (symbol-package implementation))
-									 :name (symbol-name implementation)))))))))
-
+									 :name (symbol-name implementation)))))
+        ;; ~=> external implementation
+	(external-arrow `(let ((sig (make-signature ',input ',output
+                                                    :reducer ,reducer?
+                                                    ,@(when group `(:group ',group))
+                                                    ,@(when group-by `(:group-by ',group-by))
+                                                    ,@(when into `(:group-into ',into)))))
+                           (make-instance 'transformation
+                                          :name ',name
+                                          :signature sig
+                                          :source ',source
+                                          :implementation ,(make-instance 'external-implementation
+                                                                          :external-path implementation))))))))
 (defun var-symbol-p (x)
   "True if X is a variable symbol (not things like &acc, &group, etc.)."
   (when (symbolp x)
@@ -318,9 +330,18 @@
      (let ((system (constraint-system ,constraint-definitions ,@keys)))
        (setf (system-name system) ',name)
        (awhen ,schema
-	 (setf (system-schema system) it))
+         (setf (system-schema system) it))
        (awhen ,subsystems
-	 (setf (system-subsystems system) it))
+         (setf (system-subsystems system) it))
+       (deftoplevel ,name (:system) system))))
+
+(defmacro defexternal-system (name component-definitions &rest keys &key schema subsystems &allow-other-keys)
+  (assert (not subsystems))
+  `(eval-when (:load-toplevel :compile-toplevel :execute)
+     (let ((system (external-system ,component-definitions ,@keys)))
+       (setf (system-name system) ',name)
+       (awhen ,schema
+         (setf (system-schema system) it))
        (deftoplevel ,name (:system) system))))
 
 (defun arg-eval (arg)

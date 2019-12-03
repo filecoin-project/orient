@@ -49,7 +49,7 @@
 			     (declare (ignore char))
 			     (awhen (read-delimited-list #\] stream t)
 			       (coerce it 'vector))))
-			       
+
     (setf (readtable-case *readtable*) *lang-definition-readtable-case*)
     *readtable*))
 
@@ -99,10 +99,9 @@
   (multiple-value-bind (cleaned indent-level comment)
       (clean-line string)
     (declare (ignore comment))
-    
     (let ((last-pos (1- (length cleaned))))
-      (cond ((zerop (length cleaned)) (list nil))	
-	    ((eql (aref (string-left-trim '(#\space #\tab) cleaned) 0) #\:) ;; First char is colon means this is an include.
+      (cond ((zerop (length cleaned)) (list nil))
+	    ((eql (aref (string-left-trim '(#\space #\tab) cleaned) 0) #\:) ;; First char is colon means this is an include. TODO: document or change.
 	     (let* ((sub-system-pathname (pathname (string-left-trim '(#\space #\tab #\:) cleaned)))
 		    (parsed-sub-system (get-system sub-system-pathname
 						   :base-location *lang-load-pathname*
@@ -110,16 +109,32 @@
 						   :group nil)))
 	       (loop for (parsed parsed-indent-level) in parsed-sub-system
 		    collect (list parsed (+ indent-level parsed-indent-level)))))
-	    ((eql (aref cleaned last-pos) #\:) ;; Last char is colon means this is a definition.
+	    ((eql (aref cleaned last-pos) #\:) ;; Last char is colon means this is a simple definition.
 	     (list (list (parse-definition-line (subseq string 0 last-pos)) indent-level)))
+            ((search ":" cleaned) ;; Otherwise, a colon means this is an external definition. TODO: Refactor.
+             (destructuring-bind  (definition-part library-file)
+                 (string-split ":" cleaned)
+               (let* ((lib (string-trim '(#\space #\tab) library-file))
+                      (def (parse-definition-line definition-part)))
+                 (when lib
+                   (let ((resolved (truename (merge-pathnames lib *lang-load-pathname*))))
+                     (setf (definition-external-path def) resolved)))
+                 (list (list def indent-level)))))
 	    (t (let* ((infix (read-infix-from-string cleaned))
 		      (parsed (typecase infix
 				(symbol infix)
 				(t infix))))
 		 (list (list parsed indent-level))))))))
 
+(test parse-line-with-lib
+  (let* ((line "  SomeLib: some_lib.exe"))
+    (destructuring-bind ((definition indent-level)) (parse-line line)
+      (is (equal '*some-lib (definition-name definition)))
+      (is (equal "some_lib.exe" (definition-external-path definition)))
+      (is (= 2 indent-level)))))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defstruct definition name flags dependencies declarations descriptions constraints sub-definitions)
+  (defstruct definition name flags dependencies declarations descriptions constraints sub-definitions external-path)
   (defmethod make-load-form ((d definition) &optional environment)
     (make-load-form-saving-slots d :environment environment)))
 
@@ -252,14 +267,26 @@
 (defun source<-nested (nested)
   (typecase nested
     (definition
-     `(defconstraint-system ,(definition-name nested)
-	  (,@(mapcan #'expand-declaration (definition-declarations nested))
-	     ,@(mapcar #'expand-constraint (definition-constraints nested)))
-	,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))
-	:flags ',(definition-flags nested)
-	:dependencies ',(definition-dependencies nested)
-	,@(awhen (definition-descriptions nested)
-	    (list :schema `(maybe-create-schema ',it)))))
+     (cond ((not (definition-external-path nested))
+            `(defconstraint-system ,(definition-name nested)
+                 (,@(mapcan #'expand-declaration (definition-declarations nested))
+                    ,@(mapcar #'expand-constraint (definition-constraints nested)))
+               ,@(awhen (definition-sub-definitions nested) `(:subsystems ,(source<-nested it)))
+               :flags ',(definition-flags nested)
+               :dependencies ',(definition-dependencies nested)
+               ,@(awhen (definition-descriptions nested)
+                   (list :schema `(maybe-create-schema ',it)))))
+           (t
+            (let ((external-path (definition-external-path nested)))
+              (assert (not (definition-sub-definitions nested)))
+              `(defexternal-system ,(definition-name nested)
+                 (,@(mapcan #'expand-declaration (definition-declarations nested))
+                    ,@(expand-external-terms external-path (definition-constraints nested)))
+                 :flags ',(definition-flags nested)
+                 :dependencies ',(definition-dependencies nested)
+                 :external-path ,external-path
+                 ,@(awhen (definition-descriptions nested)
+                     (list :schema `(maybe-create-schema ',it))))))))
     (list `(list ,@(mapcar #'source<-nested nested)))))
 
 (defun maybe-create-schema (descriptions)
@@ -293,6 +320,26 @@
   (typecase constraint
     ((cons symbol (cons atom)) `(,(car constraint) (== ,(cadr constraint))))
     (t constraint)))
+
+;; Example: (a (extern b c d))
+(deftype extern-term () '(cons symbol (cons (cons (eql extern) list))))
+
+(defun expand-external-terms (external-path terms) 
+  (let* ((terms (mapcar
+                 (partial #'expand-external-term external-path)
+                 terms))
+         ;; TODO: introduce syntax for grouping transformation terms into components.
+         ;; For now, all transformations are included in a single component.
+         (grouped-terms (list terms)))
+    (loop for group in grouped-terms
+         collect `(component (,@group)))))
+
+(defun expand-external-term (external-path term)
+  (etypecase term
+    (extern-term
+     (let ((target (car term))
+           (dependencies (cdadr term)))
+       `(transformation (,dependencies ~=> (,target)) == ,external-path)))))
 
 (defun build-system (string &key (as :system) name)
   "Get system definition from LOCATION-SPEC and create a system from it."
@@ -735,4 +782,32 @@
 			:SUB-DEFINITIONS NIL)
 		    (SETQ SEAL-COST
 			  (* SEAL-TIME (+ CPU-COST-PER-SECOND MEMORY-COST-PER-SECOND))))))
-		parsed)))) 
+		parsed))))
+
+(test custom-components
+  (let* ((input "Example:
+  SomeLib: some_lib.exe
+    a = extern(b, c)
+    b = extern(a, c)
+    c = extern(a, b)
+")
+         (src (build-system input :as :source))
+         (sys (build-system input)))
+
+    (is (equal '(LIST
+                 (DEFCONSTRAINT-SYSTEM *EXAMPLE NIL :SUBSYSTEMS
+                  (LIST
+                   (DEFEXTERNAL-SYSTEM *SOME-LIB
+                       ((COMPONENT
+                         ((TRANSFORMATION ((B C) ~=> (A) )
+                                          ==
+                                          #1="some_lib.exe")
+                          (TRANSFORMATION ((A C) ~=> (B))
+                                          == #1#)
+                          (TRANSFORMATION ((A B) ~=> (C))
+                                          == #1#))))
+                     :FLAGS 'NIL :DEPENDENCIES 'NIL
+                     :EXTERNAL-PATH #1#))
+                  :FLAGS 'NIL :DEPENDENCIES 'NIL))
+               src))
+    (solve-for sys nil)))
