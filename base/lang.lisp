@@ -117,7 +117,8 @@
                (let* ((lib (string-trim '(#\space #\tab) library-file))
                       (def (parse-definition-line definition-part)))
                  (when lib
-                   (setf (definition-external-path def) lib))
+                   (let ((resolved (truename (merge-pathnames lib *lang-load-pathname*))))
+                     (setf (definition-external-path def) resolved)))
                  (list (list def indent-level)))))
 	    (t (let* ((infix (read-infix-from-string cleaned))
 		      (parsed (typecase infix
@@ -338,9 +339,7 @@
     (extern-term
      (let ((target (car term))
            (dependencies (cdadr term)))
-       `(transformation ((,target) ~=> ,dependencies) == ,external-path)))))
-       ;; `(component
-       ;;   ((transformation ((,target) ~=> ,dependencies) == ,external-path)))))))
+       `(transformation (,dependencies ~=> (,target)) == ,external-path)))))
 
 (defun build-system (string &key (as :system) name)
   "Get system definition from LOCATION-SPEC and create a system from it."
@@ -800,17 +799,15 @@
                   (LIST
                    (DEFEXTERNAL-SYSTEM *SOME-LIB
                        ((COMPONENT
-                         ((TRANSFORMATION ((A) ~=> (B C))
+                         ((TRANSFORMATION ((B C) ~=> (A) )
                                           ==
                                           #1="some_lib.exe")
-                          (TRANSFORMATION ((B) ~=> (A C))
+                          (TRANSFORMATION ((A C) ~=> (B))
                                           == #1#)
-                          (TRANSFORMATION ((C) ~=> (A B))
+                          (TRANSFORMATION ((A B) ~=> (C))
                                           == #1#))))
                      :FLAGS 'NIL :DEPENDENCIES 'NIL
                      :EXTERNAL-PATH #1#))
                   :FLAGS 'NIL :DEPENDENCIES 'NIL))
                src))
-
-    (solve-for sys nil)
-    ))
+    (solve-for sys nil)))

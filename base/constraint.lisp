@@ -365,7 +365,7 @@
 	     (list nil alias-spec))))
     (declare (ignore documentation))
     (assert (eq operator op))
-    `(setf (tref ',operator ,constraint-factories)	   
+    `(setf (tref ',operator ,constraint-factories)
 	   (lambda (,target args)
 	     (destructuring-bind (,@inputs) args
 	       (make-operation-constraint ',other-op ,other-target (list ,@other-inputs)
@@ -381,7 +381,7 @@
 					  :source-name ,target
 					  :source-args args))))
 
-(defmacro define-system-constraint (name (target (op &rest inputs) 
+(defmacro define-system-constraint (name (target (op &rest inputs)
 						 &key (constraint-factories '*constraint-factories*))
 				    &body body)
   (assert (eq name op))
@@ -412,7 +412,7 @@
 		       (list (symbolconc ,input '\. ',relative-part))))
 		   relative-parts))
 	  (t (list  `(make-operation-constraint
-		      '== (with-namespace ',input)		 
+		      '== (with-namespace ',input)
 		      (list ,input))))))))
 
   (defun symbol-path (symbol)
@@ -961,7 +961,7 @@
        ((transformation* ((,@inputs) -> (,target)) == ,@body)))))
 
 (define-simple-constraint tref (value (attr tuple))
-    "VALUE = (TREF ATTR TUPLE)"  
+    "VALUE = (TREF ATTR TUPLE)"
   (tref attr tuple))
 
 (test define-simple-constraint

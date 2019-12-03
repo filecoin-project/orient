@@ -67,6 +67,18 @@
 (defun get-json-relation-list (spec &rest keys)
   (make-relation-list (apply #'get-json :data spec keys)))
 
+(defun get-json-from-string (type-spec string &key (*schema-package* *package*))
+  (check-type string string)
+  (load-json type-spec string))
+
+(defun get-json-data-from-string (string &rest keys)
+  (check-type string string)
+  (apply #'get-json-from-string :data string keys))
+
+(defun get-json-relation-list-from-string (string &rest keys)
+  (check-type string string)
+  (make-relation-list (apply #'get-json-from-string :data string keys)))
+
 (deftype tuple-pair () '(cons symbol (not cons)))
 
 ;; FIXME: Should probably change this name.
@@ -301,6 +313,10 @@
 		    thing)))
     (encode-json to-use stream)
     (terpri)))
+
+(defun dump-json-to-string (spec thing &key expand-references)
+  (with-output-to-string (out)
+    (dump-json spec thing out :expand-references expand-references)))
 
 (defmacro with-json-encoding ((&optional (schema-package *package*)) &body body)
   `(let* ((*schema-package* ,schema-package)

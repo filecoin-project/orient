@@ -77,7 +77,8 @@
   (:use :common-lisp :orient :cl-json :it.bese.FiveAm :orient.base.util)
   (:import-from :fset :wb-map :convert)
   (:shadowing-import-from :fset :set)
-  (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-relation-list :dump-json
+  (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-data-from-string :get-json-from-string :get-json-relation-list 
+           :get-json-relation-list-from-string :dump-json :dump-json-to-string
 	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
 	   :test-roundtrip :with-json-encoding
 	   :*alpha-sort-tuples* :*schema-package*)
