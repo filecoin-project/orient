@@ -99,24 +99,7 @@
 		      ((:solve)
 		       (cond
 			 (system
-			  (let* ((override-data (and merge input))
-                                 (input (and (not merge) input))
-                                 (defaulted (defaulted-initial-data system input :override-data override-data))
-                                 (combinations (separate-by-flag-combinations defaulted)))
-                            ;; All the logic for generating flag combinations from data and instantiating multiple systems
-                            ;; should move into orient.lisp.
-                            (json:with-array ()
-                              (orient::map-relation (orient::tfn (flags relation)
-                                                      (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                                                               (when (cdr f) (flag-symbol (car f))))
-                                                                                             (fset:convert 'list flags))))
-                                                             (merged-flags (union true-flags raw-flags))
-                                                             (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                                                                (list (make-flag f) t))
-                                                                                              merged-flags)))
-                                                             (final-system (prune-system-for-flags raw-system merged-flags)))
-                                                          (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
-                                                    combinations))))
+                          (handle-solve-system :system system :raw-system raw-system :raw-flags raw-flags :merge merge :input input))
 			 (t (format-error "No system specified.~%"))))
 		      ((:report)
 		       (cond
@@ -151,6 +134,26 @@
     (:performance (performance-system))
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
+
+(defun handle-solve-system (&key raw-system raw-flags merge input system)
+  (let* ((override-data (and merge input))
+         (input (and (not merge) input))
+         (defaulted (defaulted-initial-data system input :override-data override-data))
+         (combinations (separate-by-flag-combinations defaulted)))
+    ;; All the logic for generating flag combinations from data and instantiating multiple systems
+    ;; should move into orient.lisp.
+    (json:with-array ()
+      (orient::map-relation (orient::tfn (flags relation)
+                              (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                       (when (cdr f) (flag-symbol (car f))))
+                                                                     (fset:convert 'list flags))))
+                                     (merged-flags (union true-flags raw-flags))
+                                     (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                        (list (make-flag f) t))
+                                                                      merged-flags)))
+                                     (final-system (prune-system-for-flags raw-system merged-flags)))
+                                (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
+                            combinations))))
 
 (defun solve-system (&key system vars input override-data report)
   (let ((solution (solve-for system vars input :override-data override-data))
