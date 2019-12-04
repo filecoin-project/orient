@@ -40,7 +40,7 @@
 			 (system (system "FILE" "URI or filename of system to use"))
 			 (port (port "port-number" "port to listen on"))
 			 (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-			 (command (command "{dump, graph, solve, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+			 (command (command "{dump, graph, solve, solve-many, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 			 (root (root "project root, so we can find json files"))
 			 &free commands)
 	  (map-parsed-options (cli-options) nil '("in" "i"
@@ -68,10 +68,8 @@
 		(let* ((*schema-package* (find-package :orient.lang))
 		       (*package* (find-package :orient.lang))
 		       (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
-		       (input (cond
-				((equal in "--") (get-json-relation-list *standard-input*))
-				(in
-				 (get-json-relation-list in))))
+                       (input-stream (if (equal in "--") *standard-input* in))
+                       (raw-input (get-json-data input-stream))
 		       (raw-flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
 		       (raw-system (when system (get-system system)))
 		       (system (when raw-system (prune-system-for-flags raw-system raw-flags))))
@@ -90,10 +88,10 @@
                               (let* ((*schema-package* (find-package :orient.lang))
                                      (*package* *schema-package*)
                                      (json:*json-symbols-package* *schema-package*)
-                                     (input (get-json-relation-list-from-string input-string)))
+                                     (raw-input (get-json-data-from-string input-string)))
                                   (with-output-to-string (*out*)
                                     (with-json-encoding (*schema-package*)
-                                      (handle-solve-system :input input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
+                                      (handle-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
 
 			 (handler-case (bt:join-thread (find-if (lambda (th)
 			        				  (search "hunchentoot" (bt:thread-name th)))
@@ -115,22 +113,31 @@
 			 (let ((*package* (find-package :orient.web)))
 			   (sb-impl::toplevel-repl nil))))
 		      ((:solve)
-		       (cond
+ 		       (cond
 			 (system
-                          (handle-solve-system :system system :raw-system raw-system :raw-flags raw-flags :merge merge :input input))
+                          (handle-solve-system :system system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input raw-input))
+			 (t (format-error "No system specified.~%"))))
+                      (:solve-many
+                       (cond
+			 (system
+                          (unless (listp raw-input)
+                            (format-error "Input to solve-many must be an array of inputs to be solved and reported independently."))
+                          (handle-multi-solve-system :system system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input raw-input))
 			 (t (format-error "No system specified.~%"))))
 		      ((:report)
 		       (cond
 			 (system
-			  (let ((override-data (and merge input))
-				(input (and (not merge) input)))
+			  (let* ((input (make-relation-list raw-input))
+                                 (override-data (and merge input))
+                                 (input (and (not merge) input)))
 			    (report-system :system system :initial-data input :override-data override-data)))
 			 (t (format-error "No system specified.~%"))))
 		      ((:graph)
 		       (cond
 			 (system
-			  (let ((override-data (and merge input))
-				(input (and (not merge) input)))
+			  (let* ((input (make-relation-list raw-input))
+                                 (override-data (and merge input))
+                                 (input (and (not merge) input)))
 			    (graph-plan :system system :input input :override-data override-data)
 			    (sb-ext:exit :code 0)))
 			 (t (format-error "No system specified.~%"))))
@@ -140,13 +147,11 @@
 		       ;; TODO: Generate this list and share with options doc.
 		       (format-error "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
 		    (terpri)))))))
-	(sb-ext:exit :code 0))
+        (sb-ext:exit :code 0))
     (error (e)
       (format t "~%ERROR: ~A~%" e)
-      (sb-ext:exit :code 1)
-      )
-    (condition () (sb-ext:exit :code 0))
-    ))
+      (sb-ext:exit :code 1))
+    (condition () (sb-ext:exit :code 0))))
 
 (defun choose-system (spec)
   (case spec
@@ -155,8 +160,9 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defun handle-solve-system (&key raw-system raw-flags merge input system)
-  (let* ((override-data (and merge input))
+(defun handle-solve-system (&key raw-system raw-flags merge raw-input system)
+  (let* ((input (make-relation-list raw-input))
+         (override-data (and merge input))
          (input (and (not merge) input))
          (defaulted (defaulted-initial-data system input :override-data override-data))
          (combinations (separate-by-flag-combinations defaulted)))
@@ -174,8 +180,13 @@
                                                             merged-flags)))
                            (final-system (prune-system-for-flags raw-system merged-flags)))
                       (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
-                            combinations))
-    input))
+                            combinations))))
+
+(defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system)
+  "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
+  (json:with-array ()
+   (dolist (single-raw-input raw-input)
+     (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system))))
 
 (defun solve-system (&key system vars input override-data report)
   (let ((solution (solve-for system vars input :override-data override-data))

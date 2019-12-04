@@ -80,6 +80,7 @@
   (:export :camel-case-to-lisp* :get-json :get-json-data :get-json-data-from-string :get-json-from-string :get-json-relation-list 
            :get-json-relation-list-from-string :dump-json :dump-json-to-string
 	   :load-pipeline :load-transformation :load-tuple :load-json :<-json
+           :make-relation-list
 	   :test-roundtrip :with-json-encoding
 	   :*alpha-sort-tuples* :*schema-package*)
   (:nicknames :interface))
