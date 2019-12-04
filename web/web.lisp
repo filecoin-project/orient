@@ -3,7 +3,7 @@
   (:import-from :fset :wb-map :image :filter :contains? :convert)
   (:shadowing-import-from :fset :reduce  :union)
   (:nicknames :web)
-  (:export :serve-report-page :start-web :stop-web :report-page-for))
+  (:export :serve-report-page :start-web :stop-web :report-page-for *orient-web-port* *acceptor*))
 
 (in-package :orient.web)
 (def-suite web-suite)

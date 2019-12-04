@@ -2,7 +2,7 @@
 
 image: bin/orient.image
 
-bin/orient.image : $(shell find . | grep .lisp)
+bin/orient.image : $(shell find . -type f -name '*.lisp') $(shell find . -type f -name '*.asd')
 	cl -Q -sp orient --dump bin/orient.image
 
 test : utest

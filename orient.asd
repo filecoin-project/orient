@@ -16,7 +16,7 @@
 			 (:file "constraint")
 			 (:file "interface")
 			 (:file "lang")
-			 (:file "presentation"))			
+			 (:file "presentation"))
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
 	       (:module "filecoin"
 			:depends-on ("base")
@@ -36,13 +36,13 @@
 			:serial t
 			:components
 			((:file "html")
-			 (:file "web")))
+			 (:file "web")
+                         (:file "api")))
 	       (:module "cli"
 			:depends-on ("base" "filecoin")
 			:serial t
 			:components
-			((:file "cli")))
-	       )
+			((:file "cli"))))
   :in-order-to ((test-op (load-op "orient")))
   :perform (test-op (o c)
 		    (flet ((run-suite (name-spec package-spec)
@@ -52,9 +52,9 @@
 			    (orient (run-suite :orient-suite :orient))
 			    (interface (run-suite :interface-suite :orient.interface))
 			    (orient-lang (run-suite :orient-lang-suite :orient.lang))
-			    (filecoin (run-suite :filecoin-suite :filecoin))			    
+			    (filecoin (run-suite :filecoin-suite :filecoin))
 			    (web (run-suite :web-suite :orient.web)))
-			(unless (and orient-relation orient-constraint orient interface filecoin web)
+			(unless (and orient-relation orient-constraint orient interface orient-lang filecoin web)
 			  (error "Some tests failed.")
 			  ;; TODO: report which suites failed.
 			  )))))

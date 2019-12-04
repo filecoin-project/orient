@@ -308,7 +308,7 @@
 (defun dump-json (spec thing stream &key expand-references)
   (declare (ignore spec))
   (let ((json:*lisp-identifier-name-to-json* #'lisp-to-snake-case)
-	(to-use (if expand-references
+	(to-use (if (and expand-references thing)
 		    (expand-references thing)
 		    thing)))
     (encode-json to-use stream)

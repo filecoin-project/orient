@@ -117,7 +117,7 @@
                (let* ((lib (string-trim '(#\space #\tab) library-file))
                       (def (parse-definition-line definition-part)))
                  (when lib
-                   (let ((resolved (truename (merge-pathnames lib *lang-load-pathname*))))
+                   (let ((resolved (merge-pathnames lib (or *lang-load-pathname* (uiop/os:getcwd)))))
                      (setf (definition-external-path def) resolved)))
                  (list (list def indent-level)))))
 	    (t (let* ((infix (read-infix-from-string cleaned))
@@ -127,10 +127,11 @@
 		 (list (list parsed indent-level))))))))
 
 (test parse-line-with-lib
-  (let* ((line "  SomeLib: some_lib.exe"))
+  (let* ((*lang-load-pathname* "")
+         (line "  SomeLib: some_lib.exe"))
     (destructuring-bind ((definition indent-level)) (parse-line line)
       (is (equal '*some-lib (definition-name definition)))
-      (is (equal "some_lib.exe" (definition-external-path definition)))
+      (is (equal #p"some_lib.exe" (definition-external-path definition)))
       (is (= 2 indent-level)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -785,7 +786,8 @@
 		parsed))))
 
 (test custom-components
-  (let* ((input "Example:
+  (let* ((*lang-load-pathname* "")
+         (input "Example:
   SomeLib: some_lib.exe
     a = extern(b, c)
     b = extern(a, c)
@@ -801,7 +803,7 @@
                        ((COMPONENT
                          ((TRANSFORMATION ((B C) ~=> (A) )
                                           ==
-                                          #1="some_lib.exe")
+                                          #1=#p"some_lib.exe")
                           (TRANSFORMATION ((A C) ~=> (B))
                                           == #1#)
                           (TRANSFORMATION ((A B) ~=> (C))
