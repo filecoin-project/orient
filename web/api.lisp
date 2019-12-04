@@ -23,6 +23,8 @@
 
 (defun register-primary-solver-endpoint (callback &key merge)
   (hunchentoot:define-easy-handler (solve-primary-system :uri *solution-endpoint*) ()
-    (when (boundp '*acceptor*) (setf (hunchentoot:content-type*) "text/html"))
+    (when (boundp '*acceptor*)
+      (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
+      (setf (hunchentoot:content-type*) "text/html"))
     (let* ((raw-data (hunchentoot:raw-post-data :force-text t)))
       (funcall callback raw-data))))
