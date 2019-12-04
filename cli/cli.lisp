@@ -22,8 +22,12 @@
 	     ,@body)
 	   (let ((*out* *standard-output*)) ,@body)))))
 
+
+(defun emit-error-output (format-string &rest format-args)
+  (apply #'format *error-output* format-string format-args))
+
 (defun format-error (format-string &rest format-args)
-  (apply #'format *error-output* format-string format-args)
+  (apply #'emit-error-output format-args format-args)
   (signal 'error))
 
 (defun main (&optional argv)
@@ -74,14 +78,27 @@
 		  (with-output (out)
 		    (case command
 		      ((:web)
-		       (let ((acceptor (if port
-					   (web:start-web :port (parse-integer port))
-					   (web:start-web))))
+		       (let ((acceptor  (if port
+                                           (web:start-web :port (parse-integer port))
+                                           (web:start-web))))
 			 (when acceptor
-			   (format-error "Orient webserver started on port ~S" (hunchentoot:acceptor-port acceptor)))
+			   (emit-error-output "Orient webserver started on port ~S" (hunchentoot:acceptor-port acceptor)))
+
+                         (when system
+                           (orient.web.api:register-primary-solver-endpoint
+                            (lambda (input-string)
+                              (let* ((*schema-package* (find-package :orient.lang))
+                                     (*package* *schema-package*)
+                                     (json:*json-symbols-package* *schema-package*)
+                                     (input (get-json-relation-list-from-string input-string)))
+                                  (with-output-to-string (*out*)
+                                    (with-json-encoding (*schema-package*)
+                                      (handle-solve-system :input input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
+
 			 (handler-case (bt:join-thread (find-if (lambda (th)
-								  (search "hunchentoot" (bt:thread-name th)))
-								(bt:all-threads)))
+			        				  (search "hunchentoot" (bt:thread-name th)))
+			        				(bt:all-threads)))
+
 			   ;; https://stackoverflow.com/questions/48103501/deploying-common-lisp-web-applications
 			   ;; Catch a user's C-c
 			   (#+sbcl sb-sys:interactive-interrupt
@@ -89,11 +106,12 @@
 			     #+clisp system::simple-interrupt-condition
 			     #+ecl ext:interactive-interrupt
 			     #+allegro excl:interrupt-signal
-			     () (progn
-				  (format-error "Aborting.~&")
-				  (web:stop-web)
-				  (uiop:quit)))
+                             () (progn
+			          (emit-error-output "Aborting.~&")
+			          (web:stop-web)
+			          (uiop:quit)))
 			   (error (c) (format-error "Woops, an unknown error occured:~&~a~&" c)))
+
 			 (let ((*package* (find-package :orient.web)))
 			   (sb-impl::toplevel-repl nil))))
 		      ((:solve)
@@ -124,9 +142,11 @@
 		    (terpri)))))))
 	(sb-ext:exit :code 0))
     (error (e)
-      (format t "ERROR: ~A" e)
-      (sb-ext:exit :code 1))
-    (condition () (sb-ext:exit :code 0))))
+      (format t "~%ERROR: ~A~%" e)
+      (sb-ext:exit :code 1)
+      )
+    (condition () (sb-ext:exit :code 0))
+    ))
 
 (defun choose-system (spec)
   (case spec
@@ -143,17 +163,19 @@
     ;; All the logic for generating flag combinations from data and instantiating multiple systems
     ;; should move into orient.lisp.
     (json:with-array ()
-      (orient::map-relation (orient::tfn (flags relation)
-                              (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                                       (when (cdr f) (flag-symbol (car f))))
-                                                                     (fset:convert 'list flags))))
-                                     (merged-flags (union true-flags raw-flags))
-                                     (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                                        (list (make-flag f) t))
-                                                                      merged-flags)))
-                                     (final-system (prune-system-for-flags raw-system merged-flags)))
-                                (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
-                            combinations))))
+      (orient::map-relation
+       (orient::tfn (flags relation)
+                    (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                             (when (cdr f) (flag-symbol (car f))))
+                                                           (fset:convert 'list flags))))
+                           (merged-flags (union true-flags raw-flags))
+                           (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                              (list (make-flag f) t))
+                                                            merged-flags)))
+                           (final-system (prune-system-for-flags raw-system merged-flags)))
+                      (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
+                            combinations))
+    input))
 
 (defun solve-system (&key system vars input override-data report)
   (let ((solution (solve-for system vars input :override-data override-data))

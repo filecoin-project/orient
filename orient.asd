@@ -36,7 +36,8 @@
 			:serial t
 			:components
 			((:file "html")
-			 (:file "web")))
+			 (:file "web")
+                         (:file "api")))
 	       (:module "cli"
 			:depends-on ("base" "filecoin")
 			:serial t
