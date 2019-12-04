@@ -168,7 +168,7 @@
          (combinations (separate-by-flag-combinations defaulted)))
     ;; All the logic for generating flag combinations from data and instantiating multiple systems
     ;; should move into orient.lisp.
-    (json:with-array ()
+    (json:with-array (*out*)
       (orient::map-relation
        (orient::tfn (flags relation)
                     (let* ((true-flags (remove nil (mapcar (lambda (f)
@@ -184,9 +184,10 @@
 
 (defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system)
   "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
-  (json:with-array ()
+  (json:with-array (*out*)
    (dolist (single-raw-input raw-input)
-     (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system))))
+     (json:as-array-member (*out*)
+         (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system)))))
 
 (defun solve-system (&key system vars input override-data report)
   (let ((solution (solve-for system vars input :override-data override-data))

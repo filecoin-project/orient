@@ -87,7 +87,7 @@
 (defun make-relation-list (spec)
   (etypecase spec
     (wb-map (make-relation (list spec)))
-    ((cons wb-map) (or 
+    ((cons wb-map) (or
 		    (and (every (lambda (x) (typep x 'wb-map)) spec)
 			 (make-relation spec))
 		    (mapcar #'make-relation-list spec)))
