@@ -2,14 +2,15 @@
   (:use :common-lisp)
   (:nicknames :util)
   (:export :comma-list
+           :flatten :flatten1 :flatten2
 	   :get-string
 	   :resolve-json-input
 	   :keywordize
-	   :map-tree
+	   :map-tree :mk-list
 	   :partial
 	   :project-commit :project-merge :project-sha1 :project-root :*project-root*
 	   :string-split
-	   :transform-tree :transform-tree-if 
+	   :transform-tree :transform-tree-if
 	   ))
 
 (defpackage orient
@@ -54,7 +55,8 @@
    :internal-implementation :external-implementation :implementation :implementation-module :implementation-name :isetq
    :link
    :log2 :logn
-   :tref :trf :join :lookup-description :lookup-type :make-relation :make-relation+
+   :tref :trf :join :lookup-description :lookup-type :make-relation :make-relation+ :make-relation-list
+   :disjoin
    :make-flag :make-signature :make-tuple :make-tuple* :make-tuple+ :operation
    :orient-tests :optimal-heights
    :org-present :org-present-tuple

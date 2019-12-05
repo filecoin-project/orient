@@ -84,15 +84,6 @@
 ;; FIXME: Should probably change this name.
 (deftype tuple () '(cons tuple-pair t))
 
-(defun make-relation-list (spec)
-  (etypecase spec
-    (wb-map (make-relation (list spec)))
-    ((cons wb-map) (or
-		    (and (every (lambda (x) (typep x 'wb-map)) spec)
-			 (make-relation spec))
-		    (mapcar #'make-relation-list spec)))
-    (list (mapcar #'make-relation-list spec))))
-
 (defun load-json (type-spec source)
   (let* ((*json-identifier-name-to-lisp* #'camel-case-to-lisp*)
 	 (*json-symbols-package* *schema-package*)
