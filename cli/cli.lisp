@@ -72,7 +72,7 @@
 		       (*package* (find-package :orient.lang))
 		       (json:*json-symbols-package* :orient.lang) ;; FIXME: remove need to expose use of JSON package here.
                        (input-stream (if (equal in "--") *standard-input* in))
-                       (raw-input (get-json-data input-stream))
+                       (raw-input (and in (get-json-data input-stream)))
 		       (raw-flags (remove nil (mapcar #'interface:camel-case-to-lisp* (orient.base.util:string-split #\,  flags))))
 		       (raw-system (when system (get-system system)))
 		       (system (when raw-system (prune-system-for-flags raw-system raw-flags))))
