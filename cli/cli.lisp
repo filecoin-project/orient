@@ -1,5 +1,5 @@
 (defpackage orient.cli
-  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang :orient.web.html :it.bese.FiveAm)
+  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang :orient.web.html :it.bese.FiveAm :lparallel)
   (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
@@ -25,7 +25,6 @@
 	     ,@body)
 	   (let ((*out* *standard-output*)) ,@body)))))
 
-
 (defun emit-error-output (format-string &rest format-args)
   (apply #'format *error-output* format-string format-args))
 
@@ -33,7 +32,13 @@
   (apply #'emit-error-output format-args format-args)
   (signal 'error))
 
+(defparameter *threadpool-size* 20)
+
+(defun init ()
+  (setf lparallel:*kernel* (lparallel:make-kernel *threadpool-size*)))
+
 (defun main (&optional argv)
+  (init)
   (handler-case
       (progn
 	(with-cli-options ((cli-options) t)
@@ -173,43 +178,45 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
+(defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system)
+  "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
+  (json:with-array (*out*)
+   (dolist (single-raw-input raw-input)
+     (json:as-array-member (*out*)
+       (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system)))))
+
 (defun handle-solve-system (&key raw-system raw-flags merge raw-input system)
-  (let* ((input (make-relation-list raw-input))
+  (let* ((*alpha-sort-tuples* t)
+         (input (make-relation-list raw-input))
          (override-data (and merge input))
          (input (and (not merge) input))
          (defaulted (defaulted-initial-data system input :override-data override-data))
          (combinations (separate-by-flag-combinations defaulted)))
     ;; All the logic for generating flag combinations from data and instantiating multiple systems
     ;; should move into orient.lisp.
-    (json:with-array 
-     (*out*)
-     (let* ((f (orient::tfn (flags relation)
-                            (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                                     (when (cdr f) (flag-symbol (car f))))
-                                                                   (fset:convert 'list flags))))
-                                   (merged-flags (union true-flags raw-flags))
-                                   (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                                      (list (make-flag f) t))
-                                                                    merged-flags)))
-                                   (final-system (prune-system-for-flags raw-system merged-flags)))
-                              (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data))))
-            (combination-tuples (fset:convert 'list (tuples combinations))))
-       (dolist (tuple combination-tuples)
-         (funcall f tuple))))))
+    (let* ((f (orient::tfn (flags relation)
+                           (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                    (when (cdr f) (flag-symbol (car f))))
+                                                                  (fset:convert 'list flags))))
+                                  (merged-flags (union true-flags raw-flags))
+                                  (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                     (list (make-flag f) t))
+                                                                   merged-flags)))
+                                  (final-system (prune-system-for-flags raw-system merged-flags)))
+                             (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data))))
+           (combination-tuples (fset:convert 'list (tuples combinations)))
+           (promises (mapcar (lambda (tuple)
+                               (future (funcall f tuple)))
+                             combination-tuples)))
+      (json:with-array 
+       (*out*)
+       (dolist (promise promises)
+         (cl-json:encode-array-member (force promise))
+         (terpri *out*))))))
 
-(defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system)
-  "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
-  (json:with-array (*out*)
-   (dolist (single-raw-input raw-input)
-     (json:as-array-member (*out*)
-         (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system)))))
-
-(defun solve-system (&key system vars input override-data report)
-  (let ((solution (solve-for system vars input :override-data override-data))
-        (*alpha-sort-tuples* t))
-    (with-json-encoding ((find-package :filecoin))
-      (cl-json:encode-array-member (ensure-tuples solution) *out*)
-      (terpri))))
+(defun solve-system (&key system vars input override-data)
+  (let ((solution (solve-for system vars input :override-data override-data)))
+    (ensure-tuples solution)))
 
 (defun report-system (&key system vars initial-data override-data)
   (princ
