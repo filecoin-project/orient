@@ -1,7 +1,7 @@
 (defpackage orient.web.api
     (:use :common-lisp :orient :filecoin :orient.web.html :orient.base.util :it.bese.FiveAm :orient.web :orient.interface)
     (:shadowing-import-from :fset :reduce  :union)
-    (:export :register-primary-solver-endpoint)
+    (:export :register-primary-solver-endpoints)
     (:nicknames :api))
 
 (in-package :orient.web.api)
@@ -19,10 +19,18 @@
   (let ((rand (hunchentoot::create-random-string 10)))
     (system-endpoint rand)))
 
-(defun register-primary-solver-endpoint (endpoint-uri callback)
-  (hunchentoot:define-easy-handler (solve-primary-system :uri endpoint-uri) ()
+
+(defun register-primary-solver-endpoints (solve-callback solve-many-callback)
+  (hunchentoot:define-easy-handler (solve-primary-system :uri "/solve") ()
     (when (boundp '*acceptor*)
       (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
       (setf (hunchentoot:content-type*) "text/html"))
     (let* ((raw-data (hunchentoot:raw-post-data :force-text t)))
-      (funcall callback raw-data))))
+      (funcall solve-callback raw-data)))
+
+  (hunchentoot:define-easy-handler (solve-many-primary-system :uri "/solve-many") ()
+    (when (boundp '*acceptor*)
+      (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
+      (setf (hunchentoot:content-type*) "text/html"))
+    (let* ((raw-data (hunchentoot:raw-post-data :force-text t)))
+      (funcall solve-many-callback raw-data))))
