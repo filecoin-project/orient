@@ -86,7 +86,8 @@
 			   (emit-error-output "Orient webserver started on port ~S" (hunchentoot:acceptor-port acceptor)))
 
                          (when system
-                           (orient.web.api:register-primary-solver-endpoint
+                           (orient.web.api:register-primary-solver-endpoint "/solve"
+                            ;; TODO: Refactor to remove duplication between SOLVE and SOLVE-MANY closures.
                             (lambda (input-string)
                               (let* ((*schema-package* (find-package :orient.lang))
                                      (*package* *schema-package*)
@@ -94,7 +95,17 @@
                                      (raw-input (get-json-data-from-string input-string)))
                                   (with-output-to-string (*out*)
                                     (with-json-encoding (*schema-package*)
-                                      (handle-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
+                                      (handle-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge))))))
+
+                           (orient.web.api:register-primary-solver-endpoint "/solve-many"
+                            (lambda (input-string)
+                              (let* ((*schema-package* (find-package :orient.lang))
+                                     (*package* *schema-package*)
+                                     (json:*json-symbols-package* *schema-package*)
+                                     (raw-input (get-json-data-from-string input-string)))
+                                  (with-output-to-string (*out*)
+                                    (with-json-encoding (*schema-package*)
+                                      (handle-multi-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
 
 			 (handler-case (bt:join-thread (find-if (lambda (th)
 			        				  (search "hunchentoot" (bt:thread-name th)))

@@ -19,10 +19,8 @@
   (let ((rand (hunchentoot::create-random-string 10)))
     (system-endpoint rand)))
 
-(defvar *solution-endpoint* "/solve")
-
-(defun register-primary-solver-endpoint (callback &key merge)
-  (hunchentoot:define-easy-handler (solve-primary-system :uri *solution-endpoint*) ()
+(defun register-primary-solver-endpoint (endpoint-uri callback)
+  (hunchentoot:define-easy-handler (solve-primary-system :uri endpoint-uri) ()
     (when (boundp '*acceptor*)
       (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
       (setf (hunchentoot:content-type*) "text/html"))
