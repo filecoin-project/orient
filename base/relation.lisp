@@ -115,18 +115,18 @@
 
   ;; Lists
   (:method ((a list) (b t))
-    (mapcar (partial #'%join b) a))
+    (mapcar (partial #'join- b) a))
 
   (:method ((a t) (b list))
-     (%join b a))
+     (join- b a))
 
   ;; Sets
 
   (:method ((a set) (b t))
-    (image (partial #'%join b) a))
+    (image (partial #'join- b) a))
 
   (:method ((a t) (b set))
-     (%join b a))
+     (join- b a))
 )
 
 (defgeneric join- (a b)
@@ -219,12 +219,75 @@
   (is (same  '(nil nil 2 nil) (join '(1 2) '(2 3))))
 
   (is (same '(1 nil nil)  (join 1 '(1 2 3))))
-  (is (same '(1 nil nil)  (join '(1 2 3) 1))))
+  (is (same '(1 nil nil)  (join '(1 2 3) 1)))
+
+  (is (same (list (relation (a b) (1 3) (1 4) (2 3) (2 4)))
+            (join (list (relation (a) (1) (2))) (relation (b) (3) (4))))))
 
 (test join-set
   (is (same (set nil 2) (join (set 1 2) (set 2 3))))
   (is (same (set 1 nil)  (join 1 (set 1 2 3))))
-  (is (same (set 1 nil)  (join (set 1 2 3) 1))))
+  (is (same (set 1 nil)  (join (set 1 2 3) 1)))
+
+  (is (same (set (relation (a b) (1 3) (1 4) (2 3) (2 4)))
+            (join (set (relation (a) (1) (2))) (relation (b) (3) (4))))))
+
+
+(defun make-relation-list (spec)
+  (etypecase spec
+    ;; A tuple returns a relation containing it.
+    (wb-map (make-relation (list spec)))
+    ;; A list of all tuples creates a relation from them if they are congruent.
+    ;; Otherwise returns a list of relation-lists, one for element.
+    ((cons wb-map) (or
+		    (and (every (lambda (x) (typep x 'wb-map)) spec)
+			 (make-relation spec))
+		    (convert 'set (mapcar #'make-relation-list spec))))
+    ;; Return a list of relation-lists, one for element of list.
+    (list (convert 'set (mapcar #'make-relation-list spec)))))
+
+(defun make-relation-list (spec)
+  (etypecase spec
+    ;; A tuple returns a relation containing it.
+    (wb-map (make-relation (list spec)))
+    ;; A list of all tuples creates a relation from them if they are congruent.
+    ;; Otherwise returns a list of relation-lists, one for element.
+    ((cons wb-map) (or
+		    (and (every (lambda (x) (typep x 'wb-map)) spec)
+			 (make-relation spec))
+                    (mapcar #'make-relation-list spec)))
+    ;; Return a list of relation-lists, one for element of list.
+    (list (mapcar #'make-relation-list spec))))
+
+
+(test relation-list
+  (is (same (relation (a b) (1 2)) (make-relation-list (tuple (a 1) (b 2)))))
+  (is (same (relation (a b) (1 2) (3 4)) (make-relation-list (list (tuple (a 1) (b 2)) (tuple (a 3) (b 4))))))
+  (is (same (list (relation (a b) (1 2))
+                  (relation (a c) (3 5)))
+            (make-relation-list (list (tuple (a 1) (b 2)) (tuple (a 3) (c 5))))))
+
+  )
+
+(test input-relation-list
+  (let* ((in (list (list (tuple (a 1) (b 2))
+                         (tuple (a 2) (b 3))
+                         (tuple (a 3) (b 4)))
+                   (list (tuple (c 9) (d 8) (e 7))
+                         (tuple (c 8) (d 7) (f 6)))
+                   (tuple (x 6) (y 9) (z 12))))
+         (relation-list (make-relation-list in))
+         (joined (apply #'join (fset:convert 'list relation-list))))
+    joined))
+
+(defgeneric %disjoin (a b)
+  (:method ((a relation) (b relation))
+    (make-relation (union (tuples a) (tuples b)))))
+
+(defun disjoin (&rest things)
+  (if (cdr things)
+      (reduce #'%disjoin things)
+      things))
 
 (defgeneric rename-attributes (old-new-pairs attributed)
   (:method ((pairs list) (r relation))
@@ -528,3 +591,4 @@
 
 (defun trf (attr tuple)
   (tref attr tuple))
+

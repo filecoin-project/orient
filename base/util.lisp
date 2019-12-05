@@ -93,6 +93,16 @@
           mismatch)
       t)))
 
+(defun flatten (list &optional depth)
+  (if (eql 0 depth)
+      list
+      (loop for item in list
+         if (listp item) append (flatten item (and depth (1- depth)))
+         else collect item)))
+
+(defun flatten1 (list) (flatten list 1))
+(defun flatten2 (list) (flatten list 2))
+
 (defun slurp-file (pathname &key (if-does-not-exist :error) (element-type 'character))
   (with-open-file (in pathname
                       :direction :input
@@ -153,4 +163,5 @@
 	  ((string-starts-with "FILE://" upcased)
 	   (slurp-file (subseq location-spec 7)))
 	  (t (pathname spec)))))
-  
+ 
+(defun mklist (x) (if (listp x) x (list x)))

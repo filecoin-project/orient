@@ -171,19 +171,21 @@
          (combinations (separate-by-flag-combinations defaulted)))
     ;; All the logic for generating flag combinations from data and instantiating multiple systems
     ;; should move into orient.lisp.
-    (json:with-array (*out*)
-                     (orient::map-relation
-                      (orient::tfn (flags relation)
-                                   (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                                            (when (cdr f) (flag-symbol (car f))))
-                                                                          (fset:convert 'list flags))))
-                                          (merged-flags (union true-flags raw-flags))
-                                          (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                                             (list (make-flag f) t))
-                                                                           merged-flags)))
-                                          (final-system (prune-system-for-flags raw-system merged-flags)))
-                                     (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data)))
-                      combinations))))
+    (json:with-array 
+     (*out*)
+     (let* ((f (orient::tfn (flags relation)
+                            (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                     (when (cdr f) (flag-symbol (car f))))
+                                                                   (fset:convert 'list flags))))
+                                   (merged-flags (union true-flags raw-flags))
+                                   (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                      (list (make-flag f) t))
+                                                                    merged-flags)))
+                                   (final-system (prune-system-for-flags raw-system merged-flags)))
+                              (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data))))
+            (combination-tuples (fset:convert 'list (tuples combinations))))
+       (dolist (tuple combination-tuples)
+         (funcall f tuple))))))
 
 (defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system)
   "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
@@ -206,4 +208,3 @@
 (defun graph-plan (&key system vars input override-data)
   (let ((plan (plan-for system vars input :override-data override-data)))
     (cl-dot:print-graph (dot-graph-from-plan plan))))
-
