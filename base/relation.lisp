@@ -66,8 +66,8 @@
 	 (value-rows (cdr input))
 	 (tuples (loop for row in value-rows
 		    collect (make-tuple* attributes row))))
-    (make-relation tuples)))    
-  
+    (make-relation tuples)))
+
 (defgeneric %make-relation (tuples)
   (:documentation
    "Create relation from tuples, removing duplicates. TUPLES must all have same attributes. This is not checked.")
@@ -108,12 +108,32 @@
     (reduce (lambda (acc tuple)
 	      (union acc (%join tuple b)))
 	    (tuples a)
-	    :initial-value (empty-set))))
+	    :initial-value (empty-set)))
+  (:method ((a t) (b t))
+    (and (same a b) a)
+    )
+
+  ;; Lists
+  (:method ((a list) (b t))
+    (mapcar (partial #'%join b) a))
+
+  (:method ((a t) (b list))
+     (%join b a))
+
+  ;; Sets
+
+  (:method ((a set) (b t))
+    (image (partial #'%join b) a))
+
+  (:method ((a t) (b set))
+     (%join b a))
+)
 
 (defgeneric join- (a b)
   (:documentation "Binary JOIN. Returns a relation, a single tuple, or NIL.")
   (:method ((a t) (b null)) a)
   (:method ((a null) (b t)) b)
+  (:method ((a t) (b t)) (%join a b))
   (:method ((a wb-map) (b wb-map))
     (%join a b))
   (:method ((a wb-map) (b relation))
@@ -121,9 +141,90 @@
   (:method ((a relation) (b wb-map))
     (join- b a))
   (:method ((a relation) (b relation))
-    (make-relation (%join a b))))
+    (make-relation (%join a b)))
+  
+  (:method ((a list) (b list))
+    (reduce #'append (%join a b)))
+
+ (:method ((a set) (b set))
+    (reduce #'union (%join a b)))
+ )
 
 (defun join (&rest things) (reduce #'join- things))
+
+(test join-tuples
+  ;; Join of non-overlapping tuples is a union of their attribute-values.
+  (is (same (tuple (a 1) (b 2) (c 3)) (join (tuple (a 1) (b 2))
+                                            (tuple (c 3)))))
+
+  ;; Join of overlapping tuples is a union if all overlapping attributes have same values.
+  (is (same (tuple (a 1) (b 2) (c 3)) (join (tuple (a 1) (b 2))
+                                            (tuple (b 2) (c 3)))))
+
+  ;; Join of overlapping tuple is nil if any overlapping attributes have different values.
+  (is (same nil (join (tuple (a 1) (b 2))
+                      (tuple (a 1) (b 3)))))
+
+  ;; FIXME: Note that NIL is not SAME as (tuple).
+  ;; Figure out if there is a problem with making it be.
+  )
+
+(test join-null
+  ;; Anything joined with NIL is unchanged.
+  (is (same (tuple (a 1)) (join (tuple (a 1)) nil)))
+  (is (same (relation (a) (1) (2)) (join nil (relation (a) (1) (2)))))
+  (is (same nil (join nil nil))))
+
+(test join-relation
+  (is (same (relation (a b)
+                      (1 2))
+            (join (relation (a b)
+                            (1 2)
+                            (3 4))
+                  (relation (a b)
+                            (1 2)
+                            (4 4)))))
+
+  (is (same (relation (a b c)
+                      (1 2 3))
+            (join (relation (a b c)
+                            (1 2 3)
+                            (3 4 5))
+                  (relation (a b)
+                            (1 2)
+                            (4 4)))))
+
+  (is (same (relation (a b c d)
+                      (1 2 4 5)
+                      (1 2 6 7)
+                      (3 4 4 5)
+                      (3 4 6 7))
+            (join (relation (a b)
+                            (1 2)
+                            (3 4))
+                  (relation (c d)
+                            (4 5)
+                            (6 7))))))
+
+(test join-atomic
+  (is (same 1 (join 1 1)))
+  (is (same nil (join 1 (tuple (a 1)))))
+
+  (is (same nil (join 1 2)))
+
+  (is (same 1 (join nil 1))))
+
+(test join-list
+  ;; Lists have order, and the cartesian product is enumerated depth-first.
+  (is (same  '(nil nil 2 nil) (join '(1 2) '(2 3))))
+
+  (is (same '(1 nil nil)  (join 1 '(1 2 3))))
+  (is (same '(1 nil nil)  (join '(1 2 3) 1))))
+
+(test join-set
+  (is (same (set nil 2) (join (set 1 2) (set 2 3))))
+  (is (same (set 1 nil)  (join 1 (set 1 2 3))))
+  (is (same (set 1 nil)  (join (set 1 2 3) 1))))
 
 (defgeneric rename-attributes (old-new-pairs attributed)
   (:method ((pairs list) (r relation))
@@ -338,7 +439,7 @@
 		      (4 5 6)
 		      (7 8 3)
 		      (1 2 4))))
-    
+
     (is (same (relation (c g)
 			(3 (relation (a b)
 				     (1 2)
@@ -376,7 +477,7 @@
   )
 
 (defgeneric wrap (attributed attributes into-attribute)
-  (:method ((attributed t) (attributes t) (into-attribute symbol))    
+  (:method ((attributed t) (attributes t) (into-attribute symbol))
     (wrap attributed (convert 'set attributes) into-attribute))
   (:method ((tuple wb-map) (attributes set) (into-attribute symbol))
     (let ((new-tuple (project attributes tuple :invert t))
@@ -393,16 +494,14 @@
   (let ((tuple (tuple (a 1) (b 2) (c 3) (d 4))))
     (is (same (tuple (a 1) (b 2) (x (tuple (c 3) (d 4))))
 	      (wrap tuple '(c d) 'x))))
-  
+
   (let ((r (relation (a b c d)
 		     (1 2 3 4)
 		     (2 3 4 5))))
     (is (same (relation (a x)
 			(1 (tuple (b 2) (c 3) (d 4)))
 			(2 (tuple (b 3) (c 4) (d 5))))
-	      (wrap r '(b c d) 'x)))
-
-    ))
+	      (wrap r '(b c d) 'x)))))
 
 (defgeneric unwrap (attributed from-attribute)
   (:method ((tuple wb-map) (from-attribute symbol))
