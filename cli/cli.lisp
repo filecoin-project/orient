@@ -211,7 +211,7 @@
       (json:with-array 
        (*out*)
        (dolist (promise promises)
-         (cl-json:encode-array-member (force promise))
+         (cl-json:encode-array-member (force promise) *out*)
          (terpri *out*))))))
 
 (defun solve-system (&key system vars input override-data)
