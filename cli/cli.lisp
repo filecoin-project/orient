@@ -12,7 +12,7 @@
 
 (defparameter *threadpool-size* 20)
 
-(defparameter *cache* (make-instance 'mem-cache) "Cache to use, if non-NIL.")
+(defparameter *cache* (make-instance 'disk-cache) "Cache to use, if non-NIL.")
 
 (defun keywordize (string-designator)
   (intern (string-upcase (string string-designator)) :keyword))

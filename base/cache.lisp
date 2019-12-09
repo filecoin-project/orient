@@ -17,11 +17,31 @@
 
 (defgeneric cache-lookup (key cache)
   (:method ((key t) (cache mem-cache))
-    (gethash key (cache-hash-table cache))))
+    (gethash key (cache-hash-table cache)))
+  (:method ((key t) (cache disk-cache))
+    (let ((pathname (cache-path-for-key cache key)))
+      (if (probe-file pathname)
+          (values (load-json :data pathname) t)
+          (values nil nil)))))
 
 (defgeneric cache-store (key cache value)
   (:method ((key t) (cache mem-cache) (value t))
-    (setf (gethash key (cache-hash-table cache)) value)))
+    (setf (gethash key (cache-hash-table cache)) value))
+  (:method ((key t) (cache disk-cache) (value t))
+    (let ((pathname (cache-path-for-key cache key)))
+      (ensure-directories-exist pathname)
+      (with-open-file (out pathname
+                           :direction :output
+                           :if-exists :supersede
+                           :if-does-not-exist :create)
+        (let ((interface:*schema-package* (find-package 'orient.lang))
+              (json:*lisp-identifier-name-to-json* #'string-downcase))
+          (json:encode-json value out))))))
+
+(defgeneric cache-path-for-key (cache key)
+  (:method ((cache disk-cache) (key t))
+    (make-pathname :directory (cache-root cache)
+                   :name (write-to-string key))))
 
 ;; Collisions are not impossible. SXHASH output is 62 bits. (But this is fast.)
 ;; TODO: handle collisions with fallback to collision-resistant hash. (And only then pay that cost.)

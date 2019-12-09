@@ -2,7 +2,7 @@
 (def-suite interface-suite)
 (in-suite interface-suite)
 
-(defvar *schema-package*)
+(defvar *schema-package* (find-package :orient.lang))
 
 (defun effective-schema-package ()
   (or (and (boundp '*schema-package*)
