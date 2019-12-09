@@ -15,6 +15,7 @@
 			 (:file "orient")
 			 (:file "constraint")
 			 (:file "interface")
+                         (:file "cache")
 			 (:file "lang")
 			 (:file "presentation"))
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))

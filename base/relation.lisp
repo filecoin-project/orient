@@ -75,6 +75,7 @@
   (:method ((tuples list)) (make-relation (convert 'set tuples)))
   (:method ((tuples set))
     (let ((attributes (awhen (arb tuples) (attributes it))))
+      (declare (ignore attributes))
       (make-instance 'simple-relation :tuples tuples))))
 
 (defgeneric cardinality (relation)
@@ -231,20 +232,6 @@
 
   (is (same (set (relation (a b) (1 3) (1 4) (2 3) (2 4)))
             (join (set (relation (a) (1) (2))) (relation (b) (3) (4))))))
-
-
-(defun make-relation-list (spec)
-  (etypecase spec
-    ;; A tuple returns a relation containing it.
-    (wb-map (make-relation (list spec)))
-    ;; A list of all tuples creates a relation from them if they are congruent.
-    ;; Otherwise returns a list of relation-lists, one for element.
-    ((cons wb-map) (or
-		    (and (every (lambda (x) (typep x 'wb-map)) spec)
-			 (make-relation spec))
-		    (convert 'set (mapcar #'make-relation-list spec))))
-    ;; Return a list of relation-lists, one for element of list.
-    (list (convert 'set (mapcar #'make-relation-list spec)))))
 
 (defun make-relation-list (spec)
   (etypecase spec

@@ -1,13 +1,18 @@
 (defpackage orient.cli
-  (:use :common-lisp :orient :orient.interface :unix-options :orient.lang :orient.web.html :it.bese.FiveAm :lparallel)
+  (:use :common-lisp :orient :orient.interface :orient.cache :unix-options :orient.lang :orient.web.html :it.bese.FiveAm :lparallel)
   (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
 
 (in-package :orient.cli)
 
+
 (def-suite orient-cli-suite)
 (in-suite orient-cli-suite)
+
+(defparameter *threadpool-size* 20)
+
+(defparameter *cache* (make-instance 'mem-cache) "Cache to use, if non-NIL.")
 
 (defun keywordize (string-designator)
   (intern (string-upcase (string string-designator)) :keyword))
@@ -31,8 +36,6 @@
 (defun format-error (format-string &rest format-args)
   (apply #'emit-error-output format-args format-args)
   (signal 'error))
-
-(defparameter *threadpool-size* 20)
 
 (defun init ()
   (setf lparallel:*kernel* (lparallel:make-kernel *threadpool-size*)))
@@ -215,7 +218,7 @@
          (terpri *out*))))))
 
 (defun solve-system (&key system vars input override-data)
-  (let ((solution (solve-for system vars input :override-data override-data)))
+  (let ((solution (solve-for system vars input :override-data override-data :cache *cache*)))
     (ensure-tuples solution)))
 
 (defun report-system (&key system vars initial-data override-data)

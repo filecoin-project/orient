@@ -718,18 +718,22 @@
 (defun report-data (&optional (system *current-construction*))
   (mapcar (lambda (data) (report data system)) (system-data system)))
 
-(defun solve-for (system output &optional initial-data &key report override-data project-solution)
+(defun solve-for (system output &optional initial-data &key report override-data project-solution cache)
   "Returns four values: solution, plan, report, and defaulted-data."
   (let* ((system (find-system system))
-	 ;; We need to fill defaults here (somewhat redundantly) in order to calculate SIG below.
-	 (defaulted (defaulted-initial-data system initial-data :override-data override-data))
-	 (sig (make-signature (attributes defaulted) output)))
+         ;; We need to fill defaults here (somewhat redundantly) in order to calculate SIG below.
+         (defaulted (defaulted-initial-data system initial-data :override-data override-data))
+         (sig (make-signature (attributes defaulted) output)))
     (multiple-value-bind (solution plan report defaulted-data)
-	(solve system sig defaulted :report report :override-data override-data)
+        (if cache
+            (cache:call-with-cache cache #'solve
+                                   (list system sig defaulted)
+                                   (list system sig defaulted :report report :override-data override-data))
+            (solve system sig defaulted :report report :override-data override-data))
       (values (if project-solution
-		  (project output solution)
-		  solution)
-	      plan report defaulted-data))))
+                  (project output solution)
+                  solution)
+              plan report defaulted-data))))
 
 (defun report-solution-for (output &key system initial-data (format t) override-data project-solution return-plan return-defaulted-data)
   (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
