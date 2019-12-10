@@ -436,7 +436,7 @@
 		    ==
 		    (let ((alts
 			   ;; TODO: convenience-function for adding tuple to relation.
-			   (make-relation		      
+			   (make-relation
 			    (with (tuples alternate-layers)
 				  (tuple (beta-merkle-height beta-merkle-height)
 					 (proving-time proving-time)))))
@@ -454,7 +454,9 @@
 			      (values alts lowest-time optimal-beta-merkle-height optimal-constraints optimal-hashing-time optimal-circuit-time)))))))))
 
 (test group-layer-performance
-  (let ((system (constraint-system
+  (let ((*use-parallel-solve* nil)
+        (*use-parallel-apply-transformation* nil) ;; FIXME: Support this.
+        (system (constraint-system
 		 ((grouped (group-layer-performance
 			    layer-performance.layer-index
 			    layer-performance.beta-merkle-height
@@ -491,7 +493,7 @@
      (nodes (/ sector-size node-bytes))
      (comm-d-size (== merkle-hash-function.size))
      (comm-r-size (== merkle-hash-function.size))
-     (comm-r-star-size (== merkle-hash-function.size))     
+     (comm-r-star-size (== merkle-hash-function.size))
      (comm-rs-size (+ comm-r-size comm-r-star-size))
      (commitments-size (+ comm-rs-size comm-d-size))
      (total-circuit-proof-size (* single-circuit-proof-size partitions))

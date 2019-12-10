@@ -10,8 +10,6 @@
 (def-suite orient-cli-suite)
 (in-suite orient-cli-suite)
 
-(defparameter *threadpool-size* 20)
-
 ;(defparameter *cache* nil "Cache to use, if non-NIL.")
 (defparameter *cache* (make-instance 'mem-cache) "Cache to use, if non-NIL.")
 
@@ -42,7 +40,7 @@
   (awhen (uiop/os:getenv "ORIENT_CACHE_DIR")
     (setq *cache* (make-disk-backed-mem-cache :root it)))
 
-  (setf lparallel:*kernel* (lparallel:make-kernel *threadpool-size*)))
+  (ensure-parallelism-initialized))
 
 (defun main (&optional argv)
   (init)
@@ -192,6 +190,8 @@
      (json:as-array-member (*out*)
        (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system :system-cache-key system-cache-key)))))
 
+(defvar *use-parallelism* t)
+
 (defun handle-solve-system (&key raw-system raw-flags merge raw-input system system-cache-key)
   (let* ((*alpha-sort-tuples* t)
          (input (make-relation-list raw-input))
@@ -202,24 +202,31 @@
          ;; All the logic for generating flag combinations from data and instantiating multiple systems
          ;; should move into orient.lisp.
          (f (orient::tfn (flags relation)
-              (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                       (when (cdr f) (flag-symbol (car f))))
-                                                     (fset:convert 'list flags))))
-                     (merged-flags (union true-flags raw-flags))
-                     (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                        (list (make-flag f) t))
-                                                      merged-flags)))
-                     (final-system (prune-system-for-flags raw-system merged-flags)))
-                (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data :system-cache-key system-cache-key))))
-         (combination-tuples (fset:convert 'list (tuples combinations)))
-         (promises (mapcar (lambda (tuple)
-                             (future (funcall f tuple)))
-                           combination-tuples)))
-    (json:with-array
-        (*out*)
-      (dolist (promise promises)
-        (cl-json:encode-array-member (force promise) *out*)
-        (terpri *out*)))))
+                           (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                    (when (cdr f) (flag-symbol (car f))))
+                                                                  (fset:convert 'list flags))))
+                                  (merged-flags (union true-flags raw-flags))
+                                  (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                     (list (make-flag f) t))
+                                                                   merged-flags)))
+                                  (final-system (prune-system-for-flags raw-system merged-flags)))
+                             (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data :system-cache-key system-cache-key))))
+           (combination-tuples (fset:convert 'list (tuples combinations)))
+           (results (if *use-parallelism*
+                         (mapcar (lambda (tuple)
+                                   (future (funcall f tuple)))
+                                 combination-tuples)
+                         (mapcar (lambda (tuple)
+                                   (funcall f tuple))
+                                 combination-tuples))))
+      (json:with-array
+       (*out*)
+        (dolist (result results)
+          (cl-json:encode-array-member (if *use-parallelism*
+                                           (force result)
+                                           result)
+                                       *out*)
+          (terpri *out*)))))
 
 (defun solve-system (&key system vars input override-data system-cache-key)
   (let* ((system-cache-key (or system-cache-key (dump-json-to-string :system system)))
@@ -232,7 +239,8 @@
                                                    (list (ensure-tuples (car values))))
                               :values-deserializer (lambda (values)
                                                      (list (make-relation-list (fset:convert 'list (car values))))))))
-    (ensure-tuples solution)))
+    (ensure-tuples solution)
+    ))
 
 (defun report-system (&key system vars initial-data override-data)
   (princ

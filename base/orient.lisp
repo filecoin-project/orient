@@ -303,6 +303,18 @@
 (deftype transformation-spec () '(or transformation symbol))
 (deftype pipeline () '(cons transformation-spec))
 
+;;; Parallelism
+(defvar *use-parallel-solve* t)
+(defvar *use-parallel-apply-transformation* nil)
+(defparameter *threadpool-size* 20)
+
+(defun init-parallelism ()
+  (setf lparallel:*kernel* (lparallel:make-kernel *threadpool-size*)))
+
+(defun ensure-parallelism-initialized ()
+  (unless lparallel:*kernel*
+    (init-parallelism)))
+
 (defgeneric apply-transformation (transformation attributed &optional acc)
   (:documentation "Applies a transformation to data, returning strict data, i.e. (RELATION, TUPLE, or NIL)")
   (:method ((f function) (tuple wb-map) &optional acc)
@@ -334,7 +346,17 @@
     (cond
       ((or (reducer? transformation)
 	   (grouper? transformation))
+       (when *use-parallel-apply-transformation*
+         (error "groupind and reduction are not yet supported with parallel transformation application.")
+         )
        (group-reduce-relation transformation relation))
+      ((and *use-parallel-apply-transformation* (> (cardinality relation) 1))
+       (let* ((results (pmapcar (lambda (tuple)
+                                  (apply-transformation transformation tuple))
+                                (convert 'list (tuples relation)))))
+         (reduce #'combine-potential-relations
+                 results
+                 :initial-value nil)))
       (t
        (reduce #'combine-potential-relations
 	       (image (lambda (tuple)
@@ -646,18 +668,34 @@
 	   (signature (or signature (make-signature (attributes initial-value) (attributes initial-value)))))
       (apply #'solve system signature initial-value keys)))
   (:method ((system system) (signature signature) (initial-data t) &key report override-data)
+    (ensure-parallelism-initialized)
     (let ((initial-value (defaulted-initial-data system initial-data :override-data override-data))
 	  (plan (plan system signature)))
-      (if (and plan (satisfies-input-p initial-data signature))
-	  (let* ((reducer (make-pipeline-reducer system :report report))
-		 (reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
-	    (destructuring-bind (result report-results) reduce-result
-	      (values result plan (synthesize-report-steps report report-results) initial-value)))
-	  (values (awhen plan
-                    (awhen (pipeline-signature it)
-                      (awhen (signature-output it)
-                        (empty-relation it))))
-                  plan nil initial-value)))))
+      (cond ((and plan (satisfies-input-p initial-data signature))
+             (cond
+               ((and *use-parallel-solve* (not report))
+                (let* ((reducer (make-pipeline-reducer system :report report))
+                       (results (pmapcar (lambda (tuple)
+                                           (%solve plan reducer tuple nil))
+                                         (convert 'list (tuples (ensure-relation initial-value)))))
+                       (final-result (reduce #'combine-potential-relations results)))
+                  (values final-result plan nil initial-value)))
+
+               (t
+                (when *use-parallel-solve*
+                  (warn "Trying to solve in parallel with REPORT set. Not yet supported so falling back to no parallelism."))
+                (let ((reducer (make-pipeline-reducer system :report report)))
+                  (%solve plan reducer initial-value report)))))
+            (t (values (awhen plan
+                         (awhen (pipeline-signature it)
+                           (awhen (signature-output it)
+                             (empty-relation it))))
+                       plan nil initial-value))))))
+
+(defun %solve (plan reducer initial-value report)
+  (let ((reduce-result (reduce reducer plan :initial-value (list initial-value '()))))
+    (destructuring-bind (result report-results) reduce-result
+      (values result plan (synthesize-report-steps report report-results) initial-value))))
 
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
@@ -745,13 +783,14 @@
               plan report defaulted-data))))
 
 (defun report-solution-for (output &key system initial-data (format t) override-data project-solution return-plan return-defaulted-data)
-  (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
-									:report format
-									:override-data override-data
-									:project-solution project-solution)
-    (if return-plan
-	(values (if solution report "NO SOLUTION") solution defaulted-data plan)
-	(values (if solution report "NO SOLUTION") solution defaulted-data))))
+  (let ((*use-parallel-solve* nil))
+    (multiple-value-bind (solution plan report defaulted-data) (solve-for system output initial-data
+                                                                          :report format
+                                                                          :override-data override-data
+                                                                          :project-solution project-solution)
+      (if return-plan
+          (values (if solution report "NO SOLUTION") solution defaulted-data plan)
+          (values (if solution report "NO SOLUTION") solution defaulted-data)))))
 
 (defun private-attr-p (attr)
   "If ATTR name ends with %, don't include in reports."
