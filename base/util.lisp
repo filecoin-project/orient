@@ -155,13 +155,13 @@
 
 (defun resolve-json-input (spec)
   "Resolve STRING eiher to string content via URI lookup, pathname, or stream. For use with CL-JSON:DECODE-JSON."
-  (let ((upcased (string-upcase spec)))
+  (let ((upcased (and (stringp spec) (string-upcase spec))))
     (cond ((streamp spec) spec)
 	  ((or (string-starts-with "HTTP://" upcased)
 	       (string-starts-with "HTTPS://" upcased))
 	   (dex:get spec))
 	  ((string-starts-with "FILE://" upcased)
-	   (slurp-file (subseq location-spec 7)))
+	   (slurp-file (subseq spec 7)))
 	  (t (pathname spec)))))
  
 (defun mklist (x) (if (listp x) x (list x)))
