@@ -53,7 +53,7 @@
 			 (system (system "FILE" "URI or filename of system to use"))
 			 (port (port "port-number" "port to listen on"))
 			 (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-			 (command (command "{dump, graph, solve, solve-many, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+			 (command (command "{dump, dump-vars, graph, solve, solve-many, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 			 (root (root "project root, so we can find json files"))
 			 &free commands)
 	  (map-parsed-options (cli-options) nil '("in" "i"
@@ -166,6 +166,10 @@
 			 (t (format-error "No system specified.~%"))))
 		      ((:dump)
 		       (dump-json :system system *out* :expand-references t))
+                      ((:dump-vars)
+                       (let* ((schemas (all-system-schemas system))
+                              (all-parameters (reduce #'append (mapcar #'schema-parameters schemas))))
+                         (json:encode-json all-parameters *out*)))
 		      (otherwise
 		       ;; TODO: Generate this list and share with options doc.
 		       (format-error "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
