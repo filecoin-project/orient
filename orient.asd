@@ -3,7 +3,7 @@
   :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel" "ironclad")
   :components ((:module "base"
 			:serial t
 			:components
