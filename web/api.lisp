@@ -20,7 +20,8 @@
     (system-endpoint rand)))
 
 
-(defun register-primary-solver-endpoints (solve-callback solve-many-callback)
+;; TODO: Refactor this.
+(defun register-primary-solver-endpoints (solve-callback solve-many-callback dump-vars-callback)
   (hunchentoot:define-easy-handler (solve-primary-system :uri "/solve") ()
     (when (boundp '*acceptor*)
       (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
@@ -33,4 +34,11 @@
       (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
       (setf (hunchentoot:content-type*) "text/html"))
     (let* ((raw-data (hunchentoot:raw-post-data :force-text t)))
-      (funcall solve-many-callback raw-data))))
+      (funcall solve-many-callback raw-data)))
+
+  (hunchentoot:define-easy-handler (dump-vars-primary-system :uri "/dump-vars") ()
+    (when (boundp '*acceptor*)
+      (setf (hunchentoot:header-out :Access-Control-Allow-Origin hunchentoot:*reply*) "*")
+      (setf (hunchentoot:content-type*) "text/html")
+      (let* ((raw-data (hunchentoot:raw-post-data :force-text t)))
+        (funcall dump-vars-callback raw-data)))))
