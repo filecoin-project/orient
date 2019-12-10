@@ -97,24 +97,25 @@
 
                          (when system
                            (orient.web.api:register-primary-solver-endpoints
-                            ;; TODO: Refactor to remove duplication between SOLVE and SOLVE-MANY closures.
-                            (lambda (input-string)
-                              (let* ((*schema-package* (find-package :orient.lang))
-                                     (*package* *schema-package*)
-                                     (json:*json-symbols-package* *schema-package*)
-                                     (raw-input (get-json-data-from-string input-string)))
-                                (with-output-to-string (*out*)
-                                  (with-json-encoding (*schema-package*)
-                                    (handle-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))
+                            (make-web-handler
+                             (lambda (raw-input)
+                               (handle-solve-system :raw-input raw-input
+                                                    :system system
+                                                    :raw-system raw-system
+                                                    :raw-flags raw-flags
+                                                    :merge merge)))
+                            (make-web-handler
+                             (lambda (raw-input)
+                               (handle-multi-solve-system :raw-input raw-input
+                                                          :system system
+                                                          :raw-system raw-system
+                                                          :raw-flags raw-flags
+                                                          :merge merge)))
 
-                            (lambda (input-string)
-                              (let* ((*schema-package* (find-package :orient.lang))
-                                     (*package* *schema-package*)
-                                     (json:*json-symbols-package* *schema-package*)
-                                     (raw-input (get-json-data-from-string input-string)))
-                                (with-output-to-string (*out*)
-                                  (with-json-encoding (*schema-package*)
-                                    (handle-multi-solve-system :raw-input raw-input :system system :raw-system raw-system :raw-flags raw-flags :merge merge)))))))
+                            (make-web-handler
+                             (lambda (raw-input)
+                               (declare (ignore raw-input))
+                               (dump-vars system)))))
 
 			 (handler-case (bt:join-thread (find-if (lambda (th)
 			        				  (search "hunchentoot" (bt:thread-name th)))
@@ -167,9 +168,7 @@
 		      ((:dump)
 		       (dump-json :system system *out* :expand-references t))
                       ((:dump-vars)
-                       (let* ((schemas (all-system-schemas system))
-                              (all-parameters (reduce #'append (mapcar #'schema-parameters schemas))))
-                         (json:encode-json all-parameters *out*)))
+                       (dump-vars system))
 		      (otherwise
 		       ;; TODO: Generate this list and share with options doc.
 		       (format-error "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
@@ -253,3 +252,19 @@
 (defun graph-plan (&key system vars input override-data)
   (let ((plan (plan-for system vars input :override-data override-data)))
     (cl-dot:print-graph (dot-graph-from-plan plan))))
+
+;; Takes a handler function of one json input argument and returns a 'web handler'.
+(defun make-web-handler (handler)
+  (lambda (input-string)
+    (let* ((*schema-package* (find-package :orient.lang))
+           (*package* *schema-package*)
+           (json:*json-symbols-package* *schema-package*)
+           (raw-input (when input-string (get-json-data-from-string input-string))))
+      (with-output-to-string (*out*)
+        (with-json-encoding (*schema-package*)
+          (funcall handler raw-input))))))
+
+(defun dump-vars (system)
+  (let* ((schemas (all-system-schemas system))
+         (all-parameters (reduce #'append (mapcar #'schema-parameters schemas))))
+    (json:encode-json all-parameters *out*)))
