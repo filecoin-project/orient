@@ -772,8 +772,10 @@
 
 (test integer-constraint
   "Test CONSTRAINT-SYSTEM with an integer constraint."
-  (let* ((system (constraint-system ((k (integer n))))))
-    
+  (let* ((*use-parallel-solve* nil) ;; The signals test below won't catch the signal in another process.
+         (*use-parallel-apply-transformation* nil)
+         (system (constraint-system ((k (integer n))))))
+
     (is (same (relation (k n) (4 4.0))
      	      (solve-for system '(k) (tuple (n 4.0)))))
     (is (same (relation (k n) (4 4))
@@ -790,7 +792,7 @@
     ;; Inconsistent data are not produced. NOTE: Most such constraints yield NIL, but this explicitly produces an empty relation. Normalize?
     (is (same (relation (k n))
 	      (solve-for system '() (tuple (k 3) (n 4.0)))))
-    
+
     (is (same (relation (k n)) ;; Empty relation with expected heading.
     	      (solve-for system '(k) (tuple (n 4.1)))))))
 
@@ -801,7 +803,7 @@
   ((transformation* ((a) -> (b)) == a)
    (transformation* ((b) -> (a)) == b)
    ;; This is no longer needed because apply-transformation eliminates inconsistent transformations *and* transformations
-   ;; are eagerly matched. 
+   ;; are eagerly matched.
    #+(or)
    (transformation ((a b) => (a b)) == (awhen (same a b)
 					 `((,a ,b))))
