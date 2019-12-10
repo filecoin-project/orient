@@ -351,8 +351,12 @@
          )
        (group-reduce-relation transformation relation))
       ((and *use-parallel-apply-transformation* (> (cardinality relation) 1))
-       (let* ((results (pmapcar (lambda (tuple)
-                                  (apply-transformation transformation tuple))
+       (let* ((schema-package orient.interface:*schema-package*)
+              (results (pmapcar (lambda (tuple)
+                                  (let* ((orient.interface:*schema-package* schema-package)
+                                         (*package* schema-package)
+                                         (json:*json-symbols-package* schema-package))
+                                    (apply-transformation transformation tuple)))
                                 (convert 'list (tuples relation)))))
          (reduce #'combine-potential-relations
                  results
@@ -675,9 +679,14 @@
              (cond
                ((and *use-parallel-solve* (not report))
                 (let* ((reducer (make-pipeline-reducer system :report report))
+                       (schema-package orient.interface:*schema-package*)
                        (results (pmapcar (lambda (tuple)
-                                           (%solve plan reducer tuple nil))
-                                         (convert 'list (tuples (ensure-relation initial-value)))))
+                                           (let* ((orient.interface:*schema-package* schema-package)
+                                                  (*package* schema-package)
+                                                  (json:*json-symbols-package* schema-package))
+
+                                             (%solve plan reducer tuple nil)))
+                                           (convert 'list (tuples (ensure-relation initial-value)))))
                        (final-result (reduce #'combine-potential-relations results)))
                   (values final-result plan nil initial-value)))
 
