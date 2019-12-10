@@ -38,7 +38,7 @@
 
 (defun init ()
   (awhen (uiop/os:getenv "ORIENT_CACHE_DIR")
-    (setq *cache* (make-disk-backed-mem-cache :root it)))
+    (setq *cache* (make-disk-backed-mem-cache :root (truename it))))
 
   (ensure-parallelism-initialized))
 

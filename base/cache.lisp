@@ -68,7 +68,7 @@
 
 (defgeneric cache-path-for-key (cache key)
   (:method ((cache disk-cache) (key t))
-    (make-pathname :directory (cache-root cache)
+    (make-pathname :defaults (cache-root cache)
                    :name (princ-to-string key))))
 
 (defun key-for (args)
