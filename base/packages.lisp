@@ -87,6 +87,12 @@
 	   :*alpha-sort-tuples* :*schema-package*)
   (:nicknames :interface))
 
+(defpackage orient.cache
+  (:use :common-lisp :orient :orient.interface :it.bese.FiveAm :orient.base.util)
+  (:export :cache :disk-cache :mem-cache :disk-backed-mem-cache :call-with-cache :*cache-dir*
+           :make-disk-backed-mem-cache)
+  (:nicknames :cache))
+
 (defpackage orient.lang
   (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-json)
   (:import-from :fset :wb-map :convert)

@@ -3,7 +3,7 @@
   :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel" "ironclad")
   :components ((:module "base"
 			:serial t
 			:components
@@ -15,6 +15,7 @@
 			 (:file "orient")
 			 (:file "constraint")
 			 (:file "interface")
+                         (:file "cache")
 			 (:file "lang")
 			 (:file "presentation"))
 			:perform (test-op (o c) (symbol-call :fiveam :run! (find-symbol "ORIENT-SUITE" "ORIENT"))))
