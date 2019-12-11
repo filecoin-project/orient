@@ -25,11 +25,14 @@
      (let* ((pathname (project-merge where))
 	    (tmp-pathname (merge-pathnames (make-pathname :type "tmp") pathname)))
        (ensure-directories-exist pathname)
-       (with-open-file (out tmp-pathname :direction :output :if-exists :supersede :if-does-not-exist :create)
-	 (let ((json:*lisp-identifier-name-to-json* #'string-downcase))
-	   (json:encode-json (publish-filecoin) out)))
-       (uiop:run-program (format nil "cat ~a | jq > ~a" tmp-pathname pathname))
-       (delete-file tmp-pathname)
+       ;; TODO: create or use  WITH-TMP macro.
+       (unwind-protect
+	    (progn
+	      (with-open-file (out tmp-pathname :direction :output :if-exists :supersede :if-does-not-exist :create)
+		(let ((json:*lisp-identifier-name-to-json* #'string-downcase))
+		  (json:encode-json (publish-filecoin) out)))
+	      (uiop:run-program (format nil "cat ~a | jq > ~a" tmp-pathname pathname)))
+	 (delete-file tmp-pathname))
        pathname))
     (null (with-output-to-string (out) (json:encode-json (publish-filecoin) out)))
     (t (json:encode-json (publish-filecoin) where))))
