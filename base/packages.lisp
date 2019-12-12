@@ -101,6 +101,11 @@
   (:export :combine-systems :get-system :nested<-parsed :parse-string :source<-nested :assume)
   (:nicknames :lang))
 
+(defpackage orient.solver
+  (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-grnm)
+  (:export :solver-optimize)
+  (:nicknames :solver))
+
 (defpackage orient.scratch
   (:use :common-lisp :orient :orient.base.util :orient.interface :orient.lang :it.bese.FiveAm :fset :gmap)
   (:nicknames :scratch)

@@ -3,7 +3,7 @@
   :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel" "ironclad")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel" "ironclad" "cl-grnm")
   :components ((:module "base"
 			:serial t
 			:components
@@ -14,6 +14,7 @@
 			 (:file "relation")
 			 (:file "orient")
 			 (:file "constraint")
+                         (:file "solver")
 			 (:file "interface")
                          (:file "cache")
 			 (:file "lang")
@@ -51,11 +52,12 @@
 		      (let ((orient-relation (run-suite :orient-relation-suite :orient))
 			    (orient-constraint (run-suite :orient-constraint-suite :orient))
 			    (orient (run-suite :orient-suite :orient))
+                            (solver (run-suite :orient-solver-suite :orient))
 			    (interface (run-suite :interface-suite :orient.interface))
 			    (orient-lang (run-suite :orient-lang-suite :orient.lang))
 			    (filecoin (run-suite :filecoin-suite :filecoin))
 			    (web (run-suite :web-suite :orient.web)))
-			(unless (and orient-relation orient-constraint orient interface orient-lang filecoin web)
+			(unless (and orient-relation orient-constraint orient solver interface orient-lang filecoin web)
 			  (error "Some tests failed.")
 			  ;; TODO: report which suites failed.
 			  )))))

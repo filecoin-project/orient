@@ -1,0 +1,10 @@
+{
+  "target_perimeter": 20,
+  "_": {
+    "optimize": {
+      "objective": "objective",
+      "height": 1.0,
+      "width": 1.0
+    }
+  }
+}
