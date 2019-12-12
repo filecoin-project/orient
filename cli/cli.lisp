@@ -206,11 +206,31 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
+(defvar *multi-solve-lock* (bt:make-lock))
+(defvar *solve-lock* (bt:make-lock))
+
 (defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system system-cache-key)
   "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
-  (json:with-array (*out*)
-   (dolist (single-raw-input raw-input)
-     (handle-solve-system :raw-system raw-system :raw-flags raw-flags :merge merge :raw-input single-raw-input :system system :system-cache-key system-cache-key :no-wrap t))))
+  (let* ((next-write-index 0)
+         (results (make-array (list (length raw-input))))
+         (threads (loop for i from 0
+                     for single-raw-input in raw-input
+                     collect (bt:make-thread
+                              (lambda ()
+                                (let ((result (handle-solve-system :raw-system raw-system
+                                                                   :raw-flags raw-flags
+                                                                   :merge merge
+                                                                   :raw-input single-raw-input
+                                                                   :system system
+                                                                   :system-cache-key system-cache-key
+                                                                   :no-wrap t)))
+                                  (bt:with-lock-held (*multi-solve-lock*)
+                                    (setf (aref results next-write-index) result)
+                                    (incf next-write-index))))))))
+    (dolist (thread threads)
+      (bt:join-thread thread))
+    (json:with-array (*out*)
+      (loop for thunk across results do (funcall thunk)))))
 
 (defun handle-solve-system (&key raw-system raw-flags merge raw-input system system-cache-key no-wrap)
   (let* ((*alpha-sort-tuples* t)
@@ -232,21 +252,28 @@
                      (final-system (prune-system-for-flags raw-system merged-flags)))
                 (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data :system-cache-key system-cache-key))))
          (combination-tuples (fset:convert 'list (tuples combinations)))
-         (results (if *use-parallelism*
-                      (mapcar (lambda (tuple)
-                                (future (funcall f tuple)))
-                              combination-tuples)
-                      (mapcar (lambda (tuple)
-                                (funcall f tuple))
-                              combination-tuples)))
-         (thunk (lambda () (dolist (result results)
-                             (cl-json:encode-array-member (if *use-parallelism*
-                                                              (force result)
-                                                              result)
-                                                          *out*)
-                             (terpri *out*)))))
+         (next-write-index 0)
+         (results (make-array (list (length combination-tuples))))
+         (threads (loop for i from 0
+                     for tuple in combination-tuples
+                     do (bt:make-thread
+                         (lambda ()
+                           (let ((result (funcall f tuple)))
+                             (bt:with-lock-held (*solve-lock*)
+                               (setf (aref results next-write-index) result)
+                               (incf next-write-index)))))))
+         (thunk (lambda ()
+                  (dolist (thread threads)
+                    (bt:join-thread thread))
+                  (loop for i below (length results)
+                       ;: FIXME: This busy-wait loop (seemingly) should not be needed,
+                       ;; given the thread-joins above. Yet it is empirically necessary.
+                       ;; What gives?
+                     do (loop until (not (eql (aref results i) 0)))
+                     do (cl-json:encode-array-member (aref results i) *out*))
+                  (terpri *out*))))
     (if no-wrap
-        (funcall thunk)
+        thunk
         (json:with-array
             (*out*)
           (funcall thunk)))))
@@ -262,8 +289,7 @@
                                                    (list (ensure-tuples (car values))))
                               :values-deserializer (lambda (values)
                                                      (list (make-relation-list (fset:convert 'list (car values))))))))
-    (ensure-tuples solution)
-    ))
+    (ensure-tuples solution)))
 
 (defun report-system (&key system vars initial-data override-data)
   (princ

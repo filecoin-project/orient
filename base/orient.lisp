@@ -306,7 +306,7 @@
 ;;; Parallelism
 (defvar *use-parallel-solve* t)
 (defvar *use-parallel-apply-transformation* nil)
-(defparameter *threadpool-size* 20)
+(defparameter *threadpool-size* 8)
 
 (defun init-parallelism ()
   (setf lparallel:*kernel* (lparallel:make-kernel *threadpool-size*)))
