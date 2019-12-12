@@ -42,7 +42,6 @@
            (* area-error area-error)))
      (objective (* o o))))
 
-
 (defun make-rectangle-objective (target-perimeter)
   (let ((system (find-system 'rectangle)))
     (lambda (vector)
@@ -62,28 +61,31 @@
     (is (~= 5 solution-height))
     (is (~= 5 solution-width))))
 
-
 (defun make-input-tuple (input-tuple vars-to-optimize values-vector)
-  (loop for attr in vars-to-optimize
-     for i from 0
-     do (setf (tref attr input-tuple) (aref values-vector i)))
-  input-tuple)
+  (let ((input-tuple (or input-tuple (tuple))))
+    (loop for attr in vars-to-optimize
+       for i from 0
+       do (setf (tref attr input-tuple) (aref values-vector i)))
+    input-tuple))
 
-(defun solver-optimize (system input-tuple objective-var vars-to-optimize &key max-function-calls)
-  (let* ((objective-function
-         (lambda (values-vector)
-           ;; (loop for attr in vars-to-optimize
-           ;;    for i from 0
-           ;;      do (setf (tref attr input-tuple) (aref v i)))
-           (let* ((merged-input (make-input-tuple input-tuple vars-to-optimize values-vector))
-                  ;; FIXME: could be relation.
-                  (solution-tuple (solve-for system (list objective-var) merged-input)))
-             (tref objective-var solution-tuple))))
-        (guess (make-array (list (length vars-to-optimize)) :initial-element 1.0d0))
-         (solution-vector (grnm-optimize objective-function guess :max-function-calls max-function-calls)))
+(defun make-solver-objective-function (system input-tuple objective-var vars-to-optimize)
+  (lambda (values-vector)
+    (let* ((merged-input (make-input-tuple input-tuple vars-to-optimize values-vector))
+           ;; FIXME: could be relation.
+           (solution-tuple (solve-for system (list objective-var) merged-input)))
+      (if solution-tuple
+          (tref objective-var solution-tuple)
+          +huge+))))
+
+(defun solver-optimize (system input-tuple objective-var vars-to-optimize &key max-function-calls guess)
+  (let* ((objective-function (make-solver-objective-function system input-tuple objective-var vars-to-optimize))
+         ;; TODO: Allow any provided GUESS to be NIL and supply a default if so.
+         (guess (or (and guess (map 'vector (lambda (x) (float x 1.0d0)) guess))
+                    (make-array (list (length vars-to-optimize)) :initial-element 1.0d0)))
+         (solution-vector (grnm-optimize objective-function guess :max-function-calls max-function-calls))
+         (final-input-tuple (make-input-tuple input-tuple vars-to-optimize solution-vector)))
     ;; TODO: cache and get this somehow. It must have been called with these values by the objective-function.
-    (solve-for system () (make-input-tuple input-tuple vars-to-optimize solution-vector))))
-
+    (solve-for system () final-input-tuple)))
 
 (test wrapped-solver
   (let* ((input (tuple (target-perimeter 20)))

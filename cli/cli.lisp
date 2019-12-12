@@ -1,5 +1,5 @@
 (defpackage orient.cli
-  (:use :common-lisp :orient :orient.interface :orient.cache :unix-options :orient.lang :orient.web.html :it.bese.FiveAm :lparallel)
+  (:use :common-lisp :orient :orient.interface :orient.cache :unix-options :orient.lang :orient.web.html :it.bese.FiveAm :lparallel :solver)
   (:shadow :orient :parameter)
   (:nicknames :cli)
   (:export :main))
@@ -53,7 +53,7 @@
 			 (system (system "FILE" "URI or filename of system to use"))
 			 (port (port "port-number" "port to listen on"))
 			 (merge (merge nil "merge inputs with (instead of replacing) defaults"))
-			 (command (command "{dump, dump-vars, graph, solve, solve-many, report, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
+			 (command (command "{dump, dump-vars, graph, optimize, report, solve, solve-many, test, web}" "<COMMAND>: may be provided as free token (without flag)."))
 			 (root (root "project root, so we can find json files"))
 			 &free commands)
 	  (map-parsed-options (cli-options) nil '("in" "i"
@@ -169,15 +169,35 @@
 		       (dump-json :system system *out* :expand-references t))
                       ((:dump-vars)
                        (dump-vars system))
+                      ((:optimize)
+                       (let* ((metadata (input-metadata raw-input))
+                              (optimize-meta (find-meta '(lang::optimize) metadata)))
+                         (multiple-value-bind (objective vars guess)
+                             (optimization-vars optimize-meta)
+                           (let ((result (solver-optimize system raw-input objective vars
+                                                          :guess (coerce guess 'vector))))
+                         (cl-json:encode-json result *out*)))))
 		      (otherwise
 		       ;; TODO: Generate this list and share with options doc.
-		       (format-error "Usage: ~A command~%  command is one of {dump, graph, solve, report, test, web}~%" (car argv))))
+		       (format-error "Usage: ~A command~%  command is one of {dump, dump-vars, graph, optimize, report, solve, solve-many, test, web}~%" (car argv))))
 		    (terpri)))))))
         (sb-ext:exit :code 0))
     (error (e)
       (format t "~%ERROR: ~A~%" e)
       (sb-ext:exit :code 1))
     (condition () (sb-ext:exit :code 0))))
+
+(defun make-var (string &key (package (find-package :orient.lang)))
+  (intern (string-upcase string) package))
+
+(defun optimization-vars (optimization-meta)
+  (let* (objective
+         (guesses '())
+         (vars (loop for (var . guess) in optimization-meta
+                  if (equalp "OBJECTIVE" guess) do (setq objective var)
+                  else do (push guess guesses)
+                  and collect var)))
+    (values objective vars (nreverse guesses))))
 
 (defun choose-system (spec)
   (case spec
@@ -268,3 +288,13 @@
   (let* ((schemas (all-system-schemas system))
          (all-parameters (reduce #'append (mapcar #'schema-parameters schemas))))
     (json:encode-json all-parameters *out*)))
+
+(defun input-metadata (raw-input)
+  (when raw-input
+    (tref '- raw-input)))
+
+(defun find-meta (path meta)
+  (if path
+      (let ((next (find-if (util:partial #'eql (car path)) meta :key #'car)))
+        (find-meta (cdr path) (cdr next)))
+      meta))

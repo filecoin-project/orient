@@ -1,0 +1,7 @@
+Rectangle:
+  area = height * width
+  perimeter = 2 * (height + width)
+  perimeter_error = perimeter - target_perimeter
+  area_error = 1 / area
+  o = (perimeter_error * perimeter_error) + (area_error * area_error)
+  objective = o * o

@@ -103,7 +103,7 @@
 
 (defpackage orient.solver
   (:use :common-lisp :orient :it.bese.FiveAm :orient.base.util :cl-grnm)
-  (:export )
+  (:export :solver-optimize)
   (:nicknames :solver))
 
 (defpackage orient.scratch
