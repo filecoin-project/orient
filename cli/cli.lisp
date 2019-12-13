@@ -217,16 +217,18 @@
                      for single-raw-input in raw-input
                      collect (bt:make-thread
                               (lambda ()
-                                (let ((result (handle-solve-system :raw-system raw-system
-                                                                   :raw-flags raw-flags
-                                                                   :merge merge
-                                                                   :raw-input single-raw-input
-                                                                   :system system
-                                                                   :system-cache-key system-cache-key
-                                                                   :no-wrap t)))
-                                  (bt:with-lock-held (*multi-solve-lock*)
-                                    (setf (aref results next-write-index) result)
-                                    (incf next-write-index))))))))
+                                (handler-case
+                                    (let ((result (handle-solve-system :raw-system raw-system
+                                                                       :raw-flags raw-flags
+                                                                       :merge merge
+                                                                       :raw-input single-raw-input
+                                                                       :system system
+                                                                       :system-cache-key system-cache-key
+                                                                       :no-wrap t)))
+                                      (bt:with-lock-held (*multi-solve-lock*)
+                                        (setf (aref results next-write-index) result)
+                                        (incf next-write-index)))
+                                  (error (c) (setf (aref results next-write-index) nil))))))))
     (dolist (thread threads)
       (bt:join-thread thread))
     (json:with-array (*out*)
@@ -258,10 +260,12 @@
                      for tuple in combination-tuples
                      do (bt:make-thread
                          (lambda ()
-                           (let ((result (funcall f tuple)))
-                             (bt:with-lock-held (*solve-lock*)
-                               (setf (aref results next-write-index) result)
-                               (incf next-write-index)))))))
+                          (handler-case
+                               (let ((result (funcall f tuple)))
+                                 (bt:with-lock-held (*solve-lock*)
+                                   (setf (aref results next-write-index) result)
+                                   (incf next-write-index)))
+                             (error (c) (setf (aref results next-write-index) nil)))))))
          (thunk (lambda ()
                   (dolist (thread threads)
                     (bt:join-thread thread))

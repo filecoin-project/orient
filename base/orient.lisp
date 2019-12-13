@@ -304,7 +304,7 @@
 (deftype pipeline () '(cons transformation-spec))
 
 ;;; Parallelism
-(defvar *use-parallel-solve* t)
+(defvar *use-parallel-solve* nil)
 (defvar *use-parallel-apply-transformation* nil)
 (defparameter *threadpool-size* 8)
 
