@@ -6,7 +6,8 @@
 
 (defclass mem-cache (cache)
   ;; TODO: limit size.
-  ((hash-table :initarg :hash-table :initform (make-hash-table :test #'equal) :accessor cache-hash-table)))
+  ((lock :initform (bt:make-lock) :reader cache-lock)
+   (hash-table :initarg :hash-table :initform (make-hash-table :test #'equal) :accessor cache-hash-table)))
 
 (defclass disk-cache (cache)
   ((root :initarg :root :initform *cache-dir* :reader disk-cache-root :accessor cache-root)))
@@ -20,7 +21,8 @@
 
 (defgeneric cache-lookup (key cache &key payload-deserializer)
   (:method ((key t) (cache mem-cache)  &key &allow-other-keys)
-    (gethash key (cache-hash-table cache)))
+    (bt:with-lock-held ((cache-lock cache))
+      (gethash key (cache-hash-table cache))))
   (:method ((key t) (cache disk-cache)  &key payload-deserializer &allow-other-keys)
     (let ((pathname (cache-path-for-key cache key)))
       (if (probe-file pathname)
@@ -46,7 +48,8 @@
 ;; Returns VALUES as values.
 (defgeneric cache-store (key cache values &key payload-serializer)
   (:method ((key t) (cache mem-cache) (values list) &key &allow-other-keys)
-    (setf (gethash key (cache-hash-table cache)) values))
+    (bt:with-lock-held ((cache-lock cache))
+      (setf (gethash key (cache-hash-table cache)) values)))
   (:method ((key t) (cache disk-cache) (values list) &key payload-serializer)
     (let ((pathname (cache-path-for-key cache key)))
       (ensure-directories-exist pathname)
