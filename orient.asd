@@ -3,7 +3,8 @@
   :version "0.2.0"
   :author "porcuquine <porcuquine@gmail.com>"
   :licence "MIT"
-  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel" "ironclad" "cl-grnm" "bordeaux-threads")
+  :depends-on ("cl-json" "fiveam" "hunchentoot" "uiop" "unix-options" "fset" "cl-ppcre" "cl-dot" "cl-permutation" "cmu-infix" "dexador" "lparallel"
+                         "ironclad" "cl-grnm" "bordeaux-threads" "trivial-backtrace")
   :components ((:module "base"
 			:serial t
 			:components
