@@ -13,6 +13,17 @@
 
 (defparameter *cache* (make-instance 'mem-cache) "Cache to use, if non-NIL.")
 
+(defmacro in-new-thread ((&body body) (&body error-case))
+  `(let ((bt:*default-special-bindings* (cons '(*error-output* . *error-output*) bt:*default-special-bindings*)))
+     (bt:make-thread
+      (lambda ()
+        (handler-case
+            (progn ,@body)
+          (error (c)
+            (declare (ignore c))
+            (trivial-backtrace:print-backtrace-to-stream *error-output*)
+            ,@error-case))))))
+
 (defun keywordize (string-designator)
   (intern (string-upcase (string string-designator)) :keyword))
 
@@ -215,10 +226,8 @@
          (results (make-array (list (length raw-input))))
          (threads (loop for i from 0
                      for single-raw-input in raw-input
-                     collect (bt:make-thread
-                              (lambda ()
-                                (handler-case
-                                    (let ((result (handle-solve-system :raw-system raw-system
+                       collect (in-new-thread
+                                ((let ((result (handle-solve-system :raw-system raw-system
                                                                        :raw-flags raw-flags
                                                                        :merge merge
                                                                        :raw-input single-raw-input
@@ -227,8 +236,8 @@
                                                                        :no-wrap t)))
                                       (bt:with-lock-held (*multi-solve-lock*)
                                         (setf (aref results next-write-index) result)
-                                        (incf next-write-index)))
-                                  (error (c) (setf (aref results next-write-index) nil))))))))
+                                        (incf next-write-index))))
+                                ((setf (aref results next-write-index) nil))))))
     (dolist (thread threads)
       (bt:join-thread thread))
     (json:with-array (*out*)
@@ -258,14 +267,12 @@
          (results (make-array (list (length combination-tuples))))
          (threads (loop for i from 0
                      for tuple in combination-tuples
-                     do (bt:make-thread
-                         (lambda ()
-                          (handler-case
-                               (let ((result (funcall f tuple)))
-                                 (bt:with-lock-held (*solve-lock*)
-                                   (setf (aref results next-write-index) result)
-                                   (incf next-write-index)))
-                             (error (c) (setf (aref results next-write-index) nil)))))))
+                     do (in-new-thread
+                         ((let ((result (funcall f tuple)))
+                                (bt:with-lock-held (*solve-lock*)
+                                  (setf (aref results next-write-index) result)
+                                  (incf next-write-index))))
+                         ((setf (aref results next-write-index) nil)))))
          (thunk (lambda ()
                   (dolist (thread threads)
                     (bt:join-thread thread))
