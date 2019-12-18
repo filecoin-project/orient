@@ -62,6 +62,7 @@
    :org-present :org-present-tuple
    :parameter :parameter-name :parameter-description :parameter-type
    :plan :plan-for :pipeline-signature :private-attr-p :project-commit-link
+   :pipeline-reduction-error
    :present-data :project :publish :prune-system-for-flags
    :range :reduce-range
    :rel :relation :remove-attributes :rename :report-data :report-solution-for :representation :restrict

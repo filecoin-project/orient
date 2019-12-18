@@ -9,18 +9,18 @@
 (def-suite orient-cli-suite)
 (in-suite orient-cli-suite)
 
-(defvar *use-parallelism* t)
-
 (defparameter *cache* (make-instance 'mem-cache) "Cache to use, if non-NIL.")
 
 (defmacro in-new-thread ((&body body) (&body error-case))
-  `(let ((bt:*default-special-bindings* (cons '(*error-output* . *error-output*) bt:*default-special-bindings*)))
-     (bt:make-thread
-      (lambda ()
+  `(bt:make-thread
+    (lambda ()
+      (let* ((*schema-package* (find-package :orient.lang))
+             (*package* *schema-package*)
+             (json:*json-symbols-package* *schema-package*))
         (handler-case
             (progn ,@body)
           (error (c)
-            (declare (ignore c))
+            (format *error-output* "~&~A~%" c)
             (trivial-backtrace:print-backtrace-to-stream *error-output*)
             ,@error-case))))))
 
@@ -234,10 +234,11 @@
                                                                        :system system
                                                                        :system-cache-key system-cache-key
                                                                        :no-wrap t)))
-                                      (bt:with-lock-held (*multi-solve-lock*)
-                                        (setf (aref results next-write-index) result)
-                                        (incf next-write-index))))
-                                ((setf (aref results next-write-index) nil))))))
+                                   (bt:with-lock-held (*multi-solve-lock*)
+                                     (setf (aref results next-write-index) result)
+                                     (incf next-write-index))))
+                                ((bt:with-lock-held (*multi-solve-lock*)
+                                   (setf (aref results next-write-index) nil)))))))
     (dolist (thread threads)
       (bt:join-thread thread))
     (json:with-array (*out*)
@@ -261,7 +262,10 @@
                                                         (list (make-flag f) t))
                                                       merged-flags)))
                      (final-system (prune-system-for-flags raw-system merged-flags)))
-                (solve-system :system final-system :input (join flags-tuple orient::relation) :override-data override-data :system-cache-key system-cache-key))))
+                (solve-system :system final-system
+                              :input (join flags-tuple orient::relation)
+                              :override-data override-data
+                              :system-cache-key system-cache-key))))
          (combination-tuples (fset:convert 'list (tuples combinations)))
          (next-write-index 0)
          (results (make-array (list (length combination-tuples))))
@@ -269,10 +273,11 @@
                      for tuple in combination-tuples
                      do (in-new-thread
                          ((let ((result (funcall f tuple)))
-                                (bt:with-lock-held (*solve-lock*)
-                                  (setf (aref results next-write-index) result)
-                                  (incf next-write-index))))
-                         ((setf (aref results next-write-index) nil)))))
+                            (bt:with-lock-held (*solve-lock*)
+                              (setf (aref results next-write-index) result)
+                              (incf next-write-index))))
+                         ((bt:with-lock-held (*solve-lock*)
+                            (setf (aref results next-write-index) nil))))))
          (thunk (lambda ()
                   (dolist (thread threads)
                     (bt:join-thread thread))
