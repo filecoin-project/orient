@@ -787,7 +787,7 @@
     	      (solve-for system '(n) (tuple (k 4)))))
 
     ;; It is a program error for the INTEGER input to the INTEGER constraint not to be an integer.
-    (signals (type-error) (solve-for system '(n) (tuple (k 4.0))))
+    (signals (pipeline-reduction-error) (solve-for system '(n) (tuple (k 4.0))))
 
     ;; Inconsistent data are not produced. NOTE: Most such constraints yield NIL, but this explicitly produces an empty relation. Normalize?
     (is (same (relation (k n))

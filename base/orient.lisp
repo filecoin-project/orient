@@ -179,8 +179,10 @@
                                    (uiop:run-program (format nil "~A" (implementation-external-path impl))
                                                      :input in
                                                      :output 'string)))
-           (output (interface:get-json-data-from-string external-output-json)))
-      output)))
+           (output (interface:get-json-data-from-string external-output-json))
+           ;; Join output to input. This will yield an empty result if inconsistent.
+           (joined (join in output)))
+      joined)))
 
 (defclass engine () ())
 
@@ -706,13 +708,36 @@
     (destructuring-bind (result report-results) reduce-result
       (values result plan (synthesize-report-steps report report-results) initial-value))))
 
+(define-condition pipeline-reduction-condition ()
+  ((transformation :initarg :transformation :accessor pipeline-reduction-transformation)
+   (input :initarg :input :accessor pipeline-reduction-input)))
+
+(define-condition pipeline-reduction-error (pipeline-reduction-condition error)
+  ((error :initarg :error :accessor inner-error))
+  (:report (lambda (condition stream)
+             ;; FIXME: implement.
+             (let* ((transformation (pipeline-reduction-transformation condition))
+                    (input (pipeline-reduction-input condition))
+                    (projected (project (signature-input (transformation-signature transformation)) input)))
+               (format stream "PIPELINE-REDUCTION-ERROR( ~A ) while applying transformation, ~A input to (partial) input: ~A."
+                       (inner-error condition)
+                       transformation
+                       projected)))))
+
 (defun make-pipeline-reducer (system &key report)
   (lambda (acc transformation)
-    (destructuring-bind (tuple-or-relation report-results) acc
-      (let* ((transformed (apply-transformation transformation tuple-or-relation))
-	     (new-report (when report
-			   (append report-results (list (report-step transformed transformation system :format report))))))
-	(list transformed new-report)))))
+    (handler-bind
+        ((error (lambda (e)
+                  (let ((wrapper (make-condition 'pipeline-reduction-error
+                                                 :transformation transformation
+                                                 :input (car acc)
+                                                 :error e)))
+                    (signal wrapper)))))
+      (destructuring-bind (tuple-or-relation report-results) acc
+        (let* ((transformed (apply-transformation transformation tuple-or-relation))
+               (new-report (when report
+                             (append report-results (list (report-step transformed transformation system :format report))))))
+          (list transformed new-report))))))
 
 (defun report-step (step transformation system &key format)
   (let* ((tuples (ensure-tuples step))
@@ -730,7 +755,7 @@
 	    steps
 	    :initial-value "")))
 
-(defgeneric create-tuple-report-step (format tuple transformation system &key n)  
+(defgeneric create-tuple-report-step (format tuple transformation system &key n)
   (:documentation "N is index of TUPLE if TUPLE has siblings.")
   (:method ((format t) (tuple wb-map) (transformation transformation) (system system) &key n)
     ;; FIXME: This can probably be done with GMAP.
