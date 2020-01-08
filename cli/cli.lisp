@@ -224,21 +224,22 @@
   "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
   (let* ((next-write-index 0)
          (results (make-array (list (length raw-input))))
-         (threads (loop for i from 0
-                     for single-raw-input in raw-input
-                       collect (in-new-thread
+         (threads (loop for single-raw-input in raw-input
+                     collect (with-captured-bindings (single-raw-input)
+                               (in-new-thread
                                 ((let ((result (handle-solve-system :raw-system raw-system
-                                                                       :raw-flags raw-flags
-                                                                       :merge merge
-                                                                       :raw-input single-raw-input
-                                                                       :system system
-                                                                       :system-cache-key system-cache-key
-                                                                       :no-wrap t)))
+                                                                    :raw-flags raw-flags
+                                                                    :merge merge
+                                                                    :raw-input single-raw-input
+                                                                    :system system
+                                                                    :system-cache-key system-cache-key
+                                                                    :no-wrap t)))
                                    (bt:with-lock-held (*multi-solve-lock*)
                                      (setf (aref results next-write-index) result)
                                      (incf next-write-index))))
                                 ((bt:with-lock-held (*multi-solve-lock*)
-                                   (setf (aref results next-write-index) nil)))))))
+                                   (setf (aref results next-write-index) nil)
+                                   (incf next-write-index))))))))
     (dolist (thread threads)
       (bt:join-thread thread))
     (json:with-array (*out*)
@@ -269,15 +270,16 @@
          (combination-tuples (fset:convert 'list (tuples combinations)))
          (next-write-index 0)
          (results (make-array (list (length combination-tuples))))
-         (threads (loop for i from 0
-                     for tuple in combination-tuples
-                     do (in-new-thread
-                         ((let ((result (funcall f tuple)))
-                            (bt:with-lock-held (*solve-lock*)
-                              (setf (aref results next-write-index) result)
-                              (incf next-write-index))))
-                         ((bt:with-lock-held (*solve-lock*)
-                            (setf (aref results next-write-index) nil))))))
+         (threads (loop for tuple in combination-tuples
+                     do (with-captured-bindings (tuple)
+                          (in-new-thread
+                           ((let ((result (funcall f tuple)))
+                              (bt:with-lock-held (*solve-lock*)
+                                (setf (aref results next-write-index) result)
+                                (incf next-write-index))))
+                           ((bt:with-lock-held (*solve-lock*)
+                              (setf (aref results next-write-index) nil)
+                              (incf next-write-index)))))))
          (thunk (lambda ()
                   (dolist (thread threads)
                     (bt:join-thread thread))

@@ -74,6 +74,7 @@
    :transformation-implementation :transformation-name :transformation-signature :tref :trem :try-with
    :use-construction :use-attribute
    :where :with-attributes :with-construction :write-dot-format
+   :with-captured-bindings
    :*threadpool-size* :*use-parallel-solve* :*use-parallel-apply-transformation* :init-parallelism :ensure-parallelism-initialized
    :*current-construction* :*trace-plan* :-> :=> :~> :~=> :=== :== &acc &all &group &group-by &into :!>))
 

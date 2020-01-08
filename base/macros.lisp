@@ -43,6 +43,15 @@
      (when ,var
        ,@body)))
 
+
+;;; Should this have a better name?
+(defmacro with-captured-bindings ((&rest vars) &body body)
+  "Establish a scope in which current values of VARS are captured in new bindings."
+  `(let ,(mapcar (lambda (var)
+                   `(,var ,var))
+          vars)
+     ,@body))
+
 ;;;; Debugging
 
 (defun expand-display (form)
@@ -570,3 +579,4 @@
 (defmacro with-attributes ((&rest attributes) tuple &body body)
   `(symbol-macrolet (,@(mapcar (lambda (attr) `(,attr (tref ',attr ,tuple))) attributes))
      ,@body))
+
