@@ -217,32 +217,40 @@
     (:filecoin (filecoin-system))
     (:fc-no-zigzag (filecoin-system :no-zigzag t))))
 
-(defvar *multi-solve-lock* (bt:make-lock))
-(defvar *solve-lock* (bt:make-lock))
+;; Paralell map but avoiding name collisions with lparallel:pmap
+(defun pxmap (fn seq &key (error-val nil) (return :results))
+  (let* ((results (make-array (list (length seq))))
+         (lock (bt:make-lock))
+         (threads (loop for x in (coerce seq 'list)
+                     for i from 0
+                     collect (with-captured-bindings (i x)
+                               (in-new-thread
+                                ((let ((result (funcall fn x)))
+                                   (bt:with-lock-held (lock)
+                                     (setf (aref results i) result))))
+                                ((bt:with-lock-held (lock)
+                                                    (setf (aref results i) error-val)))))))
+         (thunk (lambda ()
+                  (dolist (thread threads)
+                    (bt:join-thread thread))
+                  results)))
+    (ecase return
+      (:results (funcall thunk))
+      (:thunk thunk))))
 
 (defun handle-multi-solve-system (&key raw-system raw-flags merge raw-input system system-cache-key)
   "Like HANDLE-SOLVE-SYSTEM but treat INPUT as an array of inputs and emit a corresponding array of outputs."
-  (let* ((next-write-index 0)
-         (results (make-array (list (length raw-input))))
-         (threads (loop for i from 0
-                     for single-raw-input in raw-input
-                       collect (in-new-thread
-                                ((let ((result (handle-solve-system :raw-system raw-system
-                                                                       :raw-flags raw-flags
-                                                                       :merge merge
-                                                                       :raw-input single-raw-input
-                                                                       :system system
-                                                                       :system-cache-key system-cache-key
-                                                                       :no-wrap t)))
-                                   (bt:with-lock-held (*multi-solve-lock*)
-                                     (setf (aref results next-write-index) result)
-                                     (incf next-write-index))))
-                                ((bt:with-lock-held (*multi-solve-lock*)
-                                   (setf (aref results next-write-index) nil)))))))
-    (dolist (thread threads)
-      (bt:join-thread thread))
+  (let* ((f (lambda (single-raw-input)
+              (handle-solve-system :raw-system raw-system
+                                   :raw-flags raw-flags
+                                   :merge merge
+                                   :raw-input single-raw-input
+                                   :system system
+                                   :system-cache-key system-cache-key
+                                   :no-wrap t)))
+         (results (pxmap f raw-input)))
     (json:with-array (*out*)
-      (loop for thunk across results do (funcall thunk)))))
+     (loop for thunk across results do (funcall thunk)))))
 
 (defun handle-solve-system (&key raw-system raw-flags merge raw-input system system-cache-key no-wrap)
   (let* ((*alpha-sort-tuples* t)
@@ -254,40 +262,25 @@
          ;; All the logic for generating flag combinations from data and instantiating multiple systems
          ;; should move into orient.lisp.
          (f (orient::tfn (flags relation)
-              (let* ((true-flags (remove nil (mapcar (lambda (f)
-                                                       (when (cdr f) (flag-symbol (car f))))
-                                                     (fset:convert 'list flags))))
-                     (merged-flags (union true-flags raw-flags))
-                     (flags-tuple (make-tuple (mapcar (lambda (f)
-                                                        (list (make-flag f) t))
-                                                      merged-flags)))
-                     (final-system (prune-system-for-flags raw-system merged-flags)))
-                (solve-system :system final-system
-                              :input (join flags-tuple orient::relation)
-                              :override-data override-data
-                              :system-cache-key system-cache-key))))
+                         (let* ((true-flags (remove nil (mapcar (lambda (f)
+                                                                  (when (cdr f) (flag-symbol (car f))))
+                                                                (fset:convert 'list flags))))
+                                (merged-flags (union true-flags raw-flags))
+                                (flags-tuple (make-tuple (mapcar (lambda (f)
+                                                                   (list (make-flag f) t))
+                                                                 merged-flags)))
+                                (final-system (prune-system-for-flags raw-system merged-flags)))
+                           (solve-system :system final-system
+                                         :input (join flags-tuple orient::relation)
+                                         :override-data override-data
+                                         :system-cache-key system-cache-key))))
          (combination-tuples (fset:convert 'list (tuples combinations)))
-         (next-write-index 0)
-         (results (make-array (list (length combination-tuples))))
-         (threads (loop for i from 0
-                     for tuple in combination-tuples
-                     do (in-new-thread
-                         ((let ((result (funcall f tuple)))
-                            (bt:with-lock-held (*solve-lock*)
-                              (setf (aref results next-write-index) result)
-                              (incf next-write-index))))
-                         ((bt:with-lock-held (*solve-lock*)
-                            (setf (aref results next-write-index) nil))))))
+         (inner-thunk (pxmap f combination-tuples :return :thunk))
          (thunk (lambda ()
-                  (dolist (thread threads)
-                    (bt:join-thread thread))
-                  (loop for i below (length results)
-                       ;: FIXME: This busy-wait loop (seemingly) should not be needed,
-                       ;; given the thread-joins above. Yet it is empirically necessary.
-                       ;; What gives?
-                     do (loop until (not (eql (aref results i) 0)))
-                     do (cl-json:encode-array-member (aref results i) *out*))
-                  (terpri *out*))))
+                  (let ((results (funcall inner-thunk)))
+                    (loop for i below (length results)
+                       do (cl-json:encode-array-member (aref results i) *out*))
+                    (terpri *out*)))))
     (if no-wrap
         thunk
         (json:with-array
